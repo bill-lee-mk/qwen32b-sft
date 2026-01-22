@@ -13,7 +13,7 @@ def main():
     dest = '/models/qwen3-32B'
     revision = 'main'
 
-    # os.makedirs(dest, exist_ok=True)
+    os.makedirs(dest, exist_ok=True)
     print(f"Downloading {repo_id} -> {dest} (revision={revision}) ...")
     local_dir = snapshot_download(repo_id=repo_id, local_dir=dest, revision=revision, use_auth_token=True)
     print("Downloaded to:", local_dir)
