@@ -10,7 +10,7 @@ from huggingface_hub import snapshot_download
 def main():
     
     repo_id = 'Qwen/Qwen3-32B'
-    dest = '/models/qwen3-32B'
+    dest = '/home/ubuntu/lilei/projects/qwen32b-sft/models/qwen3-32B'
     revision = 'main'
 
     # os.makedirs(dest, exist_ok=True)
