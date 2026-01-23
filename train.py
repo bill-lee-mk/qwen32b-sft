@@ -19,17 +19,17 @@ from transformers import (
 
 # --------- Args ----------
 parser = argparse.ArgumentParser()
-parser.add_argument("--model_path", type=str, default="/models/qwen3-32B")
-parser.add_argument("--train_file", type=str, default="/data/splits/train.jsonl")
-parser.add_argument("--val_file", type=str, default="/data/splits/val.jsonl")
-parser.add_argument("--output_dir", type=str, default="/outputs/qwen3_sft/")
+parser.add_argument("--model_path", type=str, default="/home/ubuntu/lilei/projects/qwen32b-sft/models/qwen3-32B")
+parser.add_argument("--train_file", type=str, default="/home/ubuntu/lilei/projects/qwen32b-sft/data/splits/train.jsonl")
+parser.add_argument("--val_file", type=str, default="/home/ubuntu/lilei/projects/qwen32b-sft/data/splits/val.jsonl")
+parser.add_argument("--output_dir", type=str, default="/home/ubuntu/lilei/projects/qwen32b-sft/outputs/qwen32b-sft/")
 parser.add_argument("--max_length", type=int, default=512)
 parser.add_argument("--per_device_train_batch_size", type=int, default=1)
 parser.add_argument("--per_device_eval_batch_size", type=int, default=1)
 parser.add_argument("--gradient_accumulation_steps", type=int, default=16)
 parser.add_argument("--num_train_epochs", type=int, default=1)
 parser.add_argument("--learning_rate", type=float, default=2e-5)
-parser.add_argument("--deepspeed_config", type=str, default="projects/qwen32b-sft/configs/ds_config.json")
+parser.add_argument("--deepspeed_config", type=str, default="/home/ubuntu/lilei/projects/qwen32b-sft/configs/ds_config.json")
 args = parser.parse_args()
 
 # --------- Prepare tokenizer ----------
