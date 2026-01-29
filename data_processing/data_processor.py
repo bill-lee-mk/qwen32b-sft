@@ -393,8 +393,8 @@ def main():
             all_dpo_samples.extend(dpo_samples)
     
     # 数据增强
-    print("进行数据增强...")
-    all_sft_samples = processor.augment_data(all_sft_samples, target_count=200)
+    # print("进行数据增强...")
+    # all_sft_samples = processor.augment_data(all_sft_samples, target_count=200)
     
     # 保存数据
     processor.save_data(all_sft_samples, all_dpo_samples)
