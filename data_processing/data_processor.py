@@ -37,7 +37,7 @@ class MCQDataProcessor:
     def load_raw_file(self, file_path: str) -> List[Dict]:
         """加载原始数据文件"""
         with open(file_path, 'r', encoding='utf-8') as f:
-            data = [json.loads(line) for line in f][0]
+            data = [json.loads(line) for line in f]
         return data
     
     def extract_json_from_response(self, text: str) -> Optional[Dict]:
@@ -402,4 +402,11 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
+
+
+
+
+
 

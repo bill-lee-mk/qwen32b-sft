@@ -24,7 +24,7 @@ class ModelConfig:
 @dataclass
 class SFTTrainingConfig:
     """SFT训练配置"""
-    output_dir: str = "models/sft_model"
+    output_dir: str = "/home/ubuntu/lilei/projects/qwen32b-sft/models/qwen3-32B/sft_model/"
     num_train_epochs: int = 3
     per_device_train_batch_size: int = 1  # 32B模型需要小批量
     gradient_accumulation_steps: int = 8
@@ -51,7 +51,7 @@ class SFTTrainingConfig:
 @dataclass
 class DPOTrainingConfig:
     """DPO训练配置"""
-    output_dir: str = "models/dpo_model"
+    output_dir: str = "/home/ubuntu/lilei/projects/qwen32b-sft/models/qwen3-32B/dpo_model/"
     num_train_epochs: int = 2
     per_device_train_batch_size: int = 1
     gradient_accumulation_steps: int = 16
@@ -84,12 +84,12 @@ class TrainingPipelineConfig:
     """训练流水线配置"""
     sft_enabled: bool = True
     dpo_enabled: bool = True
-    sft_data_path: str = "processed_training_data/sft_data.jsonl"
-    dpo_data_path: str = "processed_training_data/dpo_data.jsonl"
+    sft_data_path: str = "/home/ubuntu/lilei/projects/qwen32b-sft/processed_training_data/sft_data.jsonl"
+    dpo_data_path: str = "/home/ubuntu/lilei/projects/qwen32b-sft/processed_training_data/dpo_data.jsonl"
     sft_config: SFTTrainingConfig = field(default_factory=SFTTrainingConfig)
     dpo_config: DPOTrainingConfig = field(default_factory=DPOTrainingConfig)
     model_config: ModelConfig = field(default_factory=ModelConfig)
-    final_model_dir: str = "models/final_model"
+    final_model_dir: str = "/home/ubuntu/lilei/projects/qwen32b-sft/models/qwen3-32B/final_model"
     use_checkpoint: bool = False
     checkpoint_dir: Optional[str] = None
 
@@ -109,12 +109,12 @@ def load_config_from_yaml(config_path: str) -> TrainingPipelineConfig:
     pipeline_config = TrainingPipelineConfig(
         sft_enabled=config_dict.get('sft_enabled', True),
         dpo_enabled=config_dict.get('dpo_enabled', True),
-        sft_data_path=config_dict.get('sft_data_path', 'processed_training_data/sft_data.jsonl'),
-        dpo_data_path=config_dict.get('dpo_data_path', 'processed_training_data/dpo_data.jsonl'),
+        sft_data_path=config_dict.get('sft_data_path', '/home/ubuntu/lilei/projects/qwen32b-sft/processed_training_data/sft_data.jsonl'),
+        dpo_data_path=config_dict.get('dpo_data_path', '/home/ubuntu/lilei/projects/qwen32b-sft/processed_training_data/dpo_data.jsonl'),
         sft_config=sft_config,
         dpo_config=dpo_config,
         model_config=model_config,
-        final_model_dir=config_dict.get('final_model_dir', 'models/final_model')
+        final_model_dir=config_dict.get('final_model_dir', '/home/ubuntu/lilei/projects/qwen32b-sft/models/qwen3-32B/final_model')
     )
     
     return pipeline_config
