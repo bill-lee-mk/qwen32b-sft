@@ -1,0 +1,77 @@
+# -*- coding: utf-8 -*-
+
+
+# 训练流水线配置
+sft_enabled: true
+dpo_enabled: true
+sft_data_path: "/home/ubuntu/lilei/projects/qwen32b-sft/processed_training_data/sft_data.jsonl"
+dpo_data_path: "/home/ubuntu/lilei/projects/qwen32b-sft/processed_training_data/dpo_data.jsonl"
+final_model_dir: "/home/ubuntu/lilei/projects/qwen32b-sft/models/qwen3-32B/final_model"
+use_checkpoint: false
+checkpoint_dir: null
+
+# 模型配置
+model_config:
+#  model_name: "Qwen/Qwen2.5-32B-Instruct"
+  model_name: "Qwen/Qwen3-32B"
+  model_revision: null
+  tokenizer_name: null
+  torch_dtype: "bfloat16"
+  device_map: "auto"
+  trust_remote_code: true
+  use_flash_attention: true
+  gradient_checkpointing: true
+
+# SFT训练配置
+sft_config:
+  output_dir: "/home/ubuntu/lilei/projects/qwen32b-sft/models/qwen3-32B/sft_model"
+  num_train_epochs: 3
+  per_device_train_batch_size: 1
+  gradient_accumulation_steps: 8
+  learning_rate: 1.0e-5
+  warmup_steps: 100
+  logging_steps: 10
+  save_steps: 500
+  save_total_limit: 2
+  evaluation_strategy: "no"
+  fp16: true
+  bf16: false
+  optim: "adamw_torch"
+  lr_scheduler_type: "cosine"
+  weight_decay: 0.01
+  max_grad_norm: 1.0
+  seed: 42
+  dataloader_num_workers: 4
+  remove_unused_columns: true
+  group_by_length: true
+  report_to: "none"
+  deepspeed: null
+
+# DPO训练配置
+dpo_config:
+  output_dir: "/home/ubuntu/lilei/projects/qwen32b-sft/models/qwen3-32B/dpo_model"
+  num_train_epochs: 2
+  per_device_train_batch_size: 1
+  gradient_accumulation_steps: 16
+  learning_rate: 5.0e-6
+  warmup_steps: 50
+  logging_steps: 10
+  save_steps: 200
+  save_total_limit: 2
+  evaluation_strategy: "no"
+  fp16: true
+  bf16: false
+  beta: 0.1
+  label_smoothing: 0.0
+  loss_type: "sigmoid"
+  optim: "adamw_torch"
+  lr_scheduler_type: "cosine"
+  weight_decay: 0.01
+  max_grad_norm: 1.0
+  max_length: 1024
+  max_prompt_length: 512
+  seed: 42
+  dataloader_num_workers: 4
+  remove_unused_columns: true
+  report_to: "none"
+  deepspeed: null
