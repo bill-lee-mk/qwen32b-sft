@@ -13,9 +13,9 @@ def main():
     dest = '/home/ubuntu/lilei/projects/qwen32b-sft/models/qwen3-32B'
     revision = 'main'
 
-    # os.makedirs(dest, exist_ok=True)
+    os.makedirs(dest, exist_ok=True)
     print(f"Downloading {repo_id} -> {dest} (revision={revision}) ...")
-    local_dir = snapshot_download(repo_id=repo_id, local_dir=dest, revision=revision, use_auth_token=True)
+    local_dir = snapshot_download(repo_id=repo_id, local_dir=dest, revision=revision, token=True)
     print("Downloaded to:", local_dir)
 
 
