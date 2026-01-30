@@ -33,7 +33,7 @@ class SFTTrainingConfig:
     logging_steps: int = 10
     save_steps: int = 500
     save_total_limit: int = 2
-    evaluation_strategy: str = "no"
+    eval_strategy: str = "no"
     fp16: bool = True
     bf16: bool = False
     optim: str = "adamw_torch"
@@ -60,7 +60,7 @@ class DPOTrainingConfig:
     logging_steps: int = 10
     save_steps: int = 200
     save_total_limit: int = 2
-    evaluation_strategy: str = "no"
+    eval_strategy: str = "no"
     fp16: bool = True
     bf16: bool = False
     beta: float = 0.1  # DPO beta参数
