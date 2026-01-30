@@ -151,7 +151,6 @@ class SFTTrainer:
             args=training_args,
             train_dataset=train_dataset,
             eval_dataset=eval_dataset,
-            tokenizer=self.tokenizer,
             data_collator=data_collator,
         )
         
