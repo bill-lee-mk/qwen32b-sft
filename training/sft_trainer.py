@@ -65,27 +65,39 @@ class SFTTrainer:
         if self.tokenizer.pad_token is None:
             self.tokenizer.pad_token = self.tokenizer.eos_token
         
-        # 加载模型
+        # 重要：设置Flash Attention配置
+        flash_attention_config = {
+            "use_flash_attention_2": False,    # 禁用Flash Attention 2
+            "use_flash_attention_3": True,     # 启用Flash Attention 3
+        }
+        
+        # 加载模型，启用Flash Attention 3
+        logger.info("启用Flash Attention 3...")
         self.model = AutoModelForCausalLM.from_pretrained(
             self.model_config.model_name,
             torch_dtype=torch_dtype,
             device_map=self.model_config.device_map,
             trust_remote_code=self.model_config.trust_remote_code,
-            revision=self.model_config.model_revision
+            revision=self.model_config.model_revision,
+            attn_implementation="flash_attention_3" if self.model_config.use_flash_attention else "eager",  
         )
+        
+        # 检查Flash Attention可否导入
+        if self.model_config.use_flash_attention:
+            try:
+                # from flash_attn import flash_attn_qkvpacked_func
+                from flash_attn_interface import flash_attn_qkvpacked_func, flash_attn_fun
+                logger.info("Flash Attention 3 可用")
+            except ImportError:
+                logger.warning("Flash Attention不可用，安装: pip install flash-attn --no-build-isolation")
+        
         
         # 启用梯度检查点
         if self.model_config.gradient_checkpointing:
             self.model.gradient_checkpointing_enable()
             logger.info("已启用梯度检查点")
         
-        # 启用Flash Attention（如果支持）
-        if self.model_config.use_flash_attention:
-            try:
-                from flash_attn import flash_attn_qkvpacked_func
-                logger.info("Flash Attention可用")
-            except ImportError:
-                logger.warning("Flash Attention不可用，安装: pip install flash-attn --no-build-isolation")
+        
         
         logger.info(f"模型参数量: {self.model.num_parameters():,}")
         

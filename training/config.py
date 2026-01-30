@@ -19,6 +19,7 @@ class ModelConfig:
     trust_remote_code: bool = True
     use_flash_attention: bool = True
     gradient_checkpointing: bool = True
+    flash_attention_type: str = "flash_attention_3"
 
 
 @dataclass
