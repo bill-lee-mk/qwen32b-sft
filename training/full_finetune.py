@@ -5,6 +5,7 @@
 支持SFT + DPO两阶段训练
 """
 import os
+import argparse
 import logging
 import torch
 from typing import Optional
@@ -173,43 +174,34 @@ class FullParameterFinetuner:
         return success
 
 
-def main():
-    """主函数"""
-    import argparse
+def main(args=None):
+    """
+    SFT训练主函数
+    args: argparse.Namespace 对象，包含命令行参数
+    """
     
-    parser = argparse.ArgumentParser(description="全参数微调Qwen模型用于MCQ生成")
-    parser.add_argument("--config", type=str, default="configs/training_config.yaml",
-                       help="配置文件路径")
-    parser.add_argument("--sft-only", action="store_true",
-                       help="仅运行SFT训练")
-    parser.add_argument("--dpo-only", action="store_true",
-                       help="仅运行DPO训练（需要已训练的SFT模型）")
-    parser.add_argument("--sft-model", type=str,
-                       help="DPO训练的SFT模型路径")
     
-    args = parser.parse_args()
+    # 如果没有传入参数，则从命令行解析
+    if args is None:
+        parser = argparse.ArgumentParser(description="SFT训练")
+        parser.add_argument("--config", type=str, default="configs/training_config.yaml",
+                           help="配置文件路径")
+        parser.add_argument("--data", type=str, default="processed_training_data/sft_data.jsonl",
+                           help="训练数据路径")
+        args = parser.parse_args()
+    
+    print("开始SFT训练...")
+    print(f"配置文件: {args.config}")
+    print(f"数据路径: {args.data}")
     
     # 加载配置
     config = load_config_from_yaml(args.config)
     
-    # 根据参数调整配置
-    if args.sft_only:
-        config.dpo_enabled = False
-    elif args.dpo_only:
-        config.sft_enabled = False
+    # 创建训练器并运行
+    trainer = SFTTrainer(config.sft_config, config.model_config)
+    trainer.run(config.sft_data_path)
     
-    # 初始化训练器
-    trainer = FullParameterFinetuner(config)
-    
-    # 运行训练
-    if args.dpo_only and args.sft_model:
-        # 仅运行DPO训练
-        dpo_model_path = trainer.run_dpo(args.sft_model)
-        trainer.merge_and_save_final_model(dpo_model_path)
-    else:
-        # 运行完整流水线
-        trainer.run()
-
+    print("SFT训练完成!")
 
 if __name__ == "__main__":
     main()
