@@ -25,7 +25,7 @@ def verify_flash_attention():
             torch_dtype=torch.bfloat16,
             device_map="auto",
             trust_remote_code=True,
-            attn_implementation="flash_attention_3",  # Flash Attention 3使用此标签
+            attn_implementation="flash_attention_2",  # Flash Attention 3使用此标签
         )
         print("✅ Flash Attention模型加载成功")
         
