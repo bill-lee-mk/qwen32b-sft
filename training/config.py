@@ -34,8 +34,10 @@ class SFTTrainingConfig:
     save_steps: int = 500
     save_total_limit: int = 2
     eval_strategy: str = "no"
-    fp16: bool = True
-    bf16: bool = False
+    fp16: bool = False
+    bf16: bool = True
+    fp16_full_eval=False # 禁用评估时的FP16
+    bf16_full_eval=True  # 使用BF16进行评估
     optim: str = "adamw_torch"
     lr_scheduler_type: str = "cosine"
     weight_decay: float = 0.01
