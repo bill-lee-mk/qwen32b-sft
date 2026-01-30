@@ -20,6 +20,7 @@ model_config:
   device_map: "auto"
   trust_remote_code: true
   use_flash_attention: true
+  flash_attention_type: "flash_attention_3"
   gradient_checkpointing: true
 
 # SFT训练配置
@@ -35,7 +36,7 @@ sft_config:
   save_total_limit: 2
   eval_strategy: "no"
   fp16: false
-  bf16: true
+  bf16: true    # Flash Attention 3支持BF16
   optim: "adamw_torch"
   lr_scheduler_type: "cosine"
   weight_decay: 0.01
@@ -46,6 +47,17 @@ sft_config:
   group_by_length: true
   report_to: "none"
   deepspeed: null
+
+
+# Flash Attention特定配置
+flash_attention:
+  enabled: true
+  causal: true
+  softmax_scale: null  # 自动计算
+  dropout: 0.0
+  deterministic: false
+  backend: "CUTLASS"
+
 
 # DPO训练配置
 dpo_config:

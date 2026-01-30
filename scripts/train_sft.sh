@@ -15,7 +15,7 @@ fi
 
 # 设置环境变量
 export PYTHONPATH="$PYTHONPATH:$(pwd)"
-export CUDA_VISIBLE_DEVICES=4,5,6,7  # 使用4个GPU
+export CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7  # 使用8个GPU
 
 # 运行SFT训练
 python -m training.full_finetune \
