@@ -99,9 +99,18 @@ class DatasetFormatter:
                 return_tensors="pt"
             )
             
+            # return {
+            #     "input_ids": prompt_tokens["input_ids"],
+            #     "attention_mask": prompt_tokens["attention_mask"],
+            #     "chosen_input_ids": chosen_tokens["input_ids"],
+            #     "chosen_attention_mask": chosen_tokens["attention_mask"],
+            #     "rejected_input_ids": rejected_tokens["input_ids"],
+            #     "rejected_attention_mask": rejected_tokens["attention_mask"],
+            # }
+        
             return {
-                "input_ids": prompt_tokens["input_ids"],
-                "attention_mask": prompt_tokens["attention_mask"],
+                "prompt_input_ids": prompt_tokens["input_ids"],
+                "prompt_attention_mask": prompt_tokens["attention_mask"],
                 "chosen_input_ids": chosen_tokens["input_ids"],
                 "chosen_attention_mask": chosen_tokens["attention_mask"],
                 "rejected_input_ids": rejected_tokens["input_ids"],
@@ -122,7 +131,7 @@ class DatasetFormatter:
         tokenized_dataset = dataset.map(
             tokenize_dpo_function,
             batched=True,
-            remove_columns=dataset.column_names
+            # remove_columns=dataset.column_names
         )
         
         return tokenized_dataset
