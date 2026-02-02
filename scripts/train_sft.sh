@@ -3,8 +3,8 @@
 
 #!/bin/bash
 
-# SFT训练脚本
-echo "开始SFT训练..."
+# SFT训练脚本（使用DeepSpeed）
+echo "开始SFT训练（使用DeepSpeed）..."
 
 # 检查数据文件
 if [ ! -f "/home/ubuntu/lilei/projects/qwen32b-sft/processed_training_data/sft_data.jsonl" ]; then
@@ -15,12 +15,12 @@ fi
 
 # 设置环境变量
 export PYTHONPATH="$PYTHONPATH:$(pwd)"
-export CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7  # 使用8个GPU
 
-# 运行SFT训练
-python -m training.full_finetune \
+# 使用DeepSpeed启动SFT训练（会自动使用所有可见GPU）
+deepspeed --num_gpus=8 training/full_finetune.py \
     --config configs/training_config.yaml \
     --sft-only
+#export CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7  # 使用8个GPU
 
 # 检查训练结果
 if [ -d "/home/ubuntu/lilei/projects/qwen32b-sft/models/qwen3-32B/sft_model" ] && [ -f "/home/ubuntu/lilei/projects/qwen32b-sft/models/qwen3-32B/sft_model/pytorch_model.bin" ]; then

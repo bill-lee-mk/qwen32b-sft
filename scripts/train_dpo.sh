@@ -2,8 +2,8 @@
 
 #!/bin/bash
 
-# DPO训练脚本
-echo "开始DPO训练..."
+# DPO训练脚本（使用DeepSpeed）
+echo "开始DPO训练（使用DeepSpeed）..."
 
 # 检查数据文件
 if [ ! -f "/home/ubuntu/lilei/projects/qwen32b-sft/processed_training_data/dpo_data.jsonl" ]; then
@@ -23,15 +23,19 @@ fi
 
 # 设置环境变量
 export PYTHONPATH="$PYTHONPATH:$(pwd)"
-export CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7  # 使用8个GPU
+#export CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7  # 使用8个GPU
 
 # 运行DPO训练
 if [ -z "$SFT_MODEL" ]; then
-    python -m training.full_finetune \
+    echo "使用基础模型进行DPO训练!"
+    # 使用DeepSpeed启动DPO训练（会自动使用所有可见GPU）
+    deepspeed --num_gpus=8 training/full_finetune.py \
         --config configs/training_config.yaml \
-        --dpo-only
+        --dpo-only      
 else
-    python -m training.full_finetune \
+    echo "使用SFT模型进行DPO训练!"
+    # 使用DeepSpeed启动DPO训练（会自动使用所有可见GPU）
+    deepspeed --num_gpus=8 training/full_finetune.py \
         --config configs/training_config.yaml \
         --dpo-only \
         --sft-model "$SFT_MODEL"

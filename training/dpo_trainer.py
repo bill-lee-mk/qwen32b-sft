@@ -63,12 +63,15 @@ class DPOTrainerWrapper:
         if self.tokenizer.pad_token is None:
             self.tokenizer.pad_token = self.tokenizer.eos_token
         
+        # 如果使用DeepSpeed，device_map应该为None
+        device_map = None if self.config.deepspeed else self.model_config.device_map
+        
         # 加载模型（从SFT模型或基础模型）
         model_path = model_path or self.model_config.model_name
         self.model = AutoModelForCausalLM.from_pretrained(
             model_path,
             torch_dtype=torch_dtype,
-            device_map=self.model_config.device_map,
+            device_map=device_map,    # DeepSpeed时设为None
             trust_remote_code=self.model_config.trust_remote_code,
             revision=self.model_config.model_revision
         )
