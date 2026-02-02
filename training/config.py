@@ -77,7 +77,7 @@ class DPOTrainingConfig:
     max_prompt_length: int = 512
     seed: int = 42
     dataloader_num_workers: int = 4
-    remove_unused_columns: bool = True
+    remove_unused_columns: bool = False
     report_to: str = "tensorboard"      # "wandb", "tensorboard", "none"
     deepspeed: Optional[str] = None     # deepspeed配置文件路径，默认值，会被 YAML 配置覆盖
 
