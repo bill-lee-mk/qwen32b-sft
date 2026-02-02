@@ -29,13 +29,13 @@ export PYTHONPATH="$PYTHONPATH:$(pwd)"
 if [ -z "$SFT_MODEL" ]; then
     echo "使用基础模型进行DPO训练!"
     # 使用DeepSpeed启动DPO训练（会自动使用所有可见GPU）
-    deepspeed --num_gpus=8 --module training.full_finetune.py \
+    deepspeed --num_gpus=8 --module training.full_finetune \
         --config configs/training_config.yaml \
         --dpo-only      
 else
     echo "使用SFT模型进行DPO训练!"
     # 使用DeepSpeed启动DPO训练（会自动使用所有可见GPU）
-    deepspeed --num_gpus=8 --module training.full_finetune.py \
+    deepspeed --num_gpus=8 --module training.full_finetune \
         --config configs/training_config.yaml \
         --dpo-only \
         --sft-model "$SFT_MODEL"
