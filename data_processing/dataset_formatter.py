@@ -58,7 +58,8 @@ class DatasetFormatter:
         tokenized_dataset = dataset.map(
             tokenize_function,
             batched=True,
-            remove_columns=dataset.column_names
+            remove_columns=dataset.column_names,
+            num_proc=1, # Force single-process per rank to avoid "Broken Pipe"
         )
         
         return tokenized_dataset

@@ -166,6 +166,8 @@ class DPOTrainerWrapper:
             save_strategy="steps",
             logging_dir=os.path.join(self.config.output_dir, "logs"),
             load_best_model_at_end=False,
+            
+            ddp_timeout=3600, # Increase to 1 hour
         )
         
         # 创建DPOTrainer
@@ -174,7 +176,8 @@ class DPOTrainerWrapper:
             ref_model=self.ref_model,
             args=training_args,
             train_dataset=train_dataset,
-            # tokenizer=self.tokenizer
+            
+            model_init_kwargs={"device_map": "auto"} # This helps TRL shard properly
             
         )
         
