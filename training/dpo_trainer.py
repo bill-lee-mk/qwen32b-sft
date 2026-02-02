@@ -123,7 +123,7 @@ class DPOTrainerWrapper:
             logging_steps=self.config.logging_steps,
             save_steps=self.config.save_steps,
             save_total_limit=self.config.save_total_limit,
-            evaluation_strategy=self.config.evaluation_strategy,
+            eval_strategy=self.config.eval_strategy,
             fp16=self.config.fp16,
             bf16=self.config.bf16,
             optim=self.config.optim,
