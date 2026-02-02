@@ -47,7 +47,7 @@ class SFTTrainingConfig:
     dataloader_num_workers: int = 4
     remove_unused_columns: bool = True
     group_by_length: bool = True
-    report_to: str = "none"  # "wandb", "tensorboard", "none"
+    report_to: str = "tensorboard"  # "wandb", "tensorboard", "none"
     deepspeed: Optional[str] = None  # deepspeed配置文件路径
 
 
@@ -78,7 +78,7 @@ class DPOTrainingConfig:
     seed: int = 42
     dataloader_num_workers: int = 4
     remove_unused_columns: bool = True
-    report_to: str = "none"
+    report_to: str = "tensorboard"
     deepspeed: Optional[str] = None
 
 
