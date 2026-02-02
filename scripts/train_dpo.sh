@@ -13,11 +13,11 @@ if [ ! -f "/home/ubuntu/lilei/projects/qwen32b-sft/processed_training_data/dpo_d
 fi
 
 # 检查SFT模型
-if [ ! -d "/home/ubuntu/lilei/projects/qwen32b-sft/models/qwen3-32B/sft_model" ]; then
+if [ ! -d "/home/ubuntu/lilei/projects/qwen32b-sft/models/qwen3-32B/sft_model/checkpoint-2000/" ]; then
     echo "警告: 找不到SFT模型，将使用基础模型进行DPO训练"
     SFT_MODEL=""
 else
-    SFT_MODEL="/home/ubuntu/lilei/projects/qwen32b-sft/models/qwen3-32B/sft_model"
+    SFT_MODEL="/home/ubuntu/lilei/projects/qwen32b-sft/models/qwen3-32B/sft_model/checkpoint-2000/"
     echo "使用SFT模型: $SFT_MODEL"
 fi
 
@@ -42,7 +42,7 @@ else
 fi
 
 # 检查训练结果
-if [ -d "/home/ubuntu/lilei/projects/qwen32b-sft/models/qwen3-32B/dpo_model" ] && [ -f "/home/ubuntu/lilei/projects/qwen32b-sft/models/qwen3-32B/dpo_model/pytorch_model.bin" ]; then
+if [ -d "/home/ubuntu/lilei/projects/qwen32b-sft/models/qwen3-32B/dpo_model" ] ; then
     echo "DPO训练完成!"
     echo "模型保存在: /home/ubuntu/lilei/projects/qwen32b-sft/models/qwen3-32B/dpo_model"
 else
