@@ -42,7 +42,7 @@ else
 fi
 
 # 检查训练结果
-if [ -d "/home/ubuntu/lilei/projects/qwen32b-sft/models/qwen3-32B/dpo_model" ] ; then
+if [ -d "/home/ubuntu/lilei/projects/qwen32b-sft/models/qwen3-32B/dpo_model" ] && [ -f "/home/ubuntu/lilei/projects/qwen32b-sft/models/qwen3-32B/dpo_model/model.safetensors" ]; then
     echo "DPO训练完成!"
     echo "模型保存在: /home/ubuntu/lilei/projects/qwen32b-sft/models/qwen3-32B/dpo_model"
 else

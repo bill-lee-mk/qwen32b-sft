@@ -7,9 +7,9 @@ import torch
 from transformers import (
     AutoModelForCausalLM,
     AutoTokenizer,
-    TrainingArguments,
+    # TrainingArguments,
 )
-from trl import DPOTrainer
+from trl import DPOTrainer, DPOConfig 
 from datasets import Dataset
 import os
 import logging
@@ -113,7 +113,7 @@ class DPOTrainerWrapper:
         logger.info("开始DPO训练...")
         
         # 设置训练参数
-        training_args = TrainingArguments(
+        training_args = DPOConfig(
             output_dir=self.config.output_dir,
             num_train_epochs=self.config.num_train_epochs,
             per_device_train_batch_size=self.config.per_device_train_batch_size,
@@ -122,6 +122,12 @@ class DPOTrainerWrapper:
             warmup_steps=self.config.warmup_steps,
             logging_steps=self.config.logging_steps,
             save_steps=self.config.save_steps,
+            
+            beta=self.config.beta,
+            loss_type=self.config.loss_type,
+            max_length=self.config.max_length,
+            max_prompt_length=self.config.max_prompt_length,
+            
             save_total_limit=self.config.save_total_limit,
             eval_strategy=self.config.eval_strategy,
             fp16=self.config.fp16,
@@ -145,10 +151,7 @@ class DPOTrainerWrapper:
             model=self.model,
             args=training_args,
             train_dataset=train_dataset,
-            # beta=self.config.beta,
-            # loss_type=self.config.loss_type,
-            # max_length=self.config.max_length,
-            # max_prompt_length=self.config.max_prompt_length,
+            
         )
         
         # 训练
