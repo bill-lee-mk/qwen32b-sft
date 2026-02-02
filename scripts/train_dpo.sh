@@ -15,7 +15,7 @@ fi
 # 检查SFT模型
 if [ ! -d "/home/ubuntu/lilei/projects/qwen32b-sft/models/qwen3-32B/sft_model/checkpoint-2000/" ]; then
     echo "警告: 找不到SFT模型，将使用基础模型进行DPO训练"
-    SFT_MODEL=""
+    SFT_MODEL="/home/ubuntu/lilei/projects/qwen32b-sft/models/qwen3-32B/"
 else
     SFT_MODEL="/home/ubuntu/lilei/projects/qwen32b-sft/models/qwen3-32B/sft_model/checkpoint-2000/"
     echo "使用SFT模型: $SFT_MODEL"
