@@ -160,6 +160,7 @@ class DPOTrainerWrapper:
             #remove_unused_columns=self.config.remove_unused_columns,
             
             remove_unused_columns=False,
+            gradient_checkpointing=True, # Critical for 32B
             
             report_to=self.config.report_to,
             deepspeed=self.config.deepspeed,
@@ -173,7 +174,10 @@ class DPOTrainerWrapper:
         # 创建DPOTrainer
         self.trainer = DPOTrainer(
             model=self.model,
-            ref_model=self.ref_model,
+            # ref_model=self.ref_model,
+            
+            ref_model=None,
+            
             args=training_args,
             train_dataset=train_dataset,
             
