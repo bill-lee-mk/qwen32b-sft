@@ -74,13 +74,12 @@ def verify_flash_attention():
     # 检查Flash Attention编译路径
     print("\n=== Flash Attention编译信息 ===")
     try:
-        import flash_attn
-        print(f"Flash Attention版本: {flash_attn.__version__}")
-        print(f"安装路径: {flash_attn.__file__}")
+        import flash_attn_interface
+        print(f"Flash Attention信息: {flash_attn_interface.__spec__}")
         
         # 检查编译的架构
         import subprocess
-        result = subprocess.run(["python", "-c", "import flash_attn; print(flash_attn.__version__)"], 
+        result = subprocess.run(["python", "-c", "import flash_attn_interface; print(flash_attn_interface.__spec__)"], 
                               capture_output=True, text=True)
         print(f"编译信息: {result.stdout}")
         

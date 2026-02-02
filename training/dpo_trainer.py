@@ -73,8 +73,18 @@ class DPOTrainerWrapper:
             torch_dtype=torch_dtype,
             device_map=device_map,    # DeepSpeed时设为None
             trust_remote_code=self.model_config.trust_remote_code,
-            revision=self.model_config.model_revision
+            revision=self.model_config.model_revision,
+            attn_implementation="flash_attention_3" if self.model_config.use_flash_attention else "eager", 
         )
+        
+        # 检查Flash Attention可否导入
+        if self.model_config.use_flash_attention:
+            try:
+                # from flash_attn import flash_attn_qkvpacked_func
+                import flash_attn_interface
+                logger.info(f"Flash Attention 3 可用: {flash_attn_interface.__file__}")
+            except ImportError:
+                logger.warning("Flash Attention 3不可用，请从:/home/ubuntu/flash-attention/hopper/ 安装")
         
         # 启用梯度检查点
         if self.model_config.gradient_checkpointing:

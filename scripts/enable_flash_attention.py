@@ -23,16 +23,16 @@ def check_flash_attention():
     
     # 检查Flash Attention
     try:
-        import flash_attn_3
-        print(f"✅ Flash Attention已安装: {flash_attn.__name__}")
+        import flash_attn_interface
+        print(f"✅ Flash Attention已安装: {flash_attn_interface.__name__}")
         
         # 检查编译路径
-        print(f"Flash Attention编译路径: {flash_attn.__path__}")
+        print(f"Flash Attention编译路径: {flash_attn_interface.__file__}")
         
         return True
     except ImportError:
         print("❌ Flash Attention未安装")
-        print("安装命令: pip install flash-attn --no-build-isolation")
+        print("请从:/home/ubuntu/flash-attention/hopper/ 安装")
         return False
 
 def optimize_for_flash_attention():

@@ -89,10 +89,10 @@ class SFTTrainer:
         if self.model_config.use_flash_attention:
             try:
                 # from flash_attn import flash_attn_qkvpacked_func
-                from flash_attn_interface import flash_attn_qkvpacked_func, flash_attn_fun
-                logger.info("Flash Attention 3 可用")
+                import flash_attn_interface
+                logger.info(f"Flash Attention 3 可用: {flash_attn_interface.__file__}")
             except ImportError:
-                logger.warning("Flash Attention不可用，安装: pip install flash-attn --no-build-isolation")
+                logger.warning("Flash Attention 3不可用，请从:/home/ubuntu/flash-attention/hopper/ 安装")
         
         
         # 启用梯度检查点
