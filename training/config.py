@@ -64,8 +64,8 @@ class DPOTrainingConfig:
     save_steps: int = 200
     save_total_limit: int = 2
     eval_strategy: str = "no"
-    fp16: bool = True
-    bf16: bool = False
+    fp16: bool = False
+    bf16: bool = True
     beta: float = 0.1  # DPO beta参数
     label_smoothing: float = 0.0
     loss_type: str = "sigmoid"  # sigmoid, hinge, IPO, KTO
