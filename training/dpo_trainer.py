@@ -68,6 +68,8 @@ class DPOTrainerWrapper:
         
         # 加载模型（从SFT模型或基础模型）
         model_path = model_path or self.model_config.model_name
+        
+        # Load the active model
         self.model = AutoModelForCausalLM.from_pretrained(
             model_path,
             torch_dtype=torch_dtype,
@@ -76,6 +78,22 @@ class DPOTrainerWrapper:
             revision=self.model_config.model_revision,
             attn_implementation="flash_attention_3" if self.model_config.use_flash_attention else "eager", 
         )
+        
+        
+        # Load the reference model for DeepSpeed ZeRO-3
+        logger.info("Loading reference model for ZeRO-3 compatibility...")
+        self.ref_model  = AutoModelForCausalLM.from_pretrained(
+            model_path,
+            torch_dtype=torch_dtype,
+            device_map=device_map,    # DeepSpeed时设为None
+            trust_remote_code=self.model_config.trust_remote_code,
+            revision=self.model_config.model_revision,
+            attn_implementation="flash_attention_3" if self.model_config.use_flash_attention else "eager", 
+        )
+        
+        # Ensure reference is in eval mode
+        self.ref_model.eval()
+        
         
         # 检查Flash Attention可否导入
         if self.model_config.use_flash_attention:
@@ -149,6 +167,7 @@ class DPOTrainerWrapper:
         # 创建DPOTrainer
         self.trainer = DPOTrainer(
             model=self.model,
+            ref_model=self.ref_model,
             args=training_args,
             train_dataset=train_dataset,
             
