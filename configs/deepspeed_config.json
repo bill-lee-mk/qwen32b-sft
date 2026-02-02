@@ -15,30 +15,13 @@
     },
     "overlap_comm": true,
     "contiguous_gradients": true,
-    "sub_group_size": 1e9,
+    "sub_group_size": 1000000000,
     "reduce_bucket_size": "auto",
     "stage3_prefetch_bucket_size": "auto",
-    "stage3_param_persistence_threshold": "auto",
-    "stage3_max_live_parameters": 1e9,
-    "stage3_max_reuse_distance": 1e9,
+    "stage3_param_persistence_threshold": 10000000,
+    "stage3_max_live_parameters": 1000000000,
+    "stage3_max_reuse_distance": 1000000000,
     "stage3_gather_16bit_weights_on_model_save": true
-  },
-  "optimizer": {
-    "type": "AdamW",
-    "params": {
-      "lr": "auto",
-      "betas": "auto",
-      "eps": "auto",
-      "weight_decay": "auto"
-    }
-  },
-  "scheduler": {
-    "type": "WarmupLR",
-    "params": {
-      "warmup_min_lr": "auto",
-      "warmup_max_lr": "auto",
-      "warmup_num_steps": "auto"
-    }
   },
   "fp16": {
     "enabled": false
@@ -46,5 +29,6 @@
   "bf16": {
     "enabled": true
   },
+  "gradient_predivide_factor": 1.0,
   "wall_clock_breakdown": false
 }
