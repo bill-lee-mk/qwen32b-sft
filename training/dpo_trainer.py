@@ -64,7 +64,10 @@ class DPOTrainerWrapper:
             self.tokenizer.pad_token = self.tokenizer.eos_token
         
         # 如果使用DeepSpeed，device_map应该为None
-        device_map = None if self.config.deepspeed else self.model_config.device_map
+        # device_map = None if self.config.deepspeed else self.model_config.device_map
+        
+        device_map = None
+        
         
         # 加载模型（从SFT模型或基础模型）
         model_path = model_path or self.model_config.model_name
@@ -85,8 +88,8 @@ class DPOTrainerWrapper:
         self.ref_model  = AutoModelForCausalLM.from_pretrained(
             model_path,
             torch_dtype=torch_dtype,
-            # device_map=device_map,    # DeepSpeed时设为None, load 2 32b model leads to OOM
-            device_map={"": "cpu"},     # 强制加载到 CPU
+            device_map=device_map,    # DeepSpeed时设为None, load 2 32b model leads to OOM
+            # device_map={"": "cpu"},     # 强制加载到 CPU
             trust_remote_code=self.model_config.trust_remote_code,
             revision=self.model_config.model_revision,
             attn_implementation="flash_attention_3" if self.model_config.use_flash_attention else "eager", 
@@ -174,9 +177,9 @@ class DPOTrainerWrapper:
         # 创建DPOTrainer
         self.trainer = DPOTrainer(
             model=self.model,
-            # ref_model=self.ref_model,
+            ref_model=self.ref_model,
             
-            ref_model=None,
+            # ref_model=None,
             
             args=training_args,
             train_dataset=train_dataset,
