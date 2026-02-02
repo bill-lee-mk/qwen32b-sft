@@ -141,14 +141,14 @@ class DPOTrainerWrapper:
             per_device_train_batch_size=self.config.per_device_train_batch_size,
             gradient_accumulation_steps=self.config.gradient_accumulation_steps,
             learning_rate=self.config.learning_rate,
-            warmup_steps=self.config.warmup_steps,
+            warmup_steps=int(self.config.warmup_steps),
             logging_steps=self.config.logging_steps,
             save_steps=self.config.save_steps,
             
-            beta=self.config.beta,
+            beta=float(self.config.beta),
             loss_type=self.config.loss_type,
             max_length=self.config.max_length,
-            max_prompt_length=self.config.max_prompt_length,
+            max_prompt_length=int(self.config.max_prompt_length),
                         
             save_total_limit=self.config.save_total_limit,
             eval_strategy=self.config.eval_strategy,
