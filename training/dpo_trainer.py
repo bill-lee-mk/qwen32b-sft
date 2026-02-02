@@ -177,7 +177,7 @@ class DPOTrainerWrapper:
             args=training_args,
             train_dataset=train_dataset,
             
-            model_init_kwargs={"device_map": "auto"} # This helps TRL shard properly
+            # model_init_kwargs={"device_map": "auto"} # This helps TRL shard properly
             
         )
         
