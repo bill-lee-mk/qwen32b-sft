@@ -174,7 +174,7 @@ class DPOTrainerWrapper:
             ref_model=self.ref_model,
             args=training_args,
             train_dataset=train_dataset,
-            tokenizer=self.tokenizer
+            # tokenizer=self.tokenizer
             
         )
         
