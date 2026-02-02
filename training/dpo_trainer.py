@@ -145,7 +145,6 @@ class DPOTrainerWrapper:
             model=self.model,
             args=training_args,
             train_dataset=train_dataset,
-            tokenizer=self.tokenizer,
             beta=self.config.beta,
             loss_type=self.config.loss_type,
             max_length=self.config.max_length,
