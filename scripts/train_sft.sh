@@ -17,7 +17,7 @@ fi
 export PYTHONPATH="$PYTHONPATH:$(pwd)"
 
 # 使用DeepSpeed启动SFT训练（会自动使用所有可见GPU）
-deepspeed --num_gpus=8 -m training.full_finetune.py \
+deepspeed --num_gpus=8 --module training.full_finetune.py \
     --config configs/training_config.yaml \
     --sft-only
 #export CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7  # 使用8个GPU
