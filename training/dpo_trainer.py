@@ -147,6 +147,8 @@ class DPOTrainerWrapper:
             max_length=self.config.max_length,
             max_prompt_length=self.config.max_prompt_length,
             
+            remove_unused_columns=False,  # ✅ 添加这一行，禁止 Trainer 自动寻找并删除不存在的列
+            
             save_total_limit=self.config.save_total_limit,
             eval_strategy=self.config.eval_strategy,
             fp16=self.config.fp16,
