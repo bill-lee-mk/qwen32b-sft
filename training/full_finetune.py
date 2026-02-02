@@ -176,32 +176,80 @@ class FullParameterFinetuner:
 
 def main(args=None):
     """
-    SFT训练主函数
-    args: argparse.Namespace 对象，包含命令行参数
+    训练主函数
+    支持：
+      1）--sft-only       只跑 SFT
+      2）--dpo-only       只跑 DPO（可配合 --sft-model）
+      3）默认             跑完整流水线 SFT + DPO
     """
-    
-    
-    # 如果没有传入参数，则从命令行解析
+    # 1. 解析命令行参数（兼容 deepspeed 的 --local_rank）
     if args is None:
-        parser = argparse.ArgumentParser(description="SFT训练")
-        parser.add_argument("--config", type=str, default="configs/training_config.yaml",
-                           help="配置文件路径")
-        parser.add_argument("--data", type=str, default="processed_training_data/sft_data.jsonl",
-                           help="训练数据路径")
+        parser = argparse.ArgumentParser(description="全参数微调（SFT + DPO）")
+        parser.add_argument(
+            "--config",
+            type=str,
+            default="configs/training_config.yaml",
+            help="配置文件路径"
+        )
+        parser.add_argument(
+            "--data",
+            type=str,
+            default=None,
+            help="（可选）训练数据路径，通常使用 config 里的路径"
+        )
+        parser.add_argument(
+            "--sft-only",
+            action="store_true",
+            help="仅运行 SFT 阶段"
+        )
+        parser.add_argument(
+            "--dpo-only",
+            action="store_true",
+            help="仅运行 DPO 阶段"
+        )
+        parser.add_argument(
+            "--sft-model",
+            type=str,
+            default=None,
+            help="DPO 阶段使用的 SFT 模型路径（为空则用基础模型）"
+        )
+        # Deepspeed 会传这个参数，必须接受，否则 argparse 会报错
+        parser.add_argument(
+            "--local_rank",
+            type=int,
+            default=-1,
+            help="deepspeed / torch.distributed 用的本地 rank（训练逻辑里可以不用显式处理）"
+        )
         args = parser.parse_args()
-    
-    print("开始SFT训练...")
-    print(f"配置文件: {args.config}")
-    print(f"数据路径: {args.data}")
-    
-    # 加载配置
+
+    # 2. 加载配置
     config = load_config_from_yaml(args.config)
-    
-    # 创建训练器并运行
-    trainer = SFTTrainer(config.sft_config, config.model_config)
-    trainer.run(config.sft_data_path)
-    
-    print("SFT训练完成!")
+
+    # 3. 根据模式分支处理
+    if args.sft_only:
+        # 只跑 SFT
+        print("开始 SFT 训练...")
+        sft_trainer = SFTTrainer(config.sft_config, config.model_config)
+        sft_trainer.run(config.sft_data_path)
+        print("SFT 训练完成!")
+        return
+
+    if args.dpo_only:
+        # 只跑 DPO
+        print("开始 DPO 训练...")
+        dpo_trainer = DPOTrainerWrapper(config.dpo_config, config.model_config)
+        # 如果提供了 --sft-model，就在该 SFT 模型基础上做 DPO；否则从 base model 开始
+        model_path = args.sft_model or config.model_config.model_name
+        dpo_trainer.run(config.dpo_data_path, model_path)
+        print("DPO 训练完成!")
+        return
+
+    # 默认：跑完整流水线 SFT + DPO + 最终模型导出
+    print("开始完整训练流水线（SFT + DPO）...")
+    finetuner = FullParameterFinetuner(config)
+    finetuner.run()
+    print("训练流水线完成!")
+
 
 if __name__ == "__main__":
     main()
