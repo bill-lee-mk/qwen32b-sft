@@ -85,7 +85,8 @@ class DPOTrainerWrapper:
         self.ref_model  = AutoModelForCausalLM.from_pretrained(
             model_path,
             torch_dtype=torch_dtype,
-            device_map=device_map,    # DeepSpeed时设为None
+            # device_map=device_map,    # DeepSpeed时设为None, load 2 32b model leads to OOM
+            device_map={"": "cpu"},     # 强制加载到 CPU
             trust_remote_code=self.model_config.trust_remote_code,
             revision=self.model_config.model_revision,
             attn_implementation="flash_attention_3" if self.model_config.use_flash_attention else "eager", 
