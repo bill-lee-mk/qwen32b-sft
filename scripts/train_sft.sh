@@ -1,8 +1,4 @@
-# -*- coding: utf-8 -*-
-
-
 #!/bin/bash
-
 # SFT训练脚本（使用DeepSpeed）
 echo "开始SFT训练（使用DeepSpeed）..."
 

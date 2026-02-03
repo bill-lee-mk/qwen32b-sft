@@ -1,7 +1,4 @@
-# -*- coding: utf-8 -*-
-
 #!/bin/bash
-
 # Flash Attention 3训练脚本
 echo "使用Flash Attention 3进行训练..."
 
