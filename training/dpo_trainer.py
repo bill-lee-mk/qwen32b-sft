@@ -145,7 +145,7 @@ class DPOTrainerWrapper:
             gradient_accumulation_steps=self.config.gradient_accumulation_steps,
             learning_rate=self.config.learning_rate,
             warmup_steps=int(self.config.warmup_steps),
-            logging_steps=self.config.logging_steps,
+            logging_steps=int(self.config.logging_steps),
             save_steps=self.config.save_steps,
             
             beta=float(self.config.beta),
@@ -174,7 +174,7 @@ class DPOTrainerWrapper:
             # logging_dir=os.path.join(self.config.output_dir, "logs"),
             load_best_model_at_end=False,
             
-            logging_steps=1,
+            # logging_steps=1,
             
             ddp_timeout=3600, # Increase to 1 hour
         )

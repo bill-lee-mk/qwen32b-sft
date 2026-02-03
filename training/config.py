@@ -57,10 +57,10 @@ class DPOTrainingConfig:
     output_dir: str = "/home/ubuntu/lilei/projects/qwen32b-sft/models/qwen3-32B/dpo_model/"
     num_train_epochs: int = 2
     per_device_train_batch_size: int = 1
-    gradient_accumulation_steps: int = 16
+    gradient_accumulation_steps: int = 4
     learning_rate: float = 5e-6
     warmup_steps: int = 50
-    logging_steps: int = 10
+    logging_steps: int = 1
     save_steps: int = 200
     save_total_limit: int = 2
     eval_strategy: str = "no"
