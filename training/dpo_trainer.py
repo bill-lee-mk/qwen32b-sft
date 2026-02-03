@@ -3,6 +3,10 @@
 """
 DPO（直接偏好优化）训练器
 """
+
+import os
+os.environ["TENSORBOARD_LOGGING_DIR"] = "/home/ubuntu/lilei/projects/qwen32b-sft/models/qwen3-32B/dpo_model/logs"
+
 import torch
 from transformers import (
     AutoModelForCausalLM,
@@ -11,7 +15,6 @@ from transformers import (
 )
 from trl import DPOTrainer, DPOConfig 
 from datasets import Dataset
-import os
 import logging
 from typing import Optional
 
@@ -168,8 +171,10 @@ class DPOTrainerWrapper:
             report_to=self.config.report_to,
             deepspeed=self.config.deepspeed,
             save_strategy="steps",
-            logging_dir=os.path.join(self.config.output_dir, "logs"),
+            # logging_dir=os.path.join(self.config.output_dir, "logs"),
             load_best_model_at_end=False,
+            
+            logging_steps=1,
             
             ddp_timeout=3600, # Increase to 1 hour
         )
