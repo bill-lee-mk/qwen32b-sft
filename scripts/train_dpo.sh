@@ -1,7 +1,4 @@
-# -*- coding: utf-8 -*-
-
 #!/bin/bash
-
 # DPO训练脚本（使用DeepSpeed）
 echo "开始DPO训练（使用DeepSpeed）..."
 
