@@ -85,7 +85,14 @@ def main():
     # 执行命令
     if args.command == "process-data":
         from data_processing.data_processor import main as process_data_main
-        process_data_main()
+        project_root = os.path.dirname(os.path.abspath(__file__))
+        input_dir = getattr(args, 'input_dir', 'raw_data')
+        output_dir = getattr(args, 'output_dir', 'processed_training_data')
+        if not os.path.isabs(input_dir):
+            input_dir = os.path.join(project_root, input_dir)
+        if not os.path.isabs(output_dir):
+            output_dir = os.path.join(project_root, output_dir)
+        process_data_main(input_dir=input_dir, output_dir=output_dir)
         
     elif args.command == "train-sft":
         from training.full_finetune import main as train_sft_main
@@ -113,7 +120,11 @@ def main():
         # 1. 数据处理
         print("\n=== 数据处理 ===")
         from data_processing.data_processor import main as process_data_main
-        process_data_main()
+        project_root = os.path.dirname(os.path.abspath(__file__))
+        process_data_main(
+            input_dir=os.path.join(project_root, "raw_data"),
+            output_dir=os.path.join(project_root, "processed_training_data")
+        )
         
         # 2. SFT训练
         print("\n=== SFT训练 ===")
@@ -131,11 +142,8 @@ def main():
         print("最终模型保存在: models/final_model")
         
     elif args.command == "serve-api":
-        # 设置模型路径环境变量
-        os.environ["MODEL_PATH"] = args.model
-        
         from api_service.fastapi_app import run_api_server
-        run_api_server(host=args.host, port=args.port)
+        run_api_server(host=args.host, port=args.port, model_path=args.model)
         
     elif args.command == "evaluate":
         from evaluation.inceptbench_client import InceptBenchEvaluator

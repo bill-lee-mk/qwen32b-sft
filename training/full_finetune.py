@@ -225,10 +225,19 @@ def main(args=None):
     # 2. 加载配置
     config = load_config_from_yaml(args.config)
 
-    # 3. 根据模式分支处理
     # 使用 getattr 防御性编程：main.py 子命令传入的 args 可能缺少这些属性
     sft_only = getattr(args, 'sft_only', False)
     dpo_only = getattr(args, 'dpo_only', False)
+
+    # 2.1 命令行 --data 覆盖 config 中的路径
+    data_path = getattr(args, 'data', None)
+    if data_path:
+        if sft_only:
+            config.sft_data_path = data_path
+        elif dpo_only:
+            config.dpo_data_path = data_path
+
+    # 3. 根据模式分支处理
 
     if sft_only:
         # 只跑 SFT

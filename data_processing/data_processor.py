@@ -35,10 +35,15 @@ class MCQDataProcessor:
         os.makedirs(os.path.dirname(self.config.dpo_output_path), exist_ok=True)
     
     def load_raw_file(self, file_path: str) -> List[Dict]:
-        """加载原始数据文件"""
+        """加载原始数据文件，支持 .jsonl（每行一个JSON）和 .json（单个对象或数组）"""
         with open(file_path, 'r', encoding='utf-8') as f:
-            data = [json.loads(line) for line in f]
-        return data
+            content = f.read().strip()
+        if file_path.endswith('.json'):
+            # .json 文件：整个文件是一个 JSON 对象或数组
+            data = json.loads(content)
+            return data if isinstance(data, list) else [data]
+        # .jsonl 文件：每行一个 JSON 对象
+        return [json.loads(line) for line in content.split('\n') if line.strip()]
     
     def extract_json_from_response(self, text: str) -> Optional[Dict]:
         """从响应文本中提取JSON"""
@@ -367,36 +372,45 @@ Here's my designed question:
         print(f"  DPO样本数: {len(dpo_samples)}")
 
 
-def main():
-    """主函数：处理数据"""
+def main(input_dir: str = None, output_dir: str = None):
+    """主函数：处理数据
+    
+    Args:
+        input_dir: 原始数据目录，默认 raw_data
+        output_dir: 输出目录，默认 processed_training_data
+    """
+    base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    default_input = os.path.join(base, "raw_data")
+    default_output = os.path.join(base, "processed_training_data")
+    
+    input_dir = input_dir or default_input
+    output_dir = output_dir or default_output
+    
     config = DataConfig(
-        sft_output_path="/home/ubuntu/lilei/projects/qwen32b-sft/processed_training_data/sft_data.jsonl",
-        dpo_output_path="/home/ubuntu/lilei/projects/qwen32b-sft/processed_training_data/dpo_data.jsonl",
+        sft_output_path=os.path.join(output_dir, "sft_data.jsonl"),
+        dpo_output_path=os.path.join(output_dir, "dpo_data.jsonl"),
         keep_think_chain=True,
         train_test_split=0.9
     )
     
     processor = MCQDataProcessor(config)
     
-    # 处理原始数据文件
-    raw_data_dir = "/home/ubuntu/lilei/projects/qwen32b-sft/raw_data"
+    if not os.path.exists(input_dir):
+        os.makedirs(input_dir, exist_ok=True)
+        print(f"警告: 原始数据目录不存在，已创建空目录: {input_dir}")
+        print("请将 .jsonl 或 .json 格式的原始数据放入该目录后重新运行")
+        return
     
     all_sft_samples = []
     all_dpo_samples = []
     
-    # 处理所有原始数据文件
-    for file_name in os.listdir(raw_data_dir):
+    for file_name in sorted(os.listdir(input_dir)):
         if file_name.endswith('.jsonl') or file_name.endswith('.json'):
-            file_path = os.path.join(raw_data_dir, file_name)
+            file_path = os.path.join(input_dir, file_name)
             sft_samples, dpo_samples = processor.process_file(file_path)
             all_sft_samples.extend(sft_samples)
             all_dpo_samples.extend(dpo_samples)
     
-    # 数据增强
-    # print("进行数据增强...")
-    # all_sft_samples = processor.augment_data(all_sft_samples, target_count=200)
-    
-    # 保存数据
     processor.save_data(all_sft_samples, all_dpo_samples)
 
 

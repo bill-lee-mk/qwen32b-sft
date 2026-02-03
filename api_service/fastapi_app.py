@@ -3,13 +3,12 @@
 """
 FastAPI API服务
 """
-from fastapi import FastAPI, HTTPException, BackgroundTasks
+import os
+from contextlib import asynccontextmanager
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field
 from typing import Dict, List, Optional, Any
 import uvicorn
-import json
-import asyncio
 from datetime import datetime
 import logging
 
@@ -23,13 +22,37 @@ from .schemas import (
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# 全局模型实例
+generator = None
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """FastAPI 生命周期（替代已弃用的 on_event）"""
+    global generator
+    model_path = os.environ.get("MODEL_PATH", "models/final_model")
+    try:
+        generator = MCQGenerator(model_path=model_path)
+        generator.load_model()
+        logger.info("模型加载完成，API服务已就绪")
+    except Exception as e:
+        logger.error(f"模型加载失败: {e}")
+        raise
+    yield
+    if generator:
+        del generator
+        generator = None
+        logger.info("模型资源已清理")
+
+
 # 创建FastAPI应用
 app = FastAPI(
     title="K-12 ELA MCQ Generator API",
     description="基于全参数微调Qwen2.5-32B的K-12 ELA选择题生成API",
     version="2.0.0",
     docs_url="/docs",
-    redoc_url="/redoc"
+    redoc_url="/redoc",
+    lifespan=lifespan,
 )
 
 # 添加CORS中间件
@@ -40,28 +63,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-# 全局模型实例
-generator = None
-
-@app.on_event("startup")
-async def startup_event():
-    """启动时加载模型"""
-    global generator
-    try:
-        generator = MCQGenerator(model_path="models/final_model")
-        generator.load_model()
-        logger.info("模型加载完成，API服务已就绪")
-    except Exception as e:
-        logger.error(f"模型加载失败: {e}")
-        raise
-
-@app.on_event("shutdown")
-async def shutdown_event():
-    """关闭时清理资源"""
-    if generator:
-        del generator
-        logger.info("模型资源已清理")
 
 @app.get("/", include_in_schema=False)
 async def root():
@@ -190,8 +191,10 @@ async def generate_from_template(
     
     return await generate_mcq(request)
 
-def run_api_server(host: str = "0.0.0.0", port: int = 8000):
-    """运行API服务器"""
+def run_api_server(host: str = "0.0.0.0", port: int = 8000, model_path: str = None):
+    """运行API服务器。model_path 会覆盖环境变量 MODEL_PATH"""
+    if model_path is not None:
+        os.environ["MODEL_PATH"] = model_path
     uvicorn.run(
         app,
         host=host,

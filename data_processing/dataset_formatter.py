@@ -40,7 +40,10 @@ class DatasetFormatter:
             )
             
             # 对于因果语言模型，标签就是输入ID
+            # 关键：padding 位置必须设为 -100，否则 loss 会错误地学习预测 padding
             tokenized["labels"] = tokenized["input_ids"].clone()
+            pad_token_id = self.tokenizer.pad_token_id or self.tokenizer.eos_token_id
+            tokenized["labels"][tokenized["attention_mask"] == 0] = -100
             
             return tokenized
         

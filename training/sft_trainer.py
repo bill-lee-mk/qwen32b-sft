@@ -10,7 +10,6 @@ from transformers import (
     TrainingArguments,
     Trainer,
     DataCollatorForLanguageModeling,
-    get_scheduler
 )
 from datasets import Dataset
 import os
