@@ -226,7 +226,11 @@ def main(args=None):
     config = load_config_from_yaml(args.config)
 
     # 3. 根据模式分支处理
-    if args.sft_only:
+    # 使用 getattr 防御性编程：main.py 子命令传入的 args 可能缺少这些属性
+    sft_only = getattr(args, 'sft_only', False)
+    dpo_only = getattr(args, 'dpo_only', False)
+
+    if sft_only:
         # 只跑 SFT
         print("开始 SFT 训练...")
         sft_trainer = SFTTrainer(config.sft_config, config.model_config)
@@ -234,12 +238,12 @@ def main(args=None):
         print("SFT 训练完成!")
         return
 
-    if args.dpo_only:
+    if dpo_only:
         # 只跑 DPO
         print("开始 DPO 训练...")
         dpo_trainer = DPOTrainerWrapper(config.dpo_config, config.model_config)
         # 如果提供了 --sft-model，就在该 SFT 模型基础上做 DPO；否则从 base model 开始
-        model_path = args.sft_model or config.model_config.model_name
+        model_path = getattr(args, 'sft_model', None) or config.model_config.model_name
         dpo_trainer.run(config.dpo_data_path, model_path)
         print("DPO 训练完成!")
         return

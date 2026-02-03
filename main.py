@@ -89,10 +89,21 @@ def main():
         
     elif args.command == "train-sft":
         from training.full_finetune import main as train_sft_main
+        # full_finetune.main() 期望 args 有 sft_only/dpo_only/sft_model/local_rank，
+        # 但 sft_parser 未定义这些参数，需在此补全，避免 AttributeError
+        args.sft_only = True
+        args.dpo_only = False
+        args.sft_model = getattr(args, 'sft_model', None)
+        args.local_rank = getattr(args, 'local_rank', -1)
         train_sft_main(args)
         
     elif args.command == "train-dpo":
         from training.full_finetune import main as train_dpo_main
+        # dpo_parser 有 --sft-model，但无 sft_only/dpo_only/local_rank
+        args.sft_only = False
+        args.dpo_only = True
+        args.sft_model = getattr(args, 'sft_model', None)
+        args.local_rank = getattr(args, 'local_rank', -1)
         train_dpo_main(args)
         
     elif args.command == "train-all":
@@ -107,13 +118,13 @@ def main():
         # 2. SFT训练
         print("\n=== SFT训练 ===")
         from training.full_finetune import main as train_sft_main
-        sys.argv = ["train-sft", "--config", args.config]
+        sys.argv = [sys.argv[0], "--sft-only", "--config", args.config]
         train_sft_main()
         
         # 3. DPO训练
         print("\n=== DPO训练 ===")
         from training.full_finetune import main as train_dpo_main
-        sys.argv = ["train-dpo", "--config", args.config, "--sft-model", "models/sft_model"]
+        sys.argv = [sys.argv[0], "--dpo-only", "--config", args.config, "--sft-model", "models/qwen3-32B/sft_model"]
         train_dpo_main()
         
         print("\n=== 训练完成 ===")
