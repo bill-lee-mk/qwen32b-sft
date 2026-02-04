@@ -9,13 +9,19 @@ if [ ! -f "/home/ubuntu/lilei/projects/qwen32b-sft/processed_training_data/dpo_d
     exit 1
 fi
 
-# 检查SFT模型
-if [ ! -d "/home/ubuntu/lilei/projects/qwen32b-sft/models/qwen3-32B/sft_model/checkpoint-2000/" ]; then
-    echo "警告: 找不到SFT模型，将使用基础模型进行DPO训练"
-    SFT_MODEL="/home/ubuntu/lilei/projects/qwen32b-sft/models/qwen3-32B/"
+# 检查SFT模型（优先使用最终模型，如果没有则使用checkpoint）
+SFT_MODEL_DIR="/home/ubuntu/lilei/projects/qwen32b-sft/models/qwen3-32B/sft_model"
+if [ -d "$SFT_MODEL_DIR" ] && { [ -f "$SFT_MODEL_DIR/model.safetensors" ] || [ -f "$SFT_MODEL_DIR/model.safetensors.index.json" ] || [ -f "$SFT_MODEL_DIR/pytorch_model.bin" ]; }; then
+    # 使用最终保存的模型（推荐）
+    SFT_MODEL="$SFT_MODEL_DIR"
+    echo "使用SFT最终模型: $SFT_MODEL"
+elif [ -d "$SFT_MODEL_DIR/checkpoint-2000" ]; then
+    # 如果没有最终模型，使用checkpoint（不推荐，但可用）
+    SFT_MODEL="$SFT_MODEL_DIR/checkpoint-2000"
+    echo "警告: 使用checkpoint模型（建议使用最终模型）: $SFT_MODEL"
 else
-    SFT_MODEL="/home/ubuntu/lilei/projects/qwen32b-sft/models/qwen3-32B/sft_model/checkpoint-2000/"
-    echo "使用SFT模型: $SFT_MODEL"
+    echo "警告: 找不到SFT模型，将使用基础模型进行DPO训练"
+    SFT_MODEL=""
 fi
 
 # 设置环境变量

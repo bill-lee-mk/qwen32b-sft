@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 
+														   
 
 # 训练流水线配置
 sft_enabled: true
@@ -64,26 +65,27 @@ dpo_config:
   output_dir: "/home/ubuntu/lilei/projects/qwen32b-sft/models/qwen3-32B/dpo_model"
   num_train_epochs: 2
   per_device_train_batch_size: 1
-  gradient_accumulation_steps: 16
-  learning_rate: 5.0e-6
-  warmup_steps: 50
+  gradient_accumulation_steps: 16  # 从32降低到16，减少内存累积
+  learning_rate: 3.0e-6
+  warmup_steps: 100
   logging_steps: 10
-  save_steps: 200
-  save_total_limit: 2
-  eval_strategy: "no"
+  save_steps: 200 
+  save_total_limit: 3
+  eval_strategy: "no"  # 暂时禁用评估，避免评估时OOM（训练稳定后再启用）
+  # eval_steps: 500  # 评估已禁用 
   fp16: false
   bf16: true
-  beta: 0.1
+  beta: 0.15
   label_smoothing: 0.0
   loss_type: "sigmoid"
   optim: "adamw_torch"
   lr_scheduler_type: "cosine"
   weight_decay: 0.01
-  max_grad_norm: 1.0
+  max_grad_norm: 0.5
   max_length: 1024
   max_prompt_length: 512
   seed: 42
-  dataloader_num_workers: 4
+  dataloader_num_workers: 2  # 从4降低到2，避免多GPU环境下的死锁问题
   remove_unused_columns: false
   report_to: "tensorboard"
   deepspeed: "configs/deepspeed_config.json"

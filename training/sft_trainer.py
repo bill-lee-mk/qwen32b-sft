@@ -171,7 +171,7 @@ class SFTTrainer:
         # 训练
         train_result = self.trainer.train()
         
-        # 保存模型
+        # 保存最终模型（会保存到output_dir，而不是checkpoint目录）
         self.trainer.save_model()
         self.trainer.save_state()
         
@@ -180,7 +180,18 @@ class SFTTrainer:
         self.trainer.log_metrics("train", metrics)
         self.trainer.save_metrics("train", metrics)
         
-        logger.info(f"SFT训练完成! 模型保存在: {self.config.output_dir}")
+        # 检查checkpoint目录（用于信息提示）
+        # 注意：如果save_total_limit=2，旧的checkpoint应该已经被自动清理
+        # checkpoint目录包含训练中间状态，可用于恢复训练
+        import glob
+        checkpoint_dirs = glob.glob(os.path.join(self.config.output_dir, "checkpoint-*"))
+        if checkpoint_dirs:
+            logger.info(f"发现 {len(checkpoint_dirs)} 个checkpoint目录")
+            logger.info("最终模型已保存到output_dir，checkpoint目录可保留用于恢复训练，或手动删除")
+        
+        logger.info(f"SFT训练完成! 最终模型保存在: {self.config.output_dir}")
+        logger.info(f"注意：checkpoint目录（如checkpoint-2000）包含训练中间状态，用于恢复训练")
+        logger.info(f"用于后续DPO训练的应该是: {self.config.output_dir}（最终模型）")
         
         return train_result
     

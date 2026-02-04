@@ -1,4 +1,8 @@
+# -*- coding: utf-8 -*-
+
+
 #!/bin/bash
+
 # SFT训练脚本（使用DeepSpeed）
 echo "开始SFT训练（使用DeepSpeed）..."
 
@@ -18,10 +22,12 @@ deepspeed --num_gpus=8 --module training.full_finetune \
     --sft-only
 #export CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7  # 使用8个GPU
 
-# 检查训练结果
-if [ -d "/home/ubuntu/lilei/projects/qwen32b-sft/models/qwen3-32B/sft_model" ] && [ -f "/home/ubuntu/lilei/projects/qwen32b-sft/models/qwen3-32B/sft_model/pytorch_model.bin" ]; then
+# 检查训练结果（兼容safetensors和pytorch_model.bin格式）
+MODEL_DIR="/home/ubuntu/lilei/projects/qwen32b-sft/models/qwen3-32B/sft_model"
+if [ -d "$MODEL_DIR" ] && { [ -f "$MODEL_DIR/model.safetensors" ] || [ -f "$MODEL_DIR/model.safetensors.index.json" ] || [ -f "$MODEL_DIR/pytorch_model.bin" ]; }; then
     echo "SFT训练完成!"
-    echo "模型保存在: /home/ubuntu/lilei/projects/qwen32b-sft/models/qwen3-32B/sft_model"
+    echo "模型保存在: $MODEL_DIR"
+    echo "注意: checkpoint目录（如checkpoint-2000）包含训练中间状态，最终模型在output_dir根目录"
 else
     echo "SFT训练失败!"
     exit 1

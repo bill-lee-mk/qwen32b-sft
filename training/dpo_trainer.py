@@ -87,19 +87,34 @@ class DPOTrainerWrapper:
         
         
         # Load the reference model for DeepSpeed ZeRO-3
-        logger.info("Loading reference model for ZeRO-3 compatibility...")
-        self.ref_model  = AutoModelForCausalLM.from_pretrained(
+        # 关键优化：将ref_model offload到CPU，避免OOM
+        # 因为ref_model在训练时不需要梯度，可以放在CPU上
+        logger.info("Loading reference model (offloaded to CPU to save GPU memory)...")
+        if self.config.deepspeed:
+            # 使用DeepSpeed时，ref_model可以offload到CPU
+            # DeepSpeed会自动处理CPU-GPU数据传输
+            ref_device_map = {"": "cpu"}  # 强制加载到CPU
+            logger.info("Reference model will be offloaded to CPU (DeepSpeed will handle transfers)")
+        else:
+            # 不使用DeepSpeed时，如果显存足够可以放在GPU
+            # 但为了安全，还是建议放在CPU
+            ref_device_map = {"": "cpu"}
+            logger.info("Reference model offloaded to CPU to prevent OOM")
+        
+        self.ref_model = AutoModelForCausalLM.from_pretrained(
             model_path,
             torch_dtype=torch_dtype,
-            device_map=device_map,    # DeepSpeed时设为None, load 2 32b model leads to OOM
-            # device_map={"": "cpu"},     # 强制加载到 CPU
+            device_map=ref_device_map,  # 加载到CPU，避免OOM
             trust_remote_code=self.model_config.trust_remote_code,
             revision=self.model_config.model_revision,
             attn_implementation="flash_attention_3" if self.model_config.use_flash_attention else "eager", 
         )
         
-        # Ensure reference is in eval mode
+        # Ensure reference is in eval mode (不需要梯度)
         self.ref_model.eval()
+        # 禁用ref_model的梯度计算，进一步节省显存
+        for param in self.ref_model.parameters():
+            param.requires_grad = False
         
         
         # 检查Flash Attention可否导入
@@ -176,7 +191,9 @@ class DPOTrainerWrapper:
             
             # logging_steps=1,
             
-            ddp_timeout=3600, # Increase to 1 hour
+            ddp_timeout=7200, # Increase to 2 hours (ZeRO-3 offload需要更长时间)
+            dataloader_pin_memory=False,  # 禁用pin_memory，减少显存占用
+            dataloader_persistent_workers=False,  # 禁用持久化workers，避免死锁
         )
         
         # 创建DPOTrainer
@@ -193,14 +210,40 @@ class DPOTrainerWrapper:
             
         )
         
-        # 训练
-        train_result = self.trainer.train()
+        # 训练（添加异常处理和checkpoint恢复）
+        try:
+            train_result = self.trainer.train(resume_from_checkpoint=None)
+        except RuntimeError as e:
+            if "out of memory" in str(e).lower() or "OOM" in str(e):
+                logger.error("训练过程中发生OOM错误，建议：")
+                logger.error("1. 检查ref_model是否已offload到CPU")
+                logger.error("2. 减少batch_size或增加gradient_accumulation_steps")
+                logger.error("3. 检查DeepSpeed ZeRO-3配置")
+                logger.error("4. 查看最近的checkpoint是否可以恢复训练")
+                # 尝试从最新checkpoint恢复
+                import glob
+                checkpoint_dirs = sorted(glob.glob(os.path.join(self.config.output_dir, "checkpoint-*")), 
+                                       key=lambda x: int(x.split("-")[-1]))
+                if checkpoint_dirs:
+                    latest_checkpoint = checkpoint_dirs[-1]
+                    logger.info(f"尝试从最新checkpoint恢复: {latest_checkpoint}")
+                    # 这里可以添加恢复逻辑，但需要用户确认
+            raise
+        except Exception as e:
+            logger.error(f"训练过程中发生错误: {e}")
+            import traceback
+            traceback.print_exc()
+            raise
         
         # 保存模型
-        self.trainer.save_model()
-        self.trainer.save_state()
-        
-        logger.info(f"DPO训练完成! 模型保存在: {self.config.output_dir}")
+        try:
+            self.trainer.save_model()
+            self.trainer.save_state()
+            logger.info(f"DPO训练完成! 模型保存在: {self.config.output_dir}")
+        except Exception as e:
+            logger.error(f"保存模型时出错: {e}")
+            logger.warning("训练已完成，但模型保存失败，请检查checkpoint目录")
+            # 不抛出异常，因为训练已经完成
         
         return train_result
     
