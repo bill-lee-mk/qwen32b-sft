@@ -59,7 +59,7 @@ flash_attention:
 # DPO训练配置
 dpo_config:
   output_dir: "/home/ubuntu/lilei/projects/qwen32b-sft/models/qwen3-32B/dpo_model"
-  num_train_epochs: 2
+  num_train_epochs: 1
   per_device_train_batch_size: 1
   gradient_accumulation_steps: 16  # 从32降低到16，减少内存累积
   learning_rate: 3.0e-6
@@ -71,7 +71,7 @@ dpo_config:
   # eval_steps: 500  # 评估已禁用 
   fp16: false
   bf16: true
-  beta: 0.15
+  beta: 0.05
   label_smoothing: 0.0
   loss_type: "sigmoid"
   optim: "adamw_torch"

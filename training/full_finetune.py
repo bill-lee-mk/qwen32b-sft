@@ -7,8 +7,18 @@
 import os
 import argparse
 import logging
+import warnings
 import torch
 from typing import Optional
+
+# 抑制 DeepSpeed+Trainer 下 lr_scheduler.step() 与 optimizer.step() 顺序警告
+# 根因：DeepSpeed 内部管理 optimizer.step()，Trainer 的 scheduler 调用时机可能错位
+# 详见 docs/LR_SCHEDULER_WARNING_FIX.md
+warnings.filterwarnings(
+    "ignore",
+    message=r"Detected call of.*lr_scheduler.*before.*optimizer",
+    category=UserWarning,
+)
 
 from .config import TrainingPipelineConfig, load_config_from_yaml
 from .sft_trainer import SFTTrainer
