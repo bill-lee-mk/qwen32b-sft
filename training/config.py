@@ -47,6 +47,7 @@ class SFTTrainingConfig:
     dataloader_num_workers: int = 4
     remove_unused_columns: bool = True
     group_by_length: bool = True
+    max_length: int = 8192             # SFT 单条样本最大 token 数，超长将 truncate
     report_to: str = "tensorboard"     # "wandb", "tensorboard", "none"
     deepspeed: Optional[str] = None    # deepspeed配置文件路径，默认值，会被 YAML 配置覆盖
 
@@ -73,8 +74,8 @@ class DPOTrainingConfig:
     lr_scheduler_type: str = "cosine"
     weight_decay: float = 0.01
     max_grad_norm: float = 1.0
-    max_length: int = 1024
-    max_prompt_length: int = 512
+    max_length: int = 2048
+    max_prompt_length: int = 2048
     seed: int = 42
     dataloader_num_workers: int = 4
     remove_unused_columns: bool = False

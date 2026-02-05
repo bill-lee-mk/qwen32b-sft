@@ -112,7 +112,7 @@ class SFTTrainer:
         dataset = create_sft_dataset(
             self.tokenizer,
             data_path,
-            max_length=2048
+            max_length=getattr(self.config, "max_length", 2048)
         )
         
         logger.info(f"数据集大小: {len(dataset)}")

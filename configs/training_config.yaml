@@ -42,6 +42,7 @@ sft_config:
   dataloader_num_workers: 4
   remove_unused_columns: true
   group_by_length: true
+  max_length: 8192    # SFT 单条样本最大 token 数，可调
   report_to: "tensorboard"
   deepspeed: "configs/deepspeed_config.json"
 
@@ -78,8 +79,8 @@ dpo_config:
   lr_scheduler_type: "cosine"
   weight_decay: 0.01
   max_grad_norm: 0.5
-  max_length: 1024
-  max_prompt_length: 512
+  max_length: 2048
+  max_prompt_length: 2048
   seed: 42
   dataloader_num_workers: 2  # 从4降低到2，避免多GPU环境下的死锁问题
   remove_unused_columns: false
