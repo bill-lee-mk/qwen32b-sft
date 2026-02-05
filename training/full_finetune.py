@@ -99,30 +99,47 @@ class FullParameterFinetuner:
             traceback.print_exc()
             return None
     
+    def _find_model_source(self, base_path: str) -> Optional[str]:
+        """在目录中查找模型：优先根目录，否则用最新 checkpoint"""
+        if not base_path or not os.path.exists(base_path):
+            return None
+        # 根目录有模型文件
+        for name in ("model.safetensors", "model.safetensors.index.json", "model-00001-of-00002.safetensors", "pytorch_model.bin", "config.json"):
+            if os.path.isfile(os.path.join(base_path, name)):
+                return base_path
+        # 查找最新 checkpoint（按步数排序）
+        import glob
+        import re
+        checkpoints = glob.glob(os.path.join(base_path, "checkpoint-*"))
+        if checkpoints:
+            def step_num(p):
+                m = re.search(r"checkpoint-(\d+)$", p)
+                return int(m.group(1)) if m else 0
+            return max(checkpoints, key=step_num)
+        return None
+
     def merge_and_save_final_model(self, dpo_model_path: Optional[str] = None):
-        """合并并保存最终模型"""
-        logger.info("保存最终模型...")
+        """将训练好的模型导出到 final_model 目录（复制，非参数合并）"""
+        logger.info("导出最终模型...")
         
-        # 确定最终模型路径
-        if dpo_model_path and os.path.exists(dpo_model_path):
-            final_source_path = dpo_model_path
-            logger.info(f"使用DPO模型作为最终模型: {final_source_path}")
-        elif self.config.sft_config.output_dir and os.path.exists(self.config.sft_config.output_dir):
-            final_source_path = self.config.sft_config.output_dir
-            logger.info(f"使用SFT模型作为最终模型: {final_source_path}")
-        else:
-            logger.error("没有可用的训练模型")
+        # 确定源路径：优先 DPO，否则 SFT
+        base_path = dpo_model_path or self.config.dpo_config.output_dir
+        final_source_path = self._find_model_source(base_path)
+        if not final_source_path:
+            base_path = self.config.sft_config.output_dir
+            final_source_path = self._find_model_source(base_path)
+        if not final_source_path:
+            logger.error("没有可用的训练模型（请检查 dpo_model 或 sft_model 目录）")
             return False
         
+        logger.info(f"使用模型: {final_source_path}")
+        
         try:
-            # 复制模型文件到最终目录
             import shutil
             
-            # 如果目标目录已存在，先删除
             if os.path.exists(self.config.final_model_dir):
                 shutil.rmtree(self.config.final_model_dir)
             
-            # 复制模型文件
             shutil.copytree(final_source_path, self.config.final_model_dir)
             
             # 添加配置文件

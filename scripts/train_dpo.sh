@@ -44,10 +44,18 @@ else
         --sft-model "$SFT_MODEL"
 fi
 
-# 检查训练结果
-if [ -d "/home/ubuntu/lilei/projects/qwen32b-sft/models/qwen3-32B/dpo_model" ] && [ -f "/home/ubuntu/lilei/projects/qwen32b-sft/models/qwen3-32B/dpo_model/model.safetensors" ]; then
+# 检查训练结果（DeepSpeed/大模型可能保存为分片格式 model-00001-of-00002.safetensors 或 checkpoint-XXX/）
+DPO_MODEL_DIR="/home/ubuntu/lilei/projects/qwen32b-sft/models/qwen3-32B/dpo_model"
+HAS_MODEL=false
+[ -f "$DPO_MODEL_DIR/model.safetensors" ] && HAS_MODEL=true
+[ -f "$DPO_MODEL_DIR/model.safetensors.index.json" ] && HAS_MODEL=true
+[ -f "$DPO_MODEL_DIR/model-00001-of-00002.safetensors" ] && HAS_MODEL=true
+[ -f "$DPO_MODEL_DIR/pytorch_model.bin" ] && HAS_MODEL=true
+ls -d "$DPO_MODEL_DIR"/checkpoint-* >/dev/null 2>&1 && HAS_MODEL=true
+
+if [ -d "$DPO_MODEL_DIR" ] && [ "$HAS_MODEL" = true ]; then
     echo "DPO训练完成!"
-    echo "模型保存在: /home/ubuntu/lilei/projects/qwen32b-sft/models/qwen3-32B/dpo_model"
+    echo "模型保存在: $DPO_MODEL_DIR"
 else
     echo "DPO训练失败!"
     exit 1

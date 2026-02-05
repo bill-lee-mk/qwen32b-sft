@@ -34,6 +34,9 @@ def main():
   # 完整训练
   python main.py train-all
   
+  # 导出最终模型（SFT+DPO 分别训练后执行）
+  python main.py merge-model
+  
   # 启动API服务
   python main.py serve-api
   
@@ -63,6 +66,11 @@ def main():
     # 完整训练命令
     train_all_parser = subparsers.add_parser("train-all", help="完整训练流水线")
     train_all_parser.add_argument("--config", default="configs/training_config.yaml", help="配置文件")
+    
+    # 合并/导出最终模型命令（SFT+DPO 分别训练后使用）
+    merge_parser = subparsers.add_parser("merge-model", help="将 DPO 模型导出到 final_model 目录")
+    merge_parser.add_argument("--config", default="configs/training_config.yaml", help="配置文件")
+    merge_parser.add_argument("--source", help="源模型路径（默认用 config 中的 dpo_model，若不存在则用 sft_model）")
     
     # API服务命令
     api_parser = subparsers.add_parser("serve-api", help="启动API服务")
@@ -138,8 +146,29 @@ def main():
         sys.argv = [sys.argv[0], "--dpo-only", "--config", args.config, "--sft-model", "models/qwen3-32B/sft_model"]
         train_dpo_main()
         
-        print("\n=== 训练完成 ===")
-        print("最终模型保存在: models/final_model")
+        # 4. 合并/导出最终模型
+        print("\n=== 导出最终模型 ===")
+        from training.full_finetune import FullParameterFinetuner, load_config_from_yaml
+        config = load_config_from_yaml(args.config)
+        finetuner = FullParameterFinetuner(config)
+        if finetuner.merge_and_save_final_model(config.dpo_config.output_dir):
+            print("最终模型保存在:", config.final_model_dir)
+        else:
+            print("警告: 导出最终模型失败")
+        
+    elif args.command == "merge-model":
+        from training.full_finetune import FullParameterFinetuner, load_config_from_yaml
+        config = load_config_from_yaml(args.config)
+        # --source 指定源目录（如 dpo_model 或 checkpoint 路径），默认用 config 中的 dpo_model
+        source = getattr(args, 'source', None)
+        if not source:
+            source = config.dpo_config.output_dir
+        finetuner = FullParameterFinetuner(config)
+        if finetuner.merge_and_save_final_model(source):
+            print("最终模型已导出到:", config.final_model_dir)
+        else:
+            print("导出失败，请检查 DPO 或 SFT 模型路径是否存在")
+            sys.exit(1)
         
     elif args.command == "serve-api":
         from api_service.fastapi_app import run_api_server
