@@ -137,6 +137,9 @@ def main():
         mcq = parse_mcq(raw)
         if mcq:
             normalized = normalize_for_inceptbench(mcq)
+            normalized["grade"] = args.grade
+            normalized["standard"] = args.standard
+            normalized["subject"] = "ELA"
             results.append(normalized)
             print(f"生成 {i+1}/{args.batch}: {normalized.get('id', 'unknown')}")
         else:

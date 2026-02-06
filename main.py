@@ -91,7 +91,7 @@ def main():
     eval_parser = subparsers.add_parser("evaluate", help="评估模型")
     eval_parser.add_argument("--input", required=True, help="输入文件或目录")
     eval_parser.add_argument("--output", help="输出文件")
-    eval_parser.add_argument("--api-key", help="InceptBench API密钥")
+    eval_parser.add_argument("--api-key", help="InceptBench Bearer token（或设 INCEPTBENCH_API_KEY / INCEPTBENCH_TOKEN）")
     
     args = parser.parse_args()
     
@@ -214,11 +214,11 @@ def main():
                     
                     print(f"评估 {file_name}: {result.get('overall_score', 'N/A')}")
         else:
-            # 评估单个文件
+            # 评估单个文件（支持单个 MCQ 或 MCQ 数组）
             with open(args.input, 'r') as f:
                 question_data = json.load(f)
             result = evaluator.evaluate_mcq(question_data)
-            print(f"评估结果: {json.dumps(result, indent=2)}")
+            print(f"评估结果: {json.dumps(result, indent=2, ensure_ascii=False)}")
             
             if args.output:
                 with open(args.output, 'w') as f:
