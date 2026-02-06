@@ -7,6 +7,41 @@ InceptBench 评估客户端（占位实现）
 import os
 from typing import Dict, Any, Optional
 
+# InceptBench 期望的 MCQ 必填字段
+INCEPTBENCH_MCQ_FIELDS = [
+    "id", "type", "question", "answer", "answer_options",
+    "answer_explanation", "difficulty"
+]
+
+
+def normalize_for_inceptbench(question_data: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    将 MCQ 数据归一化为 InceptBench API 期望的格式。
+    确保必填字段存在，answer_options 为 {"A":..., "B":..., "C":..., "D":...}，
+    answer 为 A/B/C/D。
+    """
+    out = {}
+    for k in INCEPTBENCH_MCQ_FIELDS:
+        v = question_data.get(k)
+        if v is None:
+            if k == "type":
+                out[k] = "mcq"
+            elif k == "difficulty":
+                out[k] = "medium"
+            else:
+                out[k] = ""
+        else:
+            out[k] = v
+    opts = out.get("answer_options")
+    if isinstance(opts, dict):
+        normalized_opts = {}
+        for letter in "ABCD":
+            normalized_opts[letter] = opts.get(letter, opts.get(letter.lower(), ""))
+        out["answer_options"] = normalized_opts
+    ans = str(out.get("answer", "")).upper().strip()
+    out["answer"] = ans if ans in ("A", "B", "C", "D") else "A"
+    return out
+
 
 class InceptBenchEvaluator:
     """InceptBench MCQ 评估器"""
@@ -34,6 +69,8 @@ class InceptBenchEvaluator:
             - 发送 question_data 到评估端点
             - 解析返回的评分和反馈
         """
+        # 归一化格式后再评估
+        normalized = normalize_for_inceptbench(question_data)
         # 占位：返回基于本地规则的简单评分
         return {
             "overall_score": 0.0,
@@ -43,5 +80,5 @@ class InceptBenchEvaluator:
                 "请根据 InceptBench API 文档实现完整 evaluate_mcq 逻辑，"
                 "或配置 INCEPTBENCH_API_KEY 后接入真实 API。"
             ),
-            "input_keys": list(question_data.keys()) if question_data else [],
+            "input_keys": list(normalized.keys()) if normalized else [],
         }
