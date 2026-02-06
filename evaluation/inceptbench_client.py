@@ -53,17 +53,13 @@ def _mcq_to_inceptbench_item(
         },
     }
 
-    # InceptBench API/DB 要求 generated_question_id 为整数；若原 id 非整数则用 index
-    raw_id = q.get("id", index)
-    try:
-        int_id = int(raw_id) if raw_id is not None else index
-    except (TypeError, ValueError):
-        int_id = index
+    # evaluations 的 key 必须为字符串；generated_question_id 需在 metadata 中
+    item_id = str(q.get("id", index))
     metadata = dict(q.get("metadata", {}))
-    metadata["generated_question_id"] = int_id
+    metadata["generated_question_id"] = item_id
 
     return {
-        "id": int_id,
+        "id": item_id,
         "request": request,
         "content": content,
         "image_url": q.get("image_url", []),
