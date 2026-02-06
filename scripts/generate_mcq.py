@@ -18,7 +18,9 @@
 import argparse
 import json
 import os
+import re
 import sys
+import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
@@ -41,6 +43,14 @@ def call_gemini(prompt: str, api_key: str, model: str = "gemini-3-flash-preview"
     model_obj = genai.GenerativeModel(model)
     response = model_obj.generate_content(prompt)
     return response.text
+
+
+def _parse_retry_seconds(err_msg: str) -> int:
+    """从 429 错误信息解析建议等待秒数"""
+    m = re.search(r"retry in (\d+(?:\.\d+)?)\s*s", err_msg, re.I)
+    if m:
+        return min(int(float(m.group(1))) + 5, 120)  # 多等 5s，最多 120s
+    return 60
 
 
 def call_openai(messages: list, api_key: str, model: str = "gpt-4o", base_url: str | None = None) -> str:
@@ -85,8 +95,9 @@ def _generate_one(
     model: str,
     grade: str = "3",
     index: int = 0,
+    max_retries: int = 3,
 ) -> dict | None:
-    """生成单条 MCQ，供多线程调用"""
+    """生成单条 MCQ，供多线程调用。遇 429 自动重试。"""
     system, user = build_full_prompt(
         grade=grade,
         standard=standard,
@@ -95,24 +106,34 @@ def _generate_one(
         subject="ELA",
     )
     messages = [{"role": "system", "content": system}, {"role": "user", "content": user}]
-    try:
-        if provider == "gemini":
-            raw = call_gemini(f"{system}\n\n{user}", api_key, model)
-        elif provider == "deepseek":
-            raw = call_deepseek(messages, api_key, model)
-        else:
-            raw = call_openai(messages, api_key, model)
-        mcq = parse_mcq(raw)
-        if mcq:
-            out = normalize_for_inceptbench(mcq)
-            out["grade"] = grade
-            out["standard"] = standard
-            out["subject"] = "ELA"
-            out["difficulty"] = difficulty
-            out["id"] = f"diverse_{index:03d}"  # 统一 ID 避免冲突
-            return out
-    except Exception as e:
-        print(f"  [WARN] {standard} {difficulty}: {e}")
+    for attempt in range(max_retries):
+        try:
+            if provider == "gemini":
+                raw = call_gemini(f"{system}\n\n{user}", api_key, model)
+            elif provider == "deepseek":
+                raw = call_deepseek(messages, api_key, model)
+            else:
+                raw = call_openai(messages, api_key, model)
+            mcq = parse_mcq(raw)
+            if mcq:
+                out = normalize_for_inceptbench(mcq)
+                out["grade"] = grade
+                out["standard"] = standard
+                out["subject"] = "ELA"
+                out["difficulty"] = difficulty
+                out["id"] = f"diverse_{index:03d}"  # 统一 ID 避免冲突
+                return out
+            return None
+        except Exception as e:
+            err_str = str(e)
+            is_429 = "429" in err_str or "quota" in err_str.lower() or "rate" in err_str.lower()
+            if is_429 and attempt < max_retries - 1:
+                wait_s = _parse_retry_seconds(err_str)
+                print(f"  [429] {standard} {difficulty}: 等待 {wait_s}s 后重试 ({attempt+1}/{max_retries})")
+                time.sleep(wait_s)
+            else:
+                print(f"  [WARN] {standard} {difficulty}: {e}")
+                return None
     return None
 
 
@@ -129,7 +150,7 @@ def main():
     parser.add_argument("--batch", type=int, default=1, help="生成条数（同参数重复）")
     parser.add_argument("--diverse", type=int, default=None, help="多样化生成 N 条，覆盖不同难度/标准")
     parser.add_argument("--all-combinations", action="store_true", help="遍历生成全部 (standard,difficulty) 组合（如 240 条）")
-    parser.add_argument("--workers", type=int, default=10, help="--diverse 时的并行线程数（默认 10）")
+    parser.add_argument("--workers", type=int, default=None, help="--diverse 时的并行线程数（Gemini 免费版默认 2，其他默认 10）")
     parser.add_argument("--input-dir", default="raw_data", help="--diverse 时分析 raw_data 的目录")
     parser.add_argument("--include-think-chain", action="store_true", help="是否要求输出 <think>")
     args = parser.parse_args()
@@ -172,13 +193,18 @@ def main():
         n = args.diverse if args.diverse else None
         plan = build_diverse_plan(dims, n=n or 9999, all_combinations=args.all_combinations)
         n = len(plan)
-        print(f"多样化生成 {n} 条，覆盖 {len(set(p[0] for p in plan))} 个标准、{len(set(p[1] for p in plan))} 个难度")
+        workers = args.workers
+        if workers is None:
+            workers = 2 if args.provider == "gemini" else 10  # Gemini 免费版 5 次/分钟
+        workers = min(workers, n)
+        print(f"多样化生成 {n} 条，{workers} 线程并行，覆盖 {len(set(p[0] for p in plan))} 个标准、{len(set(p[1] for p in plan))} 个难度")
+        if args.provider == "gemini" and workers > 2:
+            print("  提示: Gemini 免费版约 5 次/分钟，建议 --workers 2；遇 429 会自动重试")
         if n >= 50 and len(examples) < 8:
             print("  建议: 可先运行 python main.py select-examples -n 8 以增加示例覆盖")
         print(f"  计划: {plan[:5]}..." if len(plan) > 5 else f"  计划: {plan}")
 
         results = []
-        workers = min(args.workers, n)
         with ThreadPoolExecutor(max_workers=workers) as ex:
             futures = {
                 ex.submit(
