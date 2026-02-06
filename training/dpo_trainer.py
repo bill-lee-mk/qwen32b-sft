@@ -26,6 +26,14 @@ from data_processing.dataset_formatter import create_dpo_dataset
 logger = logging.getLogger(__name__)
 
 
+class SavePathCallback(TrainerCallback):
+    """保存 checkpoint 时打印写入路径"""
+    def on_save(self, args, state, control, **kwargs):
+        if int(os.environ.get("LOCAL_RANK", 0)) == 0:
+            save_path = os.path.abspath(os.path.join(args.output_dir, f"checkpoint-{state.global_step}"))
+            logger.info(f"Writing checkpoint-{state.global_step} model shards to: {save_path}")
+
+
 class StepTimingCallback(TrainerCallback):
     """每步完成后将耗时加入训练日志"""
     def __init__(self):
@@ -40,9 +48,28 @@ class StepTimingCallback(TrainerCallback):
             self._last_step_duration = time.perf_counter() - self._step_start
 
     def on_log(self, args, state, control, logs=None, **kwargs):
-        """将本步耗时加入日志输出"""
-        if logs is not None and self._last_step_duration is not None:
+        """增强日志：epoch进度、步数进度（第一位）、每步耗时（放最后）"""
+        if logs is None:
+            return
+        step_progress_val = None
+        # 1. epoch 显示为 当前/总数
+        if "epoch" in logs and hasattr(args, "num_train_epochs") and args.num_train_epochs:
+            logs["epoch"] = f"{logs['epoch']}/{args.num_train_epochs}"
+        # 2. 步数进度：当前步/总步数（放第一位）
+        if hasattr(state, "global_step") and hasattr(state, "max_steps") and state.max_steps > 0:
+            step_progress_val = f"{state.global_step}/{state.max_steps}"
+            logs["step_progress"] = step_progress_val
+        # 3. 每步耗时放在最后：先移除再最后添加
+        if self._last_step_duration is not None:
+            logs.pop("step_duration_sec", None)
             logs["step_duration_sec"] = round(self._last_step_duration, 3)
+        # 4. 将 step_progress 移到第一位
+        if step_progress_val is not None:
+            logs.pop("step_progress", None)
+            new_logs = {"step_progress": step_progress_val}
+            new_logs.update(logs)
+            logs.clear()
+            logs.update(new_logs)
 
 
 class DPOTrainerWrapper:
@@ -241,7 +268,7 @@ class DPOTrainerWrapper:
             ref_model=self.ref_model,
             args=training_args,
             train_dataset=train_dataset,
-            callbacks=[StepTimingCallback()],
+            callbacks=[StepTimingCallback(), SavePathCallback()],
         )
         
         # 训练（添加异常处理和checkpoint恢复）
@@ -283,6 +310,8 @@ class DPOTrainerWrapper:
 
         # 保存模型
         try:
+            final_path = os.path.abspath(self.config.output_dir)
+            logger.info(f"Writing final model shards to: {final_path}")
             self.trainer.save_model()
             self.trainer.save_state()
             logger.info(f"DPO训练完成! 模型保存在: {self.config.output_dir}")
