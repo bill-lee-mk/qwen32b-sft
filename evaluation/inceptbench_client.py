@@ -133,12 +133,13 @@ class InceptBenchEvaluator:
     需设置环境变量 INCEPTBENCH_API_KEY 或 INCEPTBENCH_TOKEN，或传入 api_key 参数。
     """
 
-    def __init__(self, api_key: Optional[str] = None):
+    def __init__(self, api_key: Optional[str] = None, timeout: int = 300):
         self.token = (
             api_key
             or os.environ.get("INCEPTBENCH_API_KEY")
             or os.environ.get("INCEPTBENCH_TOKEN")
-        )
+            )
+        self.timeout = timeout
         if not self.token:
             import warnings
             warnings.warn(
@@ -179,7 +180,7 @@ class InceptBenchEvaluator:
                 headers=headers,
                 method="POST",
             )
-            with urllib.request.urlopen(req, timeout=60) as resp:
+            with urllib.request.urlopen(req, timeout=self.timeout) as resp:
                 result = json.loads(resp.read().decode())
             if isinstance(result, dict):
                 return result

@@ -93,6 +93,7 @@ def main():
     eval_parser.add_argument("--output", help="输出文件")
     eval_parser.add_argument("--api-key", help="InceptBench Bearer token（或设 INCEPTBENCH_API_KEY / INCEPTBENCH_TOKEN）")
     eval_parser.add_argument("--debug", action="store_true", help="打印请求 payload，便于排查 500 错误")
+    eval_parser.add_argument("--timeout", type=int, default=300, help="API 请求超时秒数（默认 300）")
     
     args = parser.parse_args()
     
@@ -199,7 +200,7 @@ def main():
     elif args.command == "evaluate":
         from evaluation.inceptbench_client import InceptBenchEvaluator, to_inceptbench_payload
         
-        evaluator = InceptBenchEvaluator(api_key=args.api_key)
+        evaluator = InceptBenchEvaluator(api_key=args.api_key, timeout=getattr(args, "timeout", 300))
         
         # 评估输入文件或目录
         if os.path.isdir(args.input):
