@@ -92,6 +92,7 @@ def main():
     eval_parser.add_argument("--input", required=True, help="输入文件或目录")
     eval_parser.add_argument("--output", help="输出文件")
     eval_parser.add_argument("--api-key", help="InceptBench Bearer token（或设 INCEPTBENCH_API_KEY / INCEPTBENCH_TOKEN）")
+    eval_parser.add_argument("--debug", action="store_true", help="打印请求 payload，便于排查 500 错误")
     
     args = parser.parse_args()
     
@@ -196,7 +197,7 @@ def main():
         run_api_server(host=args.host, port=args.port, model_path=args.model)
         
     elif args.command == "evaluate":
-        from evaluation.inceptbench_client import InceptBenchEvaluator
+        from evaluation.inceptbench_client import InceptBenchEvaluator, to_inceptbench_payload
         
         evaluator = InceptBenchEvaluator(api_key=args.api_key)
         
@@ -209,14 +210,22 @@ def main():
                     file_path = os.path.join(args.input, file_name)
                     with open(file_path, 'r') as f:
                         question_data = json.load(f)
+                    if getattr(args, 'debug', False):
+                        payload = to_inceptbench_payload(question_data)
+                        print(f"=== {file_name} 请求 payload（--debug）===")
+                        print(json.dumps(payload, indent=2, ensure_ascii=False))
                     result = evaluator.evaluate_mcq(question_data)
                     results.append(result)
-                    
                     print(f"评估 {file_name}: {result.get('overall_score', 'N/A')}")
         else:
             # 评估单个文件（支持单个 MCQ 或 MCQ 数组）
             with open(args.input, 'r') as f:
                 question_data = json.load(f)
+            if getattr(args, 'debug', False):
+                payload = to_inceptbench_payload(question_data)
+                print("=== 请求 payload（--debug）===")
+                print(json.dumps(payload, indent=2, ensure_ascii=False))
+                print("=============================")
             result = evaluator.evaluate_mcq(question_data)
             print(f"评估结果: {json.dumps(result, indent=2, ensure_ascii=False)}")
             

@@ -168,6 +168,7 @@ class InceptBenchEvaluator:
 
         try:
             import urllib.request
+            import urllib.error
             req = urllib.request.Request(
                 INCEPTBENCH_URL,
                 data=json.dumps(payload).encode("utf-8"),
@@ -176,10 +177,27 @@ class InceptBenchEvaluator:
             )
             with urllib.request.urlopen(req, timeout=60) as resp:
                 result = json.loads(resp.read().decode())
-
             if isinstance(result, dict):
                 return result
             return {"raw": result}
+        except urllib.error.HTTPError as e:
+            body = ""
+            try:
+                if hasattr(e, "read"):
+                    body = e.read().decode("utf-8", errors="replace")
+                elif getattr(e, "fp", None):
+                    body = e.fp.read().decode("utf-8", errors="replace")
+            except Exception:
+                pass
+            msg = f"HTTP {e.code}: {e.reason}"
+            if body.strip():
+                msg += f" | 服务器返回: {body[:500]}"
+            return {
+                "overall_score": 0.0,
+                "status": "error",
+                "message": msg,
+                "response_body": body,
+            }
         except Exception as e:
             return {
                 "overall_score": 0.0,
