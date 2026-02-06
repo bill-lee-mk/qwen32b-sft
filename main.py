@@ -91,9 +91,9 @@ def main():
     eval_parser = subparsers.add_parser("evaluate", help="评估模型")
     eval_parser.add_argument("--input", required=True, help="输入文件或目录")
     eval_parser.add_argument("--output", help="输出文件")
-    eval_parser.add_argument("--api-key", help="InceptBench Bearer token（或设 INCEPTBENCH_API_KEY / INCEPTBENCH_TOKEN）")
+    eval_parser.add_argument("--api-key", help="InceptBench token（默认从 INCEPTBENCH_API_KEY 环境变量读取）")
     eval_parser.add_argument("--debug", action="store_true", help="打印请求 payload，便于排查 500 错误")
-    eval_parser.add_argument("--timeout", type=int, default=300, help="API 请求超时秒数（默认 300）")
+    eval_parser.add_argument("--timeout", type=int, default=300, help="API 请求超时秒数（默认 5 分钟，InceptBench 单次打分约 2–3 分钟）")
     
     args = parser.parse_args()
     

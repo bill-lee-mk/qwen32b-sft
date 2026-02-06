@@ -32,11 +32,12 @@ Rules:
 3. Provide exactly 4 answer options (A, B, C, D) with exactly one correct answer.
 4. Distractors should be plausible but clearly incorrect.
 5. Include a brief answer_explanation for why the correct answer is right.
-6. Return ONLY a valid JSON object. No markdown, no extra text."""
+6. Clarity: If the correct answer is a phrase (e.g., "will paint"), avoid "Which word..." in the stem; use "Which choice...", "Which words...", or "Which option..." instead.
+7. Return ONLY a valid JSON object. No markdown, no extra text."""
     if include_think_chain:
-        base += "\n\n7. You may optionally include <think>...</think> before the JSON, but the output MUST end with a complete JSON object."
+        base += "\n\n8. You may optionally include <think>...</think> before the JSON, but the output MUST end with a complete JSON object."
     else:
-        base += "\n\n7. Output ONLY the JSON object."
+        base += "\n\n8. Output ONLY the JSON object."
     base += f"\n\nOutput schema:\n{MCQ_SCHEMA.strip()}"
     return base
 

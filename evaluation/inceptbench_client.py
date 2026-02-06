@@ -53,12 +53,17 @@ def _mcq_to_inceptbench_item(
         },
     }
 
-    item_id = str(q.get("id", index))
+    # InceptBench API/DB 要求 generated_question_id 为整数；若原 id 非整数则用 index
+    raw_id = q.get("id", index)
+    try:
+        int_id = int(raw_id) if raw_id is not None else index
+    except (TypeError, ValueError):
+        int_id = index
     metadata = dict(q.get("metadata", {}))
-    metadata["generated_question_id"] = item_id
+    metadata["generated_question_id"] = int_id
 
     return {
-        "id": item_id,
+        "id": int_id,
         "request": request,
         "content": content,
         "image_url": q.get("image_url", []),
@@ -88,6 +93,21 @@ def to_inceptbench_payload(
     else:
         items = [_mcq_to_inceptbench_item(question_data, req_ctx)]
     return {"generated_content": items}
+
+
+def _extract_overall_score(result: Dict[str, Any]) -> Optional[float]:
+    """从 API 返回的 nested evaluations 中提取 overall_score（用于兼容显示）"""
+    evals = result.get("evaluations") or {}
+    scores = []
+    for ev in evals.values():
+        inc = ev.get("inceptbench_new_evaluation") or {}
+        overall = inc.get("overall") or {}
+        s = overall.get("score")
+        if s is not None:
+            scores.append(float(s))
+    if not scores:
+        return None
+    return sum(scores) / len(scores) if scores else None
 
 
 def normalize_for_inceptbench(question_data: Dict[str, Any]) -> Dict[str, Any]:
@@ -183,6 +203,10 @@ class InceptBenchEvaluator:
             with urllib.request.urlopen(req, timeout=self.timeout) as resp:
                 result = json.loads(resp.read().decode())
             if isinstance(result, dict):
+                # 补充 overall_score 便于显示（API 返回在 evaluations.<id>.inceptbench_new_evaluation.overall.score）
+                score = _extract_overall_score(result)
+                if score is not None and "overall_score" not in result:
+                    result["overall_score"] = round(score, 2)
                 return result
             return {"raw": result}
         except urllib.error.HTTPError as e:
