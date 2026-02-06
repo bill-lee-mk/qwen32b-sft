@@ -3,8 +3,9 @@
 """
 DPO（直接偏好优化）训练器
 """
-
+import math
 import os
+import time
 os.environ["TENSORBOARD_LOGGING_DIR"] = "/home/ubuntu/lilei/projects/qwen32b-sft/models/qwen3-32B/dpo_model/logs"
 
 import torch
@@ -18,10 +19,30 @@ from datasets import Dataset
 import logging
 from typing import Optional
 
+from transformers import TrainerCallback
 from .config import DPOTrainingConfig, ModelConfig
 from data_processing.dataset_formatter import create_dpo_dataset
 
 logger = logging.getLogger(__name__)
+
+
+class StepTimingCallback(TrainerCallback):
+    """每步完成后将耗时加入训练日志"""
+    def __init__(self):
+        self._step_start = None
+        self._last_step_duration = None
+
+    def on_step_begin(self, args, state, control, **kwargs):
+        self._step_start = time.perf_counter()
+
+    def on_step_end(self, args, state, control, **kwargs):
+        if self._step_start is not None:
+            self._last_step_duration = time.perf_counter() - self._step_start
+
+    def on_log(self, args, state, control, logs=None, **kwargs):
+        """将本步耗时加入日志输出"""
+        if logs is not None and self._last_step_duration is not None:
+            logs["step_duration_sec"] = round(self._last_step_duration, 3)
 
 
 class DPOTrainerWrapper:
@@ -151,6 +172,24 @@ class DPOTrainerWrapper:
     def train(self, train_dataset: Dataset, eval_dataset: Optional[Dataset] = None):
         """执行DPO训练"""
         logger.info("开始DPO训练...")
+        # 打印训练参数与总步数计算公式（仅主进程）
+        if int(os.environ.get("LOCAL_RANK", 0)) == 0:
+            world_size = int(os.environ.get("WORLD_SIZE", 1))
+            per_device = self.config.per_device_train_batch_size
+            grad_accum = self.config.gradient_accumulation_steps
+            eff_batch = per_device * world_size * grad_accum
+            steps_per_epoch = math.ceil(len(train_dataset) / eff_batch)
+            total_steps_est = steps_per_epoch * self.config.num_train_epochs
+            logger.info("=" * 50 + " DPO 训练参数 " + "=" * 50)
+            for k, v in vars(self.config).items():
+                logger.info(f"  {k}: {v}")
+            logger.info("-" * 50)
+            logger.info("总步数计算公式:")
+            logger.info(f"  有效batch = per_device_batch_size × WORLD_SIZE × gradient_accumulation_steps")
+            logger.info(f"            = {per_device} × {world_size} × {grad_accum} = {eff_batch}")
+            logger.info(f"  每epoch步数 = ceil(样本数 / 有效batch) = ceil({len(train_dataset)} / {eff_batch}) = {steps_per_epoch}")
+            logger.info(f"  预估总步数 = 每epoch步数 × num_train_epochs = {steps_per_epoch} × {self.config.num_train_epochs} = {total_steps_est}")
+            logger.info("=" * 50)
         
         # 设置训练参数
         training_args = DPOConfig(
@@ -196,18 +235,13 @@ class DPOTrainerWrapper:
             dataloader_persistent_workers=False,  # 禁用持久化workers，避免死锁
         )
         
-        # 创建DPOTrainer
+        # 创建DPOTrainer（添加每步耗时 callback）
         self.trainer = DPOTrainer(
             model=self.model,
             ref_model=self.ref_model,
-            
-            # ref_model=None,
-            
             args=training_args,
             train_dataset=train_dataset,
-            
-            # model_init_kwargs={"device_map": "auto"} # This helps TRL shard properly
-            
+            callbacks=[StepTimingCallback()],
         )
         
         # 训练（添加异常处理和checkpoint恢复）
@@ -235,6 +269,18 @@ class DPOTrainerWrapper:
             traceback.print_exc()
             raise
         
+        # 打印总步数与每步耗时（仅主进程）
+        if int(os.environ.get("LOCAL_RANK", 0)) == 0:
+            metrics = train_result.metrics
+            total_steps = self.trainer.state.global_step
+            train_runtime = metrics.get("train_runtime", 0)
+            time_per_step = train_runtime / total_steps if total_steps > 0 else 0
+            logger.info("=" * 50 + " DPO 训练统计 " + "=" * 50)
+            logger.info(f"  总步数: {total_steps}")
+            logger.info(f"  总耗时: {train_runtime:.1f} 秒 ({train_runtime/3600:.2f} 小时)")
+            logger.info(f"  每步平均耗时: {time_per_step:.3f} 秒")
+            logger.info("=" * 50)
+
         # 保存模型
         try:
             self.trainer.save_model()
