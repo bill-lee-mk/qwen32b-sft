@@ -7,13 +7,19 @@ Few-shot MCQ 生成脚本（闭源 API 模型）
   # 1. 先筛选 few-shot 样本
   python -m data_processing.few_shot_selector --input-dir raw_data -n 5
 
-  # 2. 使用 Gemini 生成
-  python scripts/few_shot_generate.py --provider gemini --api-key $GEMINI_API_KEY
+  # 2. 使用 Gemini 3 生成（默认 gemini-3-flash-preview，免费额度内可用）
+  python scripts/few_shot_generate.py --provider gemini
 
-  # 3. 使用 OpenAI 生成
+  # 3. 使用 Gemini 3 Pro（更强推理能力）
+  python scripts/few_shot_generate.py --provider gemini --model gemini-3-pro-preview
+
+  # 4. 使用 OpenAI 生成
   python scripts/few_shot_generate.py --provider openai --api-key $OPENAI_API_KEY
 
-  # 4. 指定输出用于 InceptBench 评估
+  # 5. 使用 DeepSeek 生成（按量计费，无免费额度）
+  python scripts/few_shot_generate.py --provider deepseek --api-key $DEEPSEEK_API_KEY
+
+  # 6. 指定输出用于 InceptBench 评估
   python scripts/few_shot_generate.py --provider gemini --output evaluation_output/mcqs.json
 """
 import argparse
@@ -32,7 +38,7 @@ from data_processing.few_shot_selector import extract_json_from_text, is_valid_m
 from evaluation.inceptbench_client import normalize_for_inceptbench
 
 
-def call_gemini(prompt: str, api_key: str, model: str = "gemini-2.0-flash") -> str:
+def call_gemini(prompt: str, api_key: str, model: str = "gemini-3-flash-preview") -> str:
     """调用 Gemini API"""
     try:
         import google.generativeai as genai
@@ -44,13 +50,16 @@ def call_gemini(prompt: str, api_key: str, model: str = "gemini-2.0-flash") -> s
     return response.text
 
 
-def call_openai(messages: list, api_key: str, model: str = "gpt-4o") -> str:
-    """调用 OpenAI API"""
+def call_openai(messages: list, api_key: str, model: str = "gpt-4o", base_url: str | None = None) -> str:
+    """调用 OpenAI 兼容 API（OpenAI、DeepSeek 等）"""
     try:
         from openai import OpenAI
     except ImportError:
         raise ImportError("请安装: pip install openai")
-    client = OpenAI(api_key=api_key)
+    kwargs = {"api_key": api_key}
+    if base_url:
+        kwargs["base_url"] = base_url
+    client = OpenAI(**kwargs)
     response = client.chat.completions.create(
         model=model,
         messages=messages,
@@ -58,6 +67,16 @@ def call_openai(messages: list, api_key: str, model: str = "gpt-4o") -> str:
         max_tokens=1024,
     )
     return response.choices[0].message.content or ""
+
+
+def call_deepseek(messages: list, api_key: str, model: str = "deepseek-chat") -> str:
+    """调用 DeepSeek API（OpenAI 兼容接口）"""
+    return call_openai(
+        messages=messages,
+        api_key=api_key,
+        model=model,
+        base_url="https://api.deepseek.com",
+    )
 
 
 def parse_mcq_from_response(text: str) -> dict | None:
@@ -71,9 +90,9 @@ def parse_mcq_from_response(text: str) -> dict | None:
 
 def main():
     parser = argparse.ArgumentParser(description="Few-shot MCQ 生成（闭源 API）")
-    parser.add_argument("--provider", choices=["gemini", "openai"], required=True, help="API 提供商")
-    parser.add_argument("--api-key", default=None, help="API Key（也可用环境变量 GEMINI_API_KEY / OPENAI_API_KEY）")
-    parser.add_argument("--model", default=None, help="模型名，默认 gemini-2.0-flash 或 gpt-4o")
+    parser.add_argument("--provider", choices=["gemini", "openai", "deepseek"], required=True, help="API 提供商")
+    parser.add_argument("--api-key", default=None, help="API Key（环境变量: GEMINI_API_KEY / OPENAI_API_KEY / DEEPSEEK_API_KEY）")
+    parser.add_argument("--model", default=None, help="模型名，Gemini 默认 gemini-3-flash-preview，OpenAI 默认 gpt-4o，DeepSeek 默认 deepseek-chat")
     parser.add_argument("--few-shot-path", default=None, help="few-shot 样本 JSON 路径")
     parser.add_argument("--grade", default="3", help="年级")
     parser.add_argument("--standard", default="CCSS.ELA-LITERACY.L.3.1.E", help="标准 ID")
@@ -83,10 +102,13 @@ def main():
     parser.add_argument("--include-think-chain", action="store_true", help="是否要求输出 <think>")
     args = parser.parse_args()
 
-    # API Key
+    # API Key 与默认模型
     if args.provider == "gemini":
         api_key = args.api_key or os.environ.get("GEMINI_API_KEY")
-        model = args.model or "gemini-2.0-flash"
+        model = args.model or "gemini-3-flash-preview"
+    elif args.provider == "deepseek":
+        api_key = args.api_key or os.environ.get("DEEPSEEK_API_KEY")
+        model = args.model or "deepseek-chat"
     else:
         api_key = args.api_key or os.environ.get("OPENAI_API_KEY")
         model = args.model or "gpt-4o"
@@ -114,12 +136,14 @@ def main():
     )
 
     results = []
+    messages = [{"role": "system", "content": system}, {"role": "user", "content": user}]
     for i in range(args.batch):
         if args.provider == "gemini":
             full_prompt = f"{system}\n\n{user}"
             raw = call_gemini(full_prompt, api_key, model)
+        elif args.provider == "deepseek":
+            raw = call_deepseek(messages, api_key, model)
         else:
-            messages = [{"role": "system", "content": system}, {"role": "user", "content": user}]
             raw = call_openai(messages, api_key, model)
 
         mcq = parse_mcq_from_response(raw)
