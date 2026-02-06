@@ -1,40 +1,28 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Few-shot MCQ 生成脚本（闭源 API 模型）
+生成 MCQ（generate_mcq）
+
+用闭源 API（Gemini/OpenAI/DeepSeek）生成 MCQ。
 
 用法:
-  # 1. 先筛选 few-shot 样本
-  python -m data_processing.few_shot_selector --input-dir raw_data -n 5
+  # 1. 先筛选示例
+  python main.py select-examples -n 5
 
-  # 2. 使用 Gemini 3 生成（默认 gemini-3-flash-preview，免费额度内可用）
-  python scripts/few_shot_generate.py --provider gemini
-
-  # 3. 使用 Gemini 3 Pro（更强推理能力）
-  python scripts/few_shot_generate.py --provider gemini --model gemini-3-pro-preview
-
-  # 4. 使用 OpenAI 生成
-  python scripts/few_shot_generate.py --provider openai --api-key $OPENAI_API_KEY
-
-  # 5. 使用 DeepSeek 生成（按量计费，无免费额度）
-  python scripts/few_shot_generate.py --provider deepseek --api-key $DEEPSEEK_API_KEY
-
-  # 6. 指定输出用于 InceptBench 评估
-  python scripts/few_shot_generate.py --provider gemini --output evaluation_output/mcqs.json
+  # 2. 生成 MCQ
+  python scripts/generate_mcq.py --provider gemini --output evaluation_output/mcqs.json
 """
 import argparse
 import json
 import os
-import re
 import sys
 from pathlib import Path
 
-# 项目根目录
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from data_processing.few_shot_prompt import build_full_prompt
-from data_processing.few_shot_selector import extract_json_from_text, is_valid_mcq
+from data_processing.build_prompt import build_full_prompt
+from data_processing.select_examples import extract_json_from_text, is_valid_mcq
 from evaluation.inceptbench_client import normalize_for_inceptbench
 
 
@@ -51,7 +39,7 @@ def call_gemini(prompt: str, api_key: str, model: str = "gemini-3-flash-preview"
 
 
 def call_openai(messages: list, api_key: str, model: str = "gpt-4o", base_url: str | None = None) -> str:
-    """调用 OpenAI 兼容 API（OpenAI、DeepSeek 等）"""
+    """调用 OpenAI 兼容 API"""
     try:
         from openai import OpenAI
     except ImportError:
@@ -70,16 +58,11 @@ def call_openai(messages: list, api_key: str, model: str = "gpt-4o", base_url: s
 
 
 def call_deepseek(messages: list, api_key: str, model: str = "deepseek-chat") -> str:
-    """调用 DeepSeek API（OpenAI 兼容接口）"""
-    return call_openai(
-        messages=messages,
-        api_key=api_key,
-        model=model,
-        base_url="https://api.deepseek.com",
-    )
+    """调用 DeepSeek API"""
+    return call_openai(messages, api_key, model, base_url="https://api.deepseek.com")
 
 
-def parse_mcq_from_response(text: str) -> dict | None:
+def parse_mcq(text: str) -> dict | None:
     """从模型回复中解析 MCQ JSON"""
     obj = extract_json_from_text(text)
     if not obj:
@@ -89,15 +72,15 @@ def parse_mcq_from_response(text: str) -> dict | None:
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Few-shot MCQ 生成（闭源 API）")
+    parser = argparse.ArgumentParser(description="生成 MCQ（generate_mcq）")
     parser.add_argument("--provider", choices=["gemini", "openai", "deepseek"], required=True, help="API 提供商")
     parser.add_argument("--api-key", default=None, help="API Key（环境变量: GEMINI_API_KEY / OPENAI_API_KEY / DEEPSEEK_API_KEY）")
-    parser.add_argument("--model", default=None, help="模型名，Gemini 默认 gemini-3-flash-preview，OpenAI 默认 gpt-4o，DeepSeek 默认 deepseek-chat")
-    parser.add_argument("--few-shot-path", default=None, help="few-shot 样本 JSON 路径")
+    parser.add_argument("--model", default=None, help="模型名")
+    parser.add_argument("--examples", default=None, help="示例 JSON 路径，默认 processed_training_data/examples.json")
     parser.add_argument("--grade", default="3", help="年级")
     parser.add_argument("--standard", default="CCSS.ELA-LITERACY.L.3.1.E", help="标准 ID")
     parser.add_argument("--difficulty", default="medium", help="难度")
-    parser.add_argument("--output", default=None, help="输出 JSON 路径（单条 MCQ）")
+    parser.add_argument("--output", default=None, help="输出 JSON 路径")
     parser.add_argument("--batch", type=int, default=1, help="生成条数")
     parser.add_argument("--include-think-chain", action="store_true", help="是否要求输出 <think>")
     args = parser.parse_args()
@@ -116,22 +99,27 @@ def main():
         print("错误: 请提供 --api-key 或设置环境变量")
         sys.exit(1)
 
-    # 加载 few-shot
-    few_shot_path = args.few_shot_path or (PROJECT_ROOT / "processed_training_data" / "few_shot_examples.json")
-    if not Path(few_shot_path).exists():
-        print(f"警告: few-shot 文件不存在 {few_shot_path}，将使用零样本")
-        few_shot_samples = []
+    # 加载示例（默认 examples.json，兼容旧版 few_shot_examples.json）
+    examples_path = args.examples or (PROJECT_ROOT / "processed_training_data" / "examples.json")
+    if not Path(examples_path).exists():
+        fallback = PROJECT_ROOT / "processed_training_data" / "few_shot_examples.json"
+        if fallback.exists():
+            examples_path = fallback
+            print(f"使用兼容路径: {examples_path}")
+    if not Path(examples_path).exists():
+        print(f"警告: 示例文件不存在，将使用零样本")
+        examples = []
     else:
-        with open(few_shot_path, "r", encoding="utf-8") as f:
-            few_shot_samples = json.load(f)
-        print(f"已加载 {len(few_shot_samples)} 条 few-shot 样本")
+        with open(examples_path, "r", encoding="utf-8") as f:
+            examples = json.load(f)
+        print(f"已加载 {len(examples)} 条示例")
 
     # 构建 prompt
     system, user = build_full_prompt(
         grade=args.grade,
         standard=args.standard,
         difficulty=args.difficulty,
-        few_shot_samples=few_shot_samples,
+        examples=examples,
         include_think_chain=args.include_think_chain,
     )
 
@@ -146,7 +134,7 @@ def main():
         else:
             raw = call_openai(messages, api_key, model)
 
-        mcq = parse_mcq_from_response(raw)
+        mcq = parse_mcq(raw)
         if mcq:
             normalized = normalize_for_inceptbench(mcq)
             results.append(normalized)

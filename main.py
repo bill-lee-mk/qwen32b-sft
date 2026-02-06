@@ -25,8 +25,8 @@ def main():
   # 数据处理
   python main.py process-data
   
-  # Few-shot 样本筛选（闭源模型用）
-  python main.py select-few-shot -n 5
+  # 筛选示例（闭源模型用）
+  python main.py select-examples -n 5
   
   # SFT训练
   python main.py train-sft
@@ -53,11 +53,11 @@ def main():
     # 数据处理命令
     process_parser = subparsers.add_parser("process-data", help="处理训练数据")
     
-    # Few-shot 样本筛选（用于闭源模型）
-    few_shot_parser = subparsers.add_parser("select-few-shot", help="从 raw_data 筛选 few-shot 高质量样本")
-    few_shot_parser.add_argument("--input-dir", default="raw_data", help="原始数据目录")
-    few_shot_parser.add_argument("--output", default="processed_training_data/few_shot_examples.json", help="输出 JSON 路径")
-    few_shot_parser.add_argument("-n", "--n-examples", type=int, default=5, help="few-shot 样本数量")
+    # 筛选示例（用于闭源模型）
+    select_parser = subparsers.add_parser("select-examples", help="从 raw_data 筛选示例")
+    select_parser.add_argument("--input-dir", default="raw_data", help="原始数据目录")
+    select_parser.add_argument("--output", default="processed_training_data/examples.json", help="输出 JSON 路径")
+    select_parser.add_argument("-n", type=int, default=5, help="示例数量")
     process_parser.add_argument("--input-dir", default="raw_data", help="原始数据目录")
     process_parser.add_argument("--output-dir", default="processed_training_data", help="输出数据目录")
     
@@ -111,17 +111,17 @@ def main():
             output_dir = os.path.join(project_root, output_dir)
         process_data_main(input_dir=input_dir, output_dir=output_dir)
     
-    elif args.command == "select-few-shot":
-        from data_processing.few_shot_selector import run as select_few_shot_run
+    elif args.command == "select-examples":
+        from data_processing.select_examples import run as select_examples_run
         project_root = os.path.dirname(os.path.abspath(__file__))
         input_dir = getattr(args, 'input_dir', 'raw_data')
-        output = getattr(args, 'output', 'processed_training_data/few_shot_examples.json')
-        n = getattr(args, 'n_examples', 5)
+        output = getattr(args, 'output', 'processed_training_data/examples.json')
+        n = getattr(args, 'n', 5)
         if not os.path.isabs(input_dir):
             input_dir = os.path.join(project_root, input_dir)
         if not os.path.isabs(output):
             output = os.path.join(project_root, output)
-        select_few_shot_run(input_dir=input_dir, output_path=output, n_examples=n)
+        select_examples_run(input_dir=input_dir, output=output, n=n)
         
     elif args.command == "train-sft":
         from training.full_finetune import main as train_sft_main
