@@ -53,12 +53,16 @@ def _mcq_to_inceptbench_item(
         },
     }
 
+    item_id = str(q.get("id", index))
+    metadata = dict(q.get("metadata", {}))
+    metadata["generated_question_id"] = item_id
+
     return {
-        "id": str(q.get("id", index)),
+        "id": item_id,
         "request": request,
         "content": content,
         "image_url": q.get("image_url", []),
-        "metadata": q.get("metadata", {}),
+        "metadata": metadata,
         "verbose": False,
     }
 
