@@ -9,18 +9,23 @@
   # 1. 先筛选示例
   python main.py select-examples -n 5
 
-  # 2. 生成 MCQ
+  # 2. 生成 MCQ（单条）
   python scripts/generate_mcq.py --provider gemini --output evaluation_output/mcqs.json
+
+  # 3. 多样化批量生成（20 条，覆盖不同难度/标准，多线程）
+  python scripts/generate_mcq.py --provider gemini --diverse 20 --output evaluation_output/mcqs.json
 """
 import argparse
 import json
 import os
 import sys
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
+from data_processing.analyze_dimensions import analyze_dimensions, build_diverse_plan
 from data_processing.build_prompt import build_full_prompt
 from data_processing.select_examples import extract_json_from_text, is_valid_mcq
 from evaluation.inceptbench_client import normalize_for_inceptbench
@@ -71,6 +76,46 @@ def parse_mcq(text: str) -> dict | None:
     return obj if ok else None
 
 
+def _generate_one(
+    standard: str,
+    difficulty: str,
+    examples: list,
+    provider: str,
+    api_key: str,
+    model: str,
+    grade: str = "3",
+    index: int = 0,
+) -> dict | None:
+    """生成单条 MCQ，供多线程调用"""
+    system, user = build_full_prompt(
+        grade=grade,
+        standard=standard,
+        difficulty=difficulty,
+        examples=examples,
+        subject="ELA",
+    )
+    messages = [{"role": "system", "content": system}, {"role": "user", "content": user}]
+    try:
+        if provider == "gemini":
+            raw = call_gemini(f"{system}\n\n{user}", api_key, model)
+        elif provider == "deepseek":
+            raw = call_deepseek(messages, api_key, model)
+        else:
+            raw = call_openai(messages, api_key, model)
+        mcq = parse_mcq(raw)
+        if mcq:
+            out = normalize_for_inceptbench(mcq)
+            out["grade"] = grade
+            out["standard"] = standard
+            out["subject"] = "ELA"
+            out["difficulty"] = difficulty
+            out["id"] = f"diverse_{index:03d}"  # 统一 ID 避免冲突
+            return out
+    except Exception as e:
+        print(f"  [WARN] {standard} {difficulty}: {e}")
+    return None
+
+
 def main():
     parser = argparse.ArgumentParser(description="生成 MCQ（generate_mcq）")
     parser.add_argument("--provider", choices=["gemini", "openai", "deepseek"], required=True, help="API 提供商")
@@ -81,7 +126,11 @@ def main():
     parser.add_argument("--standard", default="CCSS.ELA-LITERACY.L.3.1.E", help="标准 ID")
     parser.add_argument("--difficulty", default="medium", help="难度")
     parser.add_argument("--output", default=None, help="输出 JSON 路径")
-    parser.add_argument("--batch", type=int, default=1, help="生成条数")
+    parser.add_argument("--batch", type=int, default=1, help="生成条数（同参数重复）")
+    parser.add_argument("--diverse", type=int, default=None, help="多样化生成 N 条，覆盖不同难度/标准")
+    parser.add_argument("--all-combinations", action="store_true", help="遍历生成全部 (standard,difficulty) 组合（如 240 条）")
+    parser.add_argument("--workers", type=int, default=10, help="--diverse 时的并行线程数（默认 10）")
+    parser.add_argument("--input-dir", default="raw_data", help="--diverse 时分析 raw_data 的目录")
     parser.add_argument("--include-think-chain", action="store_true", help="是否要求输出 <think>")
     args = parser.parse_args()
 
@@ -114,37 +163,86 @@ def main():
             examples = json.load(f)
         print(f"已加载 {len(examples)} 条示例")
 
-    # 构建 prompt
-    system, user = build_full_prompt(
-        grade=args.grade,
-        standard=args.standard,
-        difficulty=args.difficulty,
-        examples=examples,
-        include_think_chain=args.include_think_chain,
-    )
+    # 多样化批量生成（多线程）
+    if args.diverse or args.all_combinations:
+        input_dir = Path(args.input_dir)
+        if not input_dir.is_absolute():
+            input_dir = PROJECT_ROOT / input_dir
+        dims = analyze_dimensions(input_dir=str(input_dir))
+        n = args.diverse if args.diverse else None
+        plan = build_diverse_plan(dims, n=n or 9999, all_combinations=args.all_combinations)
+        n = len(plan)
+        print(f"多样化生成 {n} 条，覆盖 {len(set(p[0] for p in plan))} 个标准、{len(set(p[1] for p in plan))} 个难度")
+        if n >= 50 and len(examples) < 8:
+            print("  建议: 可先运行 python main.py select-examples -n 8 以增加示例覆盖")
+        print(f"  计划: {plan[:5]}..." if len(plan) > 5 else f"  计划: {plan}")
 
-    results = []
-    messages = [{"role": "system", "content": system}, {"role": "user", "content": user}]
-    for i in range(args.batch):
-        if args.provider == "gemini":
-            full_prompt = f"{system}\n\n{user}"
-            raw = call_gemini(full_prompt, api_key, model)
-        elif args.provider == "deepseek":
-            raw = call_deepseek(messages, api_key, model)
-        else:
-            raw = call_openai(messages, api_key, model)
+        results = []
+        workers = min(args.workers, n)
+        with ThreadPoolExecutor(max_workers=workers) as ex:
+            futures = {
+                ex.submit(
+                    _generate_one,
+                    standard=s,
+                    difficulty=d,
+                    examples=examples,
+                    provider=args.provider,
+                    api_key=api_key,
+                    model=model,
+                    grade=args.grade,
+                    index=i,
+                ): (i, s, d)
+                for i, (s, d) in enumerate(plan)
+            }
+            done = 0
+            for fut in as_completed(futures):
+                i, s, d = futures[fut]
+                try:
+                    mcq = fut.result()
+                    if mcq:
+                        results.append(mcq)
+                        done += 1
+                        print(f"生成 {done}/{n}: {mcq.get('id', '?')} ({s} {d})")
+                    else:
+                        print(f"生成失败: {s} {d}")
+                except Exception as e:
+                    print(f"生成异常 {s} {d}: {e}")
 
-        mcq = parse_mcq(raw)
-        if mcq:
-            normalized = normalize_for_inceptbench(mcq)
-            normalized["grade"] = args.grade
-            normalized["standard"] = args.standard
-            normalized["subject"] = "ELA"
-            results.append(normalized)
-            print(f"生成 {i+1}/{args.batch}: {normalized.get('id', 'unknown')}")
-        else:
-            print(f"生成 {i+1}/{args.batch}: 解析失败")
-            print(f"  raw: {raw[:200]}...")
+        if not results:
+            print("未成功生成任何 MCQ")
+            sys.exit(1)
+    else:
+        # 单参数模式（原有逻辑）
+        system, user = build_full_prompt(
+            grade=args.grade,
+            standard=args.standard,
+            difficulty=args.difficulty,
+            examples=examples,
+            include_think_chain=args.include_think_chain,
+        )
+
+        results = []
+        messages = [{"role": "system", "content": system}, {"role": "user", "content": user}]
+        for i in range(args.batch):
+            if args.provider == "gemini":
+                full_prompt = f"{system}\n\n{user}"
+                raw = call_gemini(full_prompt, api_key, model)
+            elif args.provider == "deepseek":
+                raw = call_deepseek(messages, api_key, model)
+            else:
+                raw = call_openai(messages, api_key, model)
+
+            mcq = parse_mcq(raw)
+            if mcq:
+                normalized = normalize_for_inceptbench(mcq)
+                normalized["grade"] = args.grade
+                normalized["standard"] = args.standard
+                normalized["subject"] = "ELA"
+                results.append(normalized)
+                print(f"生成 {i+1}/{args.batch}: {normalized.get('id', 'unknown')}")
+            else:
+                print(f"生成 {i+1}/{args.batch}: 解析失败")
+                print(f"  raw: {raw[:200]}...")
 
     if not results:
         print("未成功生成任何 MCQ")

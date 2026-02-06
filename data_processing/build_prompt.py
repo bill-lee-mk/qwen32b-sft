@@ -74,7 +74,7 @@ Standard: {standard}
 {f'Description: {desc}' if desc else ''}
 Difficulty: {difficulty}
 
-Return only the JSON object."""
+Return only the JSON object. Ensure the question directly assesses the given standard at the specified difficulty."""
 
 
 def build_full_prompt(

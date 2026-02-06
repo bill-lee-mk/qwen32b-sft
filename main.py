@@ -55,6 +55,10 @@ def main():
     
     # 筛选示例（用于闭源模型）
     select_parser = subparsers.add_parser("select-examples", help="从 raw_data 筛选示例")
+    # 分析 raw_data 维度（难度、学科、标准）
+    analyze_dims_parser = subparsers.add_parser("analyze-dimensions", help="统计 raw_data 中难度、学科、标准分布")
+    analyze_dims_parser.add_argument("--input-dir", default="raw_data", help="原始数据目录")
+    analyze_dims_parser.add_argument("--output", help="输出 JSON 报告路径")
     select_parser.add_argument("--input-dir", default="raw_data", help="原始数据目录")
     select_parser.add_argument("--output", default="processed_training_data/examples.json", help="输出 JSON 路径")
     select_parser.add_argument("-n", type=int, default=5, help="示例数量")
@@ -93,7 +97,8 @@ def main():
     eval_parser.add_argument("--output", help="输出文件")
     eval_parser.add_argument("--api-key", help="InceptBench token（默认从 INCEPTBENCH_API_KEY 环境变量读取）")
     eval_parser.add_argument("--debug", action="store_true", help="打印请求 payload，便于排查 500 错误")
-    eval_parser.add_argument("--timeout", type=int, default=300, help="API 请求超时秒数（默认 5 分钟，InceptBench 单次打分约 2–3 分钟）")
+    eval_parser.add_argument("--timeout", type=int, default=180, help="单题超时秒数（默认 180，约 2 分钟/题）")
+    eval_parser.add_argument("--parallel", type=int, default=20, help="并行提交数（一次只能提交一题，默认 20 进程并行）")
     
     args = parser.parse_args()
     
@@ -124,6 +129,14 @@ def main():
         if not os.path.isabs(output):
             output = os.path.join(project_root, output)
         select_examples_run(input_dir=input_dir, output=output, n=n)
+
+    elif args.command == "analyze-dimensions":
+        from data_processing.analyze_dimensions import run as analyze_dims_run
+        project_root = os.path.dirname(os.path.abspath(__file__))
+        input_dir = getattr(args, 'input_dir', 'raw_data')
+        if not os.path.isabs(input_dir):
+            input_dir = os.path.join(project_root, input_dir)
+        analyze_dims_run(input_dir=input_dir, output=getattr(args, 'output', None))
         
     elif args.command == "train-sft":
         from training.full_finetune import main as train_sft_main
@@ -200,7 +213,7 @@ def main():
     elif args.command == "evaluate":
         from evaluation.inceptbench_client import InceptBenchEvaluator, to_inceptbench_payload
         
-        evaluator = InceptBenchEvaluator(api_key=args.api_key, timeout=getattr(args, "timeout", 300))
+        evaluator = InceptBenchEvaluator(api_key=args.api_key, timeout=getattr(args, "timeout", 180))
         
         # 评估输入文件或目录
         if os.path.isdir(args.input):
@@ -222,17 +235,81 @@ def main():
             # 评估单个文件（支持单个 MCQ 或 MCQ 数组）
             with open(args.input, 'r') as f:
                 question_data = json.load(f)
-            if getattr(args, 'debug', False):
-                payload = to_inceptbench_payload(question_data)
-                print("=== 请求 payload（--debug）===")
-                print(json.dumps(payload, indent=2, ensure_ascii=False))
-                print("=============================")
-            result = evaluator.evaluate_mcq(question_data)
-            print(f"评估结果: {json.dumps(result, indent=2, ensure_ascii=False)}")
-            
-            if args.output:
-                with open(args.output, 'w') as f:
-                    json.dump(result, f, indent=2)
+            items = question_data if isinstance(question_data, list) else [question_data]
+            timeout = getattr(args, "timeout", 180)
+            parallel = getattr(args, "parallel", 20)
+
+            if len(items) == 1:
+                # 单题：一次提交
+                evaluator = InceptBenchEvaluator(api_key=args.api_key, timeout=timeout)
+                if getattr(args, 'debug', False):
+                    payload = to_inceptbench_payload(question_data)
+                    print("=== 请求 payload（--debug）===")
+                    print(json.dumps(payload, indent=2, ensure_ascii=False))
+                    print("=============================")
+                result = evaluator.evaluate_mcq(question_data)
+                print(f"评估结果: {json.dumps(result, indent=2, ensure_ascii=False)}")
+                if args.output:
+                    with open(args.output, 'w') as f:
+                        json.dump(result, f, indent=2, ensure_ascii=False)
+            else:
+                # 多题：一次只能提交一题，--parallel 个进程并行
+                from concurrent.futures import ThreadPoolExecutor, as_completed
+                print(f"评估 {len(items)} 题，每次 1 题，{parallel} 并行，超时 {timeout}s/题")
+                evaluator = InceptBenchEvaluator(api_key=args.api_key, timeout=timeout)
+                results_by_idx = {}
+                done = 0
+                with ThreadPoolExecutor(max_workers=parallel) as ex:
+                    futures = {ex.submit(evaluator.evaluate_mcq, q): i for i, q in enumerate(items)}
+                    for fut in as_completed(futures):
+                        i = futures[fut]
+                        try:
+                            r = fut.result()
+                            results_by_idx[i] = r
+                            s = r.get("overall_score")
+                            if s is None and "evaluations" in r:
+                                ev = next(iter(r.get("evaluations", {}).values()), {})
+                                s = (ev.get("inceptbench_new_evaluation") or {}).get("overall", {}).get("score")
+                            done += 1
+                            status = f"score={s:.2f}" if isinstance(s, (int, float)) else "error"
+                            print(f"  [{done}/{len(items)}] 题{i+1}: {status}")
+                        except Exception as e:
+                            results_by_idx[i] = {"overall_score": 0.0, "status": "error", "message": str(e)}
+                            done += 1
+                            print(f"  [{done}/{len(items)}] 题{i+1}: error {e}")
+
+                scores = []
+                for i in range(len(items)):
+                    r = results_by_idx.get(i, {})
+                    s = r.get("overall_score")
+                    if s is None and "evaluations" in r:
+                        ev = next(iter(r.get("evaluations", {}).values()), {})
+                        s = (ev.get("inceptbench_new_evaluation") or {}).get("overall", {}).get("score")
+                    if isinstance(s, (int, float)):
+                        scores.append(float(s))
+
+                if scores:
+                    avg = sum(scores) / len(scores)
+                    passed = sum(1 for s in scores if s >= 0.85)
+                    print(f"\n=== 汇总 ===")
+                    print(f"平均分: {avg:.2f}")
+                    print(f"通过率(>=0.85): {passed}/{len(scores)} ({100*passed/len(scores):.1f}%)")
+                else:
+                    print("\n无有效分数")
+
+                if args.output:
+                    out_data = {
+                        "total": len(items),
+                        "scores": scores,
+                        "results": [results_by_idx.get(i) for i in range(len(items))],
+                    }
+                    if scores:
+                        out_data["avg_score"] = round(sum(scores) / len(scores), 2)
+                        out_data["pass_count"] = sum(1 for s in scores if s >= 0.85)
+                        out_data["pass_rate"] = round(100 * out_data["pass_count"] / len(scores), 1)
+                    with open(args.output, 'w') as f:
+                        json.dump(out_data, f, indent=2, ensure_ascii=False)
+                    print(f"已保存: {args.output}")
     
     else:
         parser.print_help()
