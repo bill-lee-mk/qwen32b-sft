@@ -2,6 +2,10 @@
 # DPO训练脚本（使用DeepSpeed）
 echo "开始DPO训练（使用DeepSpeed）..."
 
+# 抑制 TensorFlow / 第三方库冗余日志
+export TF_CPP_MIN_LOG_LEVEL=3
+export TF_ENABLE_ONEDNN_OPTS=0
+
 # 检查数据文件
 if [ ! -f "/home/ubuntu/lilei/projects/qwen32b-sft/processed_training_data/dpo_data.jsonl" ]; then
     echo "错误: 找不到DPO训练数据"

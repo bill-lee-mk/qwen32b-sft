@@ -11,14 +11,28 @@ import warnings
 import torch
 from typing import Optional
 
+# 分布式训练时，非主进程禁用 datasets/huggingface 进度条，避免 8 份重复输出
+if int(os.environ.get("LOCAL_RANK", 0)) != 0:
+    os.environ.setdefault("HF_DATASETS_DISABLE_PROGRESS_BARS", "1")
+
+# 抑制 TensorFlow 日志（TensorBoard 会拉取 TF，触发 oneDNN 等 print）
+os.environ.setdefault("TF_CPP_MIN_LOG_LEVEL", "3")
+os.environ.setdefault("TF_ENABLE_ONEDNN_OPTS", "0")
+
 # 抑制 DeepSpeed+Trainer 下 lr_scheduler.step() 与 optimizer.step() 顺序警告
-# 根因：DeepSpeed 内部管理 optimizer.step()，Trainer 的 scheduler 调用时机可能错位
-# 详见 docs/LR_SCHEDULER_WARNING_FIX.md
 warnings.filterwarnings(
     "ignore",
     message=r"Detected call of.*lr_scheduler.*before.*optimizer",
     category=UserWarning,
 )
+# 抑制 google.api_core Python 版本 FutureWarning
+warnings.filterwarnings("ignore", category=FutureWarning, module="google.api_core")
+# 抑制 torch_dtype 弃用提醒（来自第三方库）
+warnings.filterwarnings("ignore", message=r".*torch_dtype.*deprecated.*dtype.*")
+# 抑制 tokenizer PAD/BOS/EOS 对齐提示（各 rank 重复打印）
+warnings.filterwarnings("ignore", message=r".*tokenizer has new PAD/BOS/EOS tokens.*")
+# 抑制 accelerate 梯度累积步数不一致提示（DeepSpeed 会覆盖）
+warnings.filterwarnings("ignore", message=r".*Gradient accumulation steps mismatch.*")
 
 from .config import TrainingPipelineConfig, load_config_from_yaml
 from .sft_trainer import SFTTrainer
@@ -34,6 +48,10 @@ logging.basicConfig(
     ]
 )
 logger = logging.getLogger(__name__)
+
+# 降低 transformers/httpx 日志级别，减少 "tokenizer has new PAD"、HTTP Request 等重复输出
+for _name in ("transformers", "httpx", "transformers.tokenization_utils_base"):
+    logging.getLogger(_name).setLevel(logging.ERROR)
 
 
 class FullParameterFinetuner:

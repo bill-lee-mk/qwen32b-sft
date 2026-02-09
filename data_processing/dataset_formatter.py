@@ -5,7 +5,8 @@
 将处理后的数据转换为训练需要的格式
 """
 import json
-from typing import Dict, List, Any
+from pathlib import Path
+from typing import Dict, List, Any, Optional
 from datasets import Dataset
 from transformers import AutoTokenizer
 import torch
@@ -67,12 +68,18 @@ class DatasetFormatter:
         
         return tokenized_dataset
     
-    def format_dpo_dataset(self, data_path: str) -> Dataset:
-        """格式化DPO数据集"""
+    def format_dpo_dataset(
+        self,
+        data_path: str,
+        cache_dir: Optional[str] = None,
+        use_cache: bool = True,
+        num_proc: int = 1,
+    ) -> Dataset:
+        """格式化DPO数据集。use_cache=True 时，首次 tokenize 后写入缓存，后续直接加载。"""
         
         def tokenize_dpo_function(examples):
             """DPO数据tokenize函数"""
-            max_len = min(self.max_length, 1024)
+            max_len = self.max_length
             
             batch_size = len(examples["prompt"])
             
@@ -128,14 +135,21 @@ class DatasetFormatter:
                 sample = json.loads(line.strip())
                 samples.append(sample)
         
-        # 创建Dataset
         dataset = Dataset.from_list(samples)
         
-        # Tokenize
+        # 缓存路径：{data_path 同目录}/cache/dpo_{stem}_max_length_{max_length}.arrow
+        cache_path = None
+        if use_cache and cache_dir:
+            Path(cache_dir).mkdir(parents=True, exist_ok=True)
+            stem = Path(data_path).stem
+            cache_path = str(Path(cache_dir) / f"dpo_{stem}_max_length{self.max_length}.arrow")
+        
         tokenized_dataset = dataset.map(
             tokenize_dpo_function,
             batched=True,
-            # remove_columns=dataset.column_names
+            cache_file_name=cache_path,
+            load_from_cache_file=use_cache and cache_path is not None,
+            num_proc=num_proc,
         )
         
         return tokenized_dataset
@@ -147,8 +161,20 @@ def create_sft_dataset(tokenizer, data_path, max_length=2048):
     return formatter.format_sft_dataset(data_path)
 
 
-def create_dpo_dataset(tokenizer, data_path, max_length=1024):
-    """创建DPO数据集"""
+def create_dpo_dataset(
+    tokenizer,
+    data_path: str,
+    max_length: int = 2048,
+    cache_dir: Optional[str] = None,
+    use_cache: bool = True,
+    num_proc: int = 1,
+) -> Dataset:
+    """创建DPO数据集。cache_dir 指定时，tokenize 结果会缓存到该目录，后续训练直接加载。"""
     formatter = DatasetFormatter(tokenizer, max_length)
-    return formatter.format_dpo_dataset(data_path)
+    return formatter.format_dpo_dataset(
+        data_path,
+        cache_dir=cache_dir,
+        use_cache=use_cache,
+        num_proc=num_proc,
+    )
 

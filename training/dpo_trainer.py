@@ -35,7 +35,7 @@ class SavePathCallback(TrainerCallback):
 
 
 class StepTimingCallback(TrainerCallback):
-    """每步完成后将耗时加入训练日志"""
+    """每步完成后将耗时加入训练日志，并同步 GPU 缓存以消除 DeepSpeed 警告"""
     def __init__(self):
         self._step_start = None
         self._last_step_duration = None
@@ -46,6 +46,12 @@ class StepTimingCallback(TrainerCallback):
     def on_step_end(self, args, state, control, **kwargs):
         if self._step_start is not None:
             self._last_step_duration = time.perf_counter() - self._step_start
+        # 同步各 rank 的 GPU 缓存，消除 "pytorch allocator cache flushes" 警告
+        try:
+            from deepspeed.accelerator import get_accelerator
+            get_accelerator().empty_cache()
+        except Exception:
+            pass
 
     def on_log(self, args, state, control, logs=None, **kwargs):
         """增强日志：epoch进度、步数进度（第一位）、每步耗时（放最后）"""
@@ -90,18 +96,23 @@ class DPOTrainerWrapper:
     
     def load_model_and_tokenizer(self, model_path: Optional[str] = None):
         """加载模型和tokenizer"""
-        logger.info("加载模型和tokenizer...")
+        is_main = int(os.environ.get("LOCAL_RANK", 0)) == 0
+        if is_main:
+            logger.info("加载模型和tokenizer...")
         
         # 确定torch数据类型
         if self.model_config.torch_dtype == "bfloat16" and torch.cuda.is_bf16_supported():
             torch_dtype = torch.bfloat16
-            logger.info("使用bfloat16精度")
+            if is_main:
+                logger.info("使用bfloat16精度")
         elif self.model_config.torch_dtype == "float16":
             torch_dtype = torch.float16
-            logger.info("使用float16精度")
+            if is_main:
+                logger.info("使用float16精度")
         else:
             torch_dtype = torch.float32
-            logger.info("使用float32精度")
+            if is_main:
+                logger.info("使用float32精度")
         
         # 加载tokenizer
         tokenizer_name = self.model_config.tokenizer_name or self.model_config.model_name
@@ -123,7 +134,7 @@ class DPOTrainerWrapper:
         # 加载模型（从SFT模型或基础模型）
         model_path = model_path or self.model_config.model_name
         
-        # Load the active model
+        # Load the active model (dtype 替代已弃用的 torch_dtype)
         self.model = AutoModelForCausalLM.from_pretrained(
             model_path,
             torch_dtype=torch_dtype,
@@ -136,18 +147,16 @@ class DPOTrainerWrapper:
         
         # Load the reference model for DeepSpeed ZeRO-3
         # 关键优化：将ref_model offload到CPU，避免OOM
-        # 因为ref_model在训练时不需要梯度，可以放在CPU上
-        logger.info("Loading reference model (offloaded to CPU to save GPU memory)...")
+        if is_main:
+            logger.info("Loading reference model (offloaded to CPU to save GPU memory)...")
         if self.config.deepspeed:
-            # 使用DeepSpeed时，ref_model可以offload到CPU
-            # DeepSpeed会自动处理CPU-GPU数据传输
-            ref_device_map = {"": "cpu"}  # 强制加载到CPU
-            logger.info("Reference model will be offloaded to CPU (DeepSpeed will handle transfers)")
-        else:
-            # 不使用DeepSpeed时，如果显存足够可以放在GPU
-            # 但为了安全，还是建议放在CPU
             ref_device_map = {"": "cpu"}
-            logger.info("Reference model offloaded to CPU to prevent OOM")
+            if is_main:
+                logger.info("Reference model will be offloaded to CPU (DeepSpeed will handle transfers)")
+        else:
+            ref_device_map = {"": "cpu"}
+            if is_main:
+                logger.info("Reference model offloaded to CPU to prevent OOM")
         
         self.ref_model = AutoModelForCausalLM.from_pretrained(
             model_path,
@@ -168,38 +177,53 @@ class DPOTrainerWrapper:
         # 检查Flash Attention可否导入
         if self.model_config.use_flash_attention:
             try:
-                # from flash_attn import flash_attn_qkvpacked_func
                 import flash_attn_interface
-                logger.info(f"Flash Attention 3 可用: {flash_attn_interface.__file__}")
+                if is_main:
+                    logger.info("Flash Attention 3 可用")
             except ImportError:
-                logger.warning("Flash Attention 3不可用，请从:/home/ubuntu/flash-attention/hopper/ 安装")
+                if is_main:
+                    logger.warning("Flash Attention 3不可用，请从:/home/ubuntu/flash-attention/hopper/ 安装")
         
         # 启用梯度检查点
         if self.model_config.gradient_checkpointing:
             self.model.gradient_checkpointing_enable()
-            logger.info("已启用梯度检查点")
+            if is_main:
+                logger.info("已启用梯度检查点")
         
-        logger.info(f"模型参数量: {self.model.num_parameters():,}")
+        if is_main:
+            logger.info(f"模型参数量: {self.model.num_parameters():,}")
         
         return self.model, self.tokenizer
     
-    def prepare_dataset(self, data_path: str) -> Dataset:
-        """准备DPO数据集"""
-        logger.info(f"准备DPO数据集: {data_path}")
+    def prepare_dataset(
+        self,
+        data_path: str,
+        cache_dir: Optional[str] = None,
+        use_cache: bool = True,
+        num_proc: int = 1,
+    ) -> Dataset:
+        """准备DPO数据集。cache_dir 指定时，tokenize 结果缓存，后续训练秒级加载。"""
+        if int(os.environ.get("LOCAL_RANK", 0)) == 0:
+            logger.info(f"准备DPO数据集: {data_path}" + (f"（缓存: {cache_dir}）" if cache_dir else ""))
         
         dataset = create_dpo_dataset(
             self.tokenizer,
             data_path,
-            max_length=self.config.max_length
+            max_length=self.config.max_length,
+            cache_dir=cache_dir,
+            use_cache=use_cache,
+            num_proc=num_proc,
         )
         
-        logger.info(f"数据集大小: {len(dataset)}")
+        if int(os.environ.get("LOCAL_RANK", 0)) == 0:
+            logger.info(f"数据集大小: {len(dataset)}")
         return dataset
     
     def train(self, train_dataset: Dataset, eval_dataset: Optional[Dataset] = None):
         """执行DPO训练"""
-        logger.info("开始DPO训练...")
-        # 打印训练参数与总步数计算公式（仅主进程）
+        if int(os.environ.get("LOCAL_RANK", 0)) == 0:
+            logger.info("开始DPO训练...")
+        # 打印训练参数概要（仅主进程）
         if int(os.environ.get("LOCAL_RANK", 0)) == 0:
             world_size = int(os.environ.get("WORLD_SIZE", 1))
             per_device = self.config.per_device_train_batch_size
@@ -207,16 +231,12 @@ class DPOTrainerWrapper:
             eff_batch = per_device * world_size * grad_accum
             steps_per_epoch = math.ceil(len(train_dataset) / eff_batch)
             total_steps_est = steps_per_epoch * self.config.num_train_epochs
-            logger.info("=" * 50 + " DPO 训练参数 " + "=" * 50)
-            for k, v in vars(self.config).items():
-                logger.info(f"  {k}: {v}")
-            logger.info("-" * 50)
-            logger.info("总步数计算公式:")
-            logger.info(f"  有效batch = per_device_batch_size × WORLD_SIZE × gradient_accumulation_steps")
-            logger.info(f"            = {per_device} × {world_size} × {grad_accum} = {eff_batch}")
-            logger.info(f"  每epoch步数 = ceil(样本数 / 有效batch) = ceil({len(train_dataset)} / {eff_batch}) = {steps_per_epoch}")
-            logger.info(f"  预估总步数 = 每epoch步数 × num_train_epochs = {steps_per_epoch} × {self.config.num_train_epochs} = {total_steps_est}")
-            logger.info("=" * 50)
+            logger.info(
+                f"DPO 参数: batch={per_device}×{world_size}×{grad_accum}={eff_batch} | "
+                f"总步数={total_steps_est} | logging_steps={self.config.logging_steps} | "
+                f"输出={self.config.output_dir}"
+            )
+            logger.info(f"训练指标将在 step {self.config.logging_steps} 首次打印")
         
         # 设置训练参数
         training_args = DPOConfig(
@@ -317,13 +337,29 @@ class DPOTrainerWrapper:
         
         return train_result
     
-    def run(self, data_path: str, model_path: Optional[str] = None):
-        """运行完整的DPO训练流程"""
+    def run(
+        self,
+        data_path: str,
+        model_path: Optional[str] = None,
+        cache_dir: Optional[str] = None,
+        use_cache: bool = True,
+        num_proc: int = 1,
+    ):
+        """运行完整的DPO训练流程。cache_dir 指定时，tokenize 结果会缓存，后续训练直接加载。"""
+        from pathlib import Path
+        
         # 1. 加载模型和tokenizer
         self.load_model_and_tokenizer(model_path)
         
-        # 2. 准备数据集
-        train_dataset = self.prepare_dataset(data_path)
+        # 2. 准备数据集（默认缓存在数据同目录下的 cache/）
+        if cache_dir is None:
+            cache_dir = str(Path(data_path).parent / "cache")
+        train_dataset = self.prepare_dataset(
+            data_path,
+            cache_dir=cache_dir,
+            use_cache=use_cache,
+            num_proc=num_proc,
+        )
         
         # 3. 训练
         train_result = self.train(train_dataset)
