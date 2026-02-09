@@ -77,8 +77,9 @@ def run(
     raw_data_dir: str = "raw_data",
     examples_output: str = "processed_training_data/examples.json",
     threshold: float = 0.85,
-    max_per_pair: int = 2,
-    parallel: int = 10,
+    max_per_pair: int = 1,
+    max_candidates_per_pair: int = 5,
+    parallel: int = 20,
     timeout: int = 180,
     api_key: str | None = None,
 ) -> dict:
@@ -98,10 +99,11 @@ def run(
 
     # 仅对失败组合的候选做 InceptBench 评分
     to_evaluate = []
+    max_cand = max_candidates_per_pair  # 避免闭包问题
     for key in failed:
         if key[0] == "unknown":
             continue
-        for c in by_key.get(key, [])[:10]:  # 每组合最多试 10 条
+        for c in by_key.get(key, [])[:max_cand]:  # 每组合最多试 N 条
             mcq = c.get("mcq_json", {})
             if not mcq:
                 continue
@@ -117,8 +119,11 @@ def run(
     evaluator = InceptBenchEvaluator(api_key=api_key, timeout=timeout)
     scored: list[tuple[tuple[str, str], dict, float]] = []
 
+    total = len(to_evaluate)
+    print(f"  [{parallel} 并行] 开始评分...")
+
     if parallel <= 1:
-        for key, c, norm in to_evaluate:
+        for idx, (key, c, norm) in enumerate(to_evaluate):
             r = evaluator.evaluate_mcq(norm)
             s = r.get("overall_score")
             if s is None and "evaluations" in r:
@@ -126,26 +131,41 @@ def run(
                 s = (ev.get("inceptbench_new_evaluation") or {}).get("overall", {}).get("score")
             if isinstance(s, (int, float)):
                 scored.append((key, c, float(s)))
+            print(f"  [{idx + 1}/{total}] 题{idx + 1}: score={s:.2f}" if isinstance(s, (int, float)) else f"  [{idx + 1}/{total}] 题{idx + 1}: error")
     else:
-        def _eval(item):
-            key, c, norm = item
-            r = evaluator.evaluate_mcq(norm)
-            s = r.get("overall_score")
-            if s is None and "evaluations" in r:
-                ev = next(iter(r.get("evaluations", {}).values()), {})
-                s = (ev.get("inceptbench_new_evaluation") or {}).get("overall", {}).get("score")
-            return (key, c, float(s)) if isinstance(s, (int, float)) else None
+        import threading
+        scored_lock = threading.Lock()
+        done_count = [0]  # 用 list 以便闭包修改
+
+        def _eval(item_with_idx):
+            idx, (key, c, norm) = item_with_idx
+            try:
+                r = evaluator.evaluate_mcq(norm)
+                s = r.get("overall_score")
+                if s is None and "evaluations" in r:
+                    ev = next(iter(r.get("evaluations", {}).values()), {})
+                    s = (ev.get("inceptbench_new_evaluation") or {}).get("overall", {}).get("score")
+                return (idx, key, c, float(s) if isinstance(s, (int, float)) else None)
+            except Exception as e:
+                return (idx, key, c, None)
 
         with ThreadPoolExecutor(max_workers=parallel) as ex:
-            futures = {ex.submit(_eval, x): x for x in to_evaluate}
-            done = 0
+            futures = {ex.submit(_eval, (i, x)): i for i, x in enumerate(to_evaluate)}
+            results_by_idx = {}
             for fut in as_completed(futures):
-                v = fut.result()
-                if v:
-                    scored.append(v)
-                done += 1
-                if done % 20 == 0 or done == len(to_evaluate):
-                    print(f"  已评分 {done}/{len(to_evaluate)}")
+                i, key, c, s = fut.result()
+                results_by_idx[i] = (key, c, s)
+                with scored_lock:
+                    done_count[0] += 1
+                    d = done_count[0]
+                    status = f"score={s:.2f}" if s is not None else "error"
+                    print(f"  [{d}/{total}] 题{i + 1}: {status}")
+
+        for i in range(total):
+            if i in results_by_idx:
+                key, c, s = results_by_idx[i]
+                if s is not None:
+                    scored.append((key, c, s))
 
     # 每个 (standard,difficulty) 保留 1-2 条 score >= threshold
     kept_by_key: dict[tuple[str, str], list[dict]] = defaultdict(list)
