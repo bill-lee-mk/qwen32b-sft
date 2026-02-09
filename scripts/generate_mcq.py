@@ -285,6 +285,29 @@ def main():
             with open(out_path, "w", encoding="utf-8") as f:
                 json.dump(results, f, ensure_ascii=False, indent=2)
         print(f"已保存到: {out_path}")
+
+        # 方案 B：生成后自动校验
+        try:
+            from scripts.validate_mcq import run as validate_run
+            report = validate_run(str(out_path), output_report=None)
+            if report["failed"] > 0:
+                print(f"\n[校验] 总数: {report['total']}, 通过: {report['passed']}, 有问题: {report['failed']}")
+                for x in report["issues"][:3]:
+                    print(f"  [{x['index']}] {x['id']} ({x['standard']}): {x['issues']}")
+            else:
+                print(f"\n[校验] 全部通过 ({report['total']} 题)")
+        except ImportError:
+            import subprocess
+            r = subprocess.run(
+                [sys.executable, str(PROJECT_ROOT / "main.py"), "validate-mcq", "-i", str(out_path)],
+                cwd=str(PROJECT_ROOT),
+                capture_output=True,
+                text=True,
+            )
+            if r.returncode != 0 and r.stdout:
+                print(f"\n[校验] {r.stdout.strip()}")
+        except Exception as e:
+            print(f"\n[校验] 校验跳过: {e}")
     else:
         print(json.dumps(results[0] if len(results) == 1 else results, ensure_ascii=False, indent=2))
 

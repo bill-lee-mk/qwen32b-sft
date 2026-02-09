@@ -99,6 +99,22 @@ def main():
     eval_parser.add_argument("--debug", action="store_true", help="打印请求 payload，便于排查 500 错误")
     eval_parser.add_argument("--timeout", type=int, default=180, help="单题超时秒数（默认 180，约 2 分钟/题）")
     eval_parser.add_argument("--parallel", type=int, default=20, help="并行提交数（一次只能提交一题，默认 20 进程并行）")
+
+    # 预提交 MCQ 校验（提升 InceptBench 通过率）
+    validate_parser = subparsers.add_parser("validate-mcq", help="预提交 MCQ 校验")
+    validate_parser.add_argument("--input", "-i", required=True, help="MCQ JSON 文件路径")
+    validate_parser.add_argument("--output", "-o", help="校验报告 JSON 路径")
+
+    # 闭环：失败题 → raw_data 候选 InceptBench 评分 → 保留 ≥0.85 作 few-shot → 更新 examples
+    improve_parser = subparsers.add_parser("improve-examples", help="根据评估结果更新 few-shot 示例")
+    improve_parser.add_argument("--results", required=True, help="评估结果 JSON（含 scores）")
+    improve_parser.add_argument("--mcqs", required=True, help="被评估的 MCQ JSON")
+    improve_parser.add_argument("--raw-data-dir", default="raw_data", help="raw_data 目录")
+    improve_parser.add_argument("--output", default="processed_training_data/examples.json", help="输出 examples 路径")
+    improve_parser.add_argument("--threshold", type=float, default=0.85, help="通过分数阈值")
+    improve_parser.add_argument("--max-per-pair", type=int, default=2, help="每个 (standard,difficulty) 保留示例数")
+    improve_parser.add_argument("--parallel", type=int, default=10, help="InceptBench 并行评分数")
+    improve_parser.add_argument("--timeout", type=int, default=180, help="单题超时秒数")
     
     args = parser.parse_args()
     
@@ -210,6 +226,44 @@ def main():
         from api_service.fastapi_app import run_api_server
         run_api_server(host=args.host, port=args.port, model_path=args.model)
         
+    elif args.command == "validate-mcq":
+        from scripts.validate_mcq import run as validate_mcq_run
+        project_root = os.path.dirname(os.path.abspath(__file__))
+        inp = args.input
+        if not os.path.isabs(inp):
+            inp = os.path.join(project_root, inp)
+        report = validate_mcq_run(inp, output_report=getattr(args, 'output', None))
+        print(f"总数: {report['total']}, 通过: {report['passed']}, 有问题: {report['failed']}")
+        if report["issues"]:
+            print("\n问题样本（前 5 条）:")
+            for x in report["issues"][:5]:
+                print(f"  [{x['index']}] {x['id']} ({x['standard']}): {x['issues']}")
+        sys.exit(0 if report["failed"] == 0 else 1)
+
+    elif args.command == "improve-examples":
+        from scripts.improve_examples import run as improve_examples_run
+        project_root = os.path.dirname(os.path.abspath(__file__))
+        results = args.results if os.path.isabs(args.results) else os.path.join(project_root, args.results)
+        mcqs = args.mcqs if os.path.isabs(args.mcqs) else os.path.join(project_root, args.mcqs)
+        raw_dir = getattr(args, "raw_data_dir", "raw_data")
+        raw_dir = raw_dir if os.path.isabs(raw_dir) else os.path.join(project_root, raw_dir)
+        out = getattr(args, "output", "processed_training_data/examples.json")
+        out = out if os.path.isabs(out) else os.path.join(project_root, out)
+        report = improve_examples_run(
+            results_path=results,
+            mcqs_path=mcqs,
+            raw_data_dir=raw_dir,
+            examples_output=out,
+            threshold=args.threshold,
+            max_per_pair=args.max_per_pair,
+            parallel=args.parallel,
+            timeout=args.timeout,
+        )
+        if "error" in report:
+            print(f"错误: {report['error']}")
+            sys.exit(1)
+        print(f"闭环完成: 失败组合 {report.get('failed_pairs', 0)} 个, 评分 {report.get('evaluated', 0)} 条, 保留 {report.get('kept', 0)} 条, examples 共 {report.get('examples_count', 0)} 条")
+
     elif args.command == "evaluate":
         from evaluation.inceptbench_client import InceptBenchEvaluator, to_inceptbench_payload
         
