@@ -142,7 +142,7 @@ class DatasetFormatter:
         if use_cache and cache_dir:
             Path(cache_dir).mkdir(parents=True, exist_ok=True)
             stem = Path(data_path).stem
-            cache_path = str(Path(cache_dir) / f"dpo_{stem}_max_length{self.max_length}.arrow")
+            cache_path = str(Path(cache_dir) / f"dpo_{stem}_max_length_{self.max_length}.arrow")
         
         tokenized_dataset = dataset.map(
             tokenize_dpo_function,
