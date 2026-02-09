@@ -140,6 +140,31 @@ def run(
             s = (ev.get("inceptbench_new_evaluation") or {}).get("overall", {}).get("score")
         return float(s) if isinstance(s, (int, float)) else None
 
+    def _fmt_api_response(r) -> str:
+        """score=0 时格式化为简短摘要，默认打印在日志后面"""
+        if not r:
+            return ""
+        parts = []
+        if r.get("status"):
+            parts.append(f"status={r.get('status')}")
+        if r.get("message"):
+            parts.append(f"msg={str(r.get('message'))[:100]}")
+        if r.get("errors"):
+            parts.append(f"errors={r.get('errors')}")
+        if "evaluations" in r:
+            for k, v in list(r["evaluations"].items())[:1]:
+                inc = (v or {}).get("inceptbench_new_evaluation") or {}
+                ov = inc.get("overall") or {}
+                if ov:
+                    score = ov.get("score")
+                    reason = (ov.get("internal_reasoning") or ov.get("reasoning") or "")[:80]
+                    parts.append(f"score={score}" + (f" reason={reason}..." if reason else ""))
+                if inc.get("overall_rating"):
+                    parts.append(f"rating={inc.get('overall_rating')}")
+        if "response_body" in r and r.get("response_body"):
+            parts.append(f"body={str(r.get('response_body'))[:80]}...")
+        return " | API: " + " ".join(str(p) for p in parts) if parts else ""
+
     import threading
     lock = threading.Lock()
     done_total = [0]
@@ -173,9 +198,9 @@ def run(
             try:
                 r = evaluator.evaluate_mcq(norm)
                 s = _extract_score(r)
-                return (key, c, s, time.time() - t0)
-            except Exception:
-                return (key, c, None, time.time() - t0)
+                return (key, c, s, time.time() - t0, r)
+            except Exception as e:
+                return (key, c, None, time.time() - t0, {"status": "error", "message": str(e)})
 
         if parallel <= 1:
             for key, c, norm in this_round:
@@ -189,20 +214,21 @@ def run(
                         kept_by_key[key].append((c, s))
                         if key in pending_by_key:
                             del pending_by_key[key]
-                    with lock:
-                        done_total[0] += 1
-                        d = done_total[0]
-                        status = f"score={s:.2f}" if s is not None else "error"
-                        ord_num = round_num[0]
-                        total_k = pair_total_count.get(key, 0)
-                        ord_str = f" 该组合第{ord_num}/{total_k}" if total_k else ""
-                        stop_str = " → 达标，跳过剩余" if s is not None and s >= threshold else ""
-                        print(f"  [{d}] {status} {_fmt_key(key)}{ord_str}{stop_str} 耗时 {elapsed:.1f}s")
+                with lock:
+                    done_total[0] += 1
+                    d = done_total[0]
+                    status = f"score={s:.2f}" if s is not None else "error"
+                    ord_num = round_num[0]
+                    total_k = pair_total_count.get(key, 0)
+                    ord_str = f" 该组合第{ord_num}/{total_k}" if total_k else ""
+                    stop_str = " → 达标，跳过剩余" if s is not None and s >= threshold else ""
+                    api_suffix = _fmt_api_response(r) if (s is None or (isinstance(s, (int, float)) and float(s) == 0)) else ""
+                    print(f"  [{d}] {status} {_fmt_key(key)}{ord_str}{stop_str} 耗时 {elapsed:.1f}s{api_suffix}")
         else:
             with ThreadPoolExecutor(max_workers=parallel) as ex:
                 futures = {ex.submit(_eval, x): x for x in this_round}
                 for fut in as_completed(futures):
-                    key, c, s, elapsed = fut.result()
+                    key, c, s, elapsed, r = fut.result()
                     if s is not None:
                         scored.append((key, c, s))
                         if s >= threshold:
@@ -218,7 +244,8 @@ def run(
                         total_k = pair_total_count.get(key, 0)
                         ord_str = f" 该组合第{ord_num}/{total_k}" if total_k else ""
                         stop_str = " → 达标，跳过剩余" if s is not None and s >= threshold else ""
-                        print(f"  [{d}] {status} {_fmt_key(key)}{ord_str}{stop_str} 耗时 {elapsed:.1f}s")
+                        api_suffix = _fmt_api_response(r) if (s is None or (isinstance(s, (int, float)) and float(s) == 0)) else ""
+                        print(f"  [{d}] {status} {_fmt_key(key)}{ord_str}{stop_str} 耗时 {elapsed:.1f}s{api_suffix}")
 
     # 每个 (standard,difficulty) 保留 1-2 条，按分数排序后截断
     for key in kept_by_key:
