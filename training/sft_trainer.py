@@ -89,18 +89,22 @@ class SFTTrainer:
     
     def load_model_and_tokenizer(self):
         """加载模型和tokenizer"""
-        logger.info("加载模型和tokenizer...")
+        if int(os.environ.get("LOCAL_RANK", 0)) == 0:
+            logger.info("加载模型和 tokenizer")
         
         # 确定torch数据类型
         if self.model_config.torch_dtype == "bfloat16" and torch.cuda.is_bf16_supported():
             torch_dtype = torch.bfloat16
-            logger.info("使用bfloat16精度")
+            if int(os.environ.get("LOCAL_RANK", 0)) == 0:
+                logger.info("使用 bfloat16")
         elif self.model_config.torch_dtype == "float16":
             torch_dtype = torch.float16
-            logger.info("使用float16精度")
+            if int(os.environ.get("LOCAL_RANK", 0)) == 0:
+                logger.info("使用 float16")
         else:
             torch_dtype = torch.float32
-            logger.info("使用float32精度")
+            if int(os.environ.get("LOCAL_RANK", 0)) == 0:
+                logger.info("使用 float32")
         
         # 加载tokenizer
         tokenizer_name = self.model_config.tokenizer_name or self.model_config.model_name
@@ -123,7 +127,8 @@ class SFTTrainer:
         }
         
         # 加载模型，启用Flash Attention 3
-        logger.info("启用Flash Attention 3...")
+        if int(os.environ.get("LOCAL_RANK", 0)) == 0:
+            logger.info("启用 Flash Attention 3")
         self.model = AutoModelForCausalLM.from_pretrained(
             self.model_config.model_name,
             torch_dtype=torch_dtype,
@@ -136,40 +141,36 @@ class SFTTrainer:
         # 检查Flash Attention可否导入
         if self.model_config.use_flash_attention:
             try:
-                # from flash_attn import flash_attn_qkvpacked_func
                 import flash_attn_interface
-                logger.info(f"Flash Attention 3 可用: {flash_attn_interface.__file__}")
+                if int(os.environ.get("LOCAL_RANK", 0)) == 0:
+                    logger.info("Flash Attention 3 可用")
             except ImportError:
-                logger.warning("Flash Attention 3不可用，请从:/home/ubuntu/flash-attention/hopper/ 安装")
+                if int(os.environ.get("LOCAL_RANK", 0)) == 0:
+                    logger.warning("Flash Attention 3 不可用")
         
         
-        # 启用梯度检查点
         if self.model_config.gradient_checkpointing:
             self.model.gradient_checkpointing_enable()
-            logger.info("已启用梯度检查点")
-        
-        
-        
-        logger.info(f"模型参数量: {self.model.num_parameters():,}")
+        if int(os.environ.get("LOCAL_RANK", 0)) == 0:
+            logger.info(f"模型参数量: {self.model.num_parameters():,}")
         
         return self.model, self.tokenizer
     
     def prepare_dataset(self, data_path: str) -> Dataset:
         """准备训练数据集"""
-        logger.info(f"准备SFT数据集: {data_path}")
-        
         dataset = create_sft_dataset(
             self.tokenizer,
             data_path,
             max_length=getattr(self.config, "max_length", 2048)
         )
-        
-        logger.info(f"数据集大小: {len(dataset)}")
+        if int(os.environ.get("LOCAL_RANK", 0)) == 0:
+            logger.info(f"SFT 数据集: {data_path}, 样本数: {len(dataset)}")
         return dataset
     
     def train(self, train_dataset: Dataset, eval_dataset: Optional[Dataset] = None):
         """执行训练"""
-        logger.info("开始SFT训练...")
+        if int(os.environ.get("LOCAL_RANK", 0)) == 0:
+            logger.info("SFT 训练开始")
         # 打印训练参数与总步数计算公式（仅主进程）
         if int(os.environ.get("LOCAL_RANK", 0)) == 0:
             world_size = int(os.environ.get("WORLD_SIZE", 1))
@@ -241,7 +242,8 @@ class SFTTrainer:
         
         # 保存最终模型（会保存到output_dir，而不是checkpoint目录）
         final_path = os.path.abspath(self.config.output_dir)
-        logger.info(f"Writing final model shards to: {final_path}")
+        if int(os.environ.get("LOCAL_RANK", 0)) == 0:
+            logger.info(f"Writing final model shards to: {final_path}")
         self.trainer.save_model()
         self.trainer.save_state()
         
@@ -250,29 +252,15 @@ class SFTTrainer:
         self.trainer.log_metrics("train", metrics)
         self.trainer.save_metrics("train", metrics)
         
-        # 打印总步数与每步耗时（仅主进程）
+        # 训练结束摘要（仅主进程打印一次）
         if int(os.environ.get("LOCAL_RANK", 0)) == 0:
             total_steps = self.trainer.state.global_step
             train_runtime = metrics.get("train_runtime", 0)
             time_per_step = train_runtime / total_steps if total_steps > 0 else 0
-            logger.info("=" * 50 + " SFT 训练统计 " + "=" * 50)
-            logger.info(f"  总步数: {total_steps}")
-            logger.info(f"  总耗时: {train_runtime:.1f} 秒 ({train_runtime/3600:.2f} 小时)")
-            logger.info(f"  每步平均耗时: {time_per_step:.3f} 秒")
-            logger.info("=" * 50)
-        
-        # 检查checkpoint目录（用于信息提示）
-        # 注意：如果save_total_limit=2，旧的checkpoint应该已经被自动清理
-        # checkpoint目录包含训练中间状态，可用于恢复训练
-        import glob
-        checkpoint_dirs = glob.glob(os.path.join(self.config.output_dir, "checkpoint-*"))
-        if checkpoint_dirs:
-            logger.info(f"发现 {len(checkpoint_dirs)} 个checkpoint目录")
-            logger.info("最终模型已保存到output_dir，checkpoint目录可保留用于恢复训练，或手动删除")
-        
-        logger.info(f"SFT训练完成! 最终模型保存在: {self.config.output_dir}")
-        logger.info(f"注意：checkpoint目录（如checkpoint-2000）包含训练中间状态，用于恢复训练")
-        logger.info(f"用于后续DPO训练的应该是: {self.config.output_dir}（最终模型）")
+            logger.info(
+                f"SFT 完成 | 步数: {total_steps} | 耗时: {train_runtime/3600:.2f}h | "
+                f"每步: {time_per_step:.2f}s | 输出: {self.config.output_dir}"
+            )
         
         return train_result
     

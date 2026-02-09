@@ -296,25 +296,20 @@ class DPOTrainerWrapper:
             traceback.print_exc()
             raise
         
-        # 打印总步数与每步耗时（仅主进程）
-        if int(os.environ.get("LOCAL_RANK", 0)) == 0:
-            metrics = train_result.metrics
-            total_steps = self.trainer.state.global_step
-            train_runtime = metrics.get("train_runtime", 0)
-            time_per_step = train_runtime / total_steps if total_steps > 0 else 0
-            logger.info("=" * 50 + " DPO 训练统计 " + "=" * 50)
-            logger.info(f"  总步数: {total_steps}")
-            logger.info(f"  总耗时: {train_runtime:.1f} 秒 ({train_runtime/3600:.2f} 小时)")
-            logger.info(f"  每步平均耗时: {time_per_step:.3f} 秒")
-            logger.info("=" * 50)
-
         # 保存模型
         try:
             final_path = os.path.abspath(self.config.output_dir)
-            logger.info(f"Writing final model shards to: {final_path}")
+            if int(os.environ.get("LOCAL_RANK", 0)) == 0:
+                metrics = train_result.metrics
+                total_steps = self.trainer.state.global_step
+                train_runtime = metrics.get("train_runtime", 0)
+                time_per_step = train_runtime / total_steps if total_steps > 0 else 0
+                logger.info(
+                    f"DPO 完成 | 步数: {total_steps} | 耗时: {train_runtime/3600:.2f}h | "
+                    f"每步: {time_per_step:.2f}s | 输出: {self.config.output_dir}"
+                )
             self.trainer.save_model()
             self.trainer.save_state()
-            logger.info(f"DPO训练完成! 模型保存在: {self.config.output_dir}")
         except Exception as e:
             logger.error(f"保存模型时出错: {e}")
             logger.warning("训练已完成，但模型保存失败，请检查checkpoint目录")

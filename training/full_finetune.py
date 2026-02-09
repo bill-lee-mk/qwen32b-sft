@@ -56,10 +56,8 @@ class FullParameterFinetuner:
             logger.info("SFT训练已禁用")
             return None
         
-        logger.info("=" * 50)
-        logger.info("开始SFT训练阶段")
-        logger.info("=" * 50)
-        
+        if int(os.environ.get("LOCAL_RANK", 0)) == 0:
+            logger.info("SFT 训练阶段")
         try:
             # 初始化SFT训练器
             sft_trainer = SFTTrainer(self.config.sft_config, self.config.model_config)
@@ -67,9 +65,9 @@ class FullParameterFinetuner:
             # 运行SFT训练
             sft_result = sft_trainer.run(self.config.sft_data_path)
             
-            # 返回SFT模型路径
             sft_model_path = self.config.sft_config.output_dir
-            logger.info(f"SFT训练完成，模型路径: {sft_model_path}")
+            if int(os.environ.get("LOCAL_RANK", 0)) == 0:
+                logger.info(f"SFT 完成，输出: {sft_model_path}")
             
             return sft_model_path
             
@@ -85,10 +83,8 @@ class FullParameterFinetuner:
             logger.info("DPO训练已禁用")
             return None
         
-        logger.info("=" * 50)
-        logger.info("开始DPO训练阶段")
-        logger.info("=" * 50)
-        
+        if int(os.environ.get("LOCAL_RANK", 0)) == 0:
+            logger.info("DPO 训练阶段")
         try:
             # 初始化DPO训练器
             dpo_trainer = DPOTrainerWrapper(self.config.dpo_config, self.config.model_config)
@@ -97,9 +93,9 @@ class FullParameterFinetuner:
             model_path = sft_model_path or self.config.model_config.model_name
             dpo_result = dpo_trainer.run(self.config.dpo_data_path, model_path)
             
-            # 返回DPO模型路径
             dpo_model_path = self.config.dpo_config.output_dir
-            logger.info(f"DPO训练完成，模型路径: {dpo_model_path}")
+            if int(os.environ.get("LOCAL_RANK", 0)) == 0:
+                logger.info(f"DPO 完成，输出: {dpo_model_path}")
             
             return dpo_model_path
             
@@ -264,31 +260,30 @@ def main(args=None):
         elif dpo_only:
             config.dpo_data_path = data_path
 
-    # 3. 根据模式分支处理
+    # 3. 根据模式分支处理（仅主进程打印，避免多 GPU 重复）
+    def _log_main(msg: str):
+        if int(os.environ.get("LOCAL_RANK", 0)) == 0:
+            print(msg)
 
     if sft_only:
-        # 只跑 SFT
-        print("开始 SFT 训练...")
+        _log_main("SFT 训练开始")
         sft_trainer = SFTTrainer(config.sft_config, config.model_config)
         sft_trainer.run(config.sft_data_path)
-        print("SFT 训练完成!")
+        _log_main(f"SFT 完成，模型: {config.sft_config.output_dir}")
         return
 
     if dpo_only:
-        # 只跑 DPO
-        print("开始 DPO 训练...")
+        _log_main("DPO 训练开始")
         dpo_trainer = DPOTrainerWrapper(config.dpo_config, config.model_config)
-        # 如果提供了 --sft-model，就在该 SFT 模型基础上做 DPO；否则从 base model 开始
         model_path = getattr(args, 'sft_model', None) or config.model_config.model_name
         dpo_trainer.run(config.dpo_data_path, model_path)
-        print("DPO 训练完成!")
+        _log_main(f"DPO 完成，模型: {config.dpo_config.output_dir}")
         return
 
-    # 默认：跑完整流水线 SFT + DPO + 最终模型导出
-    print("开始完整训练流水线（SFT + DPO）...")
+    _log_main("训练流水线开始（SFT + DPO）")
     finetuner = FullParameterFinetuner(config)
     finetuner.run()
-    print("训练流水线完成!")
+    _log_main("训练流水线完成")
 
 
 if __name__ == "__main__":
