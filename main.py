@@ -114,7 +114,7 @@ def main():
     improve_parser.add_argument("--threshold", type=float, default=0.85, help="通过分数阈值")
     improve_parser.add_argument("--max-per-pair", type=int, default=1, help="每个 (standard,difficulty) 保留示例数")
     improve_parser.add_argument("--max-candidates-per-pair", type=int, default=0, help="每个组合最多试评的候选数，0=不限制取全部（增加命中率）")
-    improve_parser.add_argument("--parallel", type=int, default=50, help="InceptBench 并行评分数（瓶颈多为 API 端，可尝试 50–100）")
+    improve_parser.add_argument("--parallel", type=int, default=20, help="InceptBench 并行评分数")
     improve_parser.add_argument("--timeout", type=int, default=180, help="单题超时秒数")
     
     args = parser.parse_args()
