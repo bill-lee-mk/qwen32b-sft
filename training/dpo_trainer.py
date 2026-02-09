@@ -265,6 +265,7 @@ class DPOTrainerWrapper:
             ddp_timeout=7200, # Increase to 2 hours (ZeRO-3 offload需要更长时间)
             dataloader_pin_memory=False,  # 禁用pin_memory，减少显存占用
             dataloader_persistent_workers=False,  # 禁用持久化workers，避免死锁
+            disable_tqdm=False,  # 保留训练总进度条，便于一眼看出进度
         )
         
         # 打印实际用到的训练参数（与 SFT 一致，仅主进程）
