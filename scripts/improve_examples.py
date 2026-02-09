@@ -8,6 +8,7 @@
 """
 import json
 import sys
+import time
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
@@ -119,22 +120,42 @@ def run(
 
     print(f"待评分候选: {len(to_evaluate)} 条")
 
+    # 每个 (standard,difficulty) 在 to_evaluate 中的索引列表，用于显示「该组合第 N/总数」
+    key_to_indices: dict[tuple[str, str], list[int]] = defaultdict(list)
+    for idx, (key, _, _) in enumerate(to_evaluate):
+        key_to_indices[key].append(idx)
+
     evaluator = InceptBenchEvaluator(api_key=api_key, timeout=timeout)
     scored: list[tuple[tuple[str, str], dict, float]] = []
 
     total = len(to_evaluate)
     print(f"  [{parallel} 并行] 开始评分...")
 
+    def _fmt_key(key):
+        std_short = key[0].replace("CCSS.ELA-LITERACY.", "") if key[0] else "?"
+        return f"({std_short}, {key[1]})"
+
+    def _ordinal_str(idx, key):
+        indices = key_to_indices.get(key, [])
+        if not indices:
+            return ""
+        pos = indices.index(idx) + 1 if idx in indices else 0
+        return f" 该组合第{pos}/{len(indices)}" if pos else ""
+
     if parallel <= 1:
         for idx, (key, c, norm) in enumerate(to_evaluate):
+            t0 = time.time()
             r = evaluator.evaluate_mcq(norm)
+            elapsed = time.time() - t0
             s = r.get("overall_score")
             if s is None and "evaluations" in r:
                 ev = next(iter(r.get("evaluations", {}).values()), {})
                 s = (ev.get("inceptbench_new_evaluation") or {}).get("overall", {}).get("score")
             if isinstance(s, (int, float)):
                 scored.append((key, c, float(s)))
-            print(f"  [{idx + 1}/{total}] 题{idx + 1}: score={s:.2f}" if isinstance(s, (int, float)) else f"  [{idx + 1}/{total}] 题{idx + 1}: error")
+            status = f"score={s:.2f}" if isinstance(s, (int, float)) else "error"
+            ord_str = _ordinal_str(idx, key)
+            print(f"  [{idx + 1}/{total}] 题{idx + 1}: {status} {_fmt_key(key)}{ord_str} 耗时 {elapsed:.1f}s")
     else:
         import threading
         scored_lock = threading.Lock()
@@ -142,27 +163,29 @@ def run(
 
         def _eval(item_with_idx):
             idx, (key, c, norm) = item_with_idx
+            t0 = time.time()
             try:
                 r = evaluator.evaluate_mcq(norm)
                 s = r.get("overall_score")
                 if s is None and "evaluations" in r:
                     ev = next(iter(r.get("evaluations", {}).values()), {})
                     s = (ev.get("inceptbench_new_evaluation") or {}).get("overall", {}).get("score")
-                return (idx, key, c, float(s) if isinstance(s, (int, float)) else None)
-            except Exception as e:
-                return (idx, key, c, None)
+                return (idx, key, c, float(s) if isinstance(s, (int, float)) else None, time.time() - t0)
+            except Exception:
+                return (idx, key, c, None, time.time() - t0)
 
         with ThreadPoolExecutor(max_workers=parallel) as ex:
             futures = {ex.submit(_eval, (i, x)): i for i, x in enumerate(to_evaluate)}
             results_by_idx = {}
             for fut in as_completed(futures):
-                i, key, c, s = fut.result()
+                i, key, c, s, elapsed = fut.result()
                 results_by_idx[i] = (key, c, s)
                 with scored_lock:
                     done_count[0] += 1
                     d = done_count[0]
                     status = f"score={s:.2f}" if s is not None else "error"
-                    print(f"  [{d}/{total}] 题{i + 1}: {status}")
+                    ord_str = _ordinal_str(i, key)
+                    print(f"  [{d}/{total}] 题{i + 1}: {status} {_fmt_key(key)}{ord_str} 耗时 {elapsed:.1f}s")
 
         for i in range(total):
             if i in results_by_idx:
