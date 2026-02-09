@@ -113,7 +113,7 @@ def main():
     improve_parser.add_argument("--output", default="processed_training_data/examples.json", help="输出 examples 路径")
     improve_parser.add_argument("--threshold", type=float, default=0.85, help="通过分数阈值")
     improve_parser.add_argument("--max-per-pair", type=int, default=1, help="每个 (standard,difficulty) 保留示例数")
-    improve_parser.add_argument("--max-candidates-per-pair", type=int, default=5, help="每个组合最多试评的候选数（减少可加快）")
+    improve_parser.add_argument("--max-candidates-per-pair", type=int, default=0, help="每个组合最多试评的候选数，0=不限制取全部（增加命中率）")
     improve_parser.add_argument("--parallel", type=int, default=20, help="InceptBench 并行评分数")
     improve_parser.add_argument("--timeout", type=int, default=180, help="单题超时秒数")
     
@@ -257,7 +257,7 @@ def main():
             examples_output=out,
             threshold=args.threshold,
             max_per_pair=args.max_per_pair,
-            max_candidates_per_pair=getattr(args, "max_candidates_per_pair", 5),
+            max_candidates_per_pair=getattr(args, "max_candidates_per_pair", 0),
             parallel=args.parallel,
             timeout=args.timeout,
         )

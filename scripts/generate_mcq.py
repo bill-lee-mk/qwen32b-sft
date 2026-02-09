@@ -86,6 +86,11 @@ def parse_mcq(text: str) -> dict | None:
     return obj if ok else None
 
 
+def _filter_examples_for_standard_difficulty(examples: list, standard: str, difficulty: str) -> list:
+    """仅保留与当前 (standard, difficulty) 匹配的示例，避免 prompt 超出 64K 上下文"""
+    return [e for e in examples if e.get("standard") == standard and e.get("difficulty") == difficulty]
+
+
 def _generate_one(
     standard: str,
     difficulty: str,
@@ -98,11 +103,12 @@ def _generate_one(
     max_retries: int = 3,
 ) -> dict | None:
     """生成单条 MCQ，供多线程调用。遇 429 自动重试。"""
+    filtered = _filter_examples_for_standard_difficulty(examples, standard, difficulty)
     system, user = build_full_prompt(
         grade=grade,
         standard=standard,
         difficulty=difficulty,
-        examples=examples,
+        examples=filtered,
         subject="ELA",
     )
     messages = [{"role": "system", "content": system}, {"role": "user", "content": user}]
@@ -239,11 +245,12 @@ def main():
             sys.exit(1)
     else:
         # 单参数模式（原有逻辑）
+        filtered = _filter_examples_for_standard_difficulty(examples, args.standard, args.difficulty)
         system, user = build_full_prompt(
             grade=args.grade,
             standard=args.standard,
             difficulty=args.difficulty,
-            examples=examples,
+            examples=filtered,
             include_think_chain=args.include_think_chain,
         )
 

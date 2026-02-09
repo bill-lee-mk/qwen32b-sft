@@ -78,7 +78,7 @@ def run(
     examples_output: str = "processed_training_data/examples.json",
     threshold: float = 0.85,
     max_per_pair: int = 1,
-    max_candidates_per_pair: int = 5,
+    max_candidates_per_pair: int = 0,
     parallel: int = 20,
     timeout: int = 180,
     api_key: str | None = None,
@@ -98,12 +98,15 @@ def run(
     print(f"raw_data 中 (standard,difficulty) 组合: {len(by_key)} 个")
 
     # 仅对失败组合的候选做 InceptBench 评分
+    # max_candidates_per_pair=0 表示不限制，取 raw_data 中该组合的全部候选
     to_evaluate = []
-    max_cand = max_candidates_per_pair  # 避免闭包问题
+    max_cand = max_candidates_per_pair
     for key in failed:
         if key[0] == "unknown":
             continue
-        for c in by_key.get(key, [])[:max_cand]:  # 每组合最多试 N 条
+        candidates = by_key.get(key, [])
+        slice_end = len(candidates) if max_cand <= 0 else min(max_cand, len(candidates))
+        for c in candidates[:slice_end]:
             mcq = c.get("mcq_json", {})
             if not mcq:
                 continue
@@ -176,7 +179,11 @@ def run(
         kept_by_key[key].sort(key=lambda x: -x[1])
         kept_by_key[key] = [c for c, _ in kept_by_key[key][:max_per_pair]]
 
-    print(f"达标 (≥{threshold}) 的示例: {sum(len(v) for v in kept_by_key.values())} 条")
+    kept_count = sum(len(v) for v in kept_by_key.values())
+    print(f"达标 (≥{threshold}) 的示例: {kept_count} 条")
+    no_pass = failed - set(kept_by_key.keys())
+    if no_pass:
+        print(f"未找到达标候选的组合: {len(no_pass)} 个（保留原有示例或零示例）")
 
     # 加载现有 examples，用新达标项替换失败组合的示例
     examples_path = Path(examples_output)
