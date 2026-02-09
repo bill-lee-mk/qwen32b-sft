@@ -10,8 +10,13 @@
 docs/
 !docs/.gitignore
 
+# 忽略数据文件，保留目录与 .gitignore
 processed_training_data/*
 !processed_training_data/
+!processed_training_data/.gitignore
+# 保留 cache 空目录结构（.gitkeep），便于 git pull 后直接使用
+!processed_training_data/cache/
+!processed_training_data/cache/.gitkeep
 
 # 模型文件 - 在 models/.gitignore 中更详细配置
 models/*.bin

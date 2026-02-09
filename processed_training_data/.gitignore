@@ -1,5 +1,9 @@
-# 忽略此目录下所有文件
+# 忽略此目录下所有数据文件
 *
-# 但不忽略目录本身
+# 保留目录结构
 !*/
 !.gitignore
+
+# cache 目录：忽略缓存文件（.arrow 等），保留 .gitkeep 以在 git pull 时维持目录结构
+cache/*
+!cache/.gitkeep
