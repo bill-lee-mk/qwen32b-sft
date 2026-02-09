@@ -223,21 +223,6 @@ class DPOTrainerWrapper:
         """执行DPO训练"""
         if int(os.environ.get("LOCAL_RANK", 0)) == 0:
             logger.info("开始DPO训练...")
-        # 打印训练参数概要（仅主进程）
-        if int(os.environ.get("LOCAL_RANK", 0)) == 0:
-            world_size = int(os.environ.get("WORLD_SIZE", 1))
-            per_device = self.config.per_device_train_batch_size
-            grad_accum = self.config.gradient_accumulation_steps
-            eff_batch = per_device * world_size * grad_accum
-            steps_per_epoch = math.ceil(len(train_dataset) / eff_batch)
-            total_steps_est = steps_per_epoch * self.config.num_train_epochs
-            logger.info(
-                f"DPO 参数: batch={per_device}×{world_size}×{grad_accum}={eff_batch} | "
-                f"总步数={total_steps_est} | logging_steps={self.config.logging_steps} | "
-                f"输出={self.config.output_dir}"
-            )
-            logger.info(f"训练指标将在 step {self.config.logging_steps} 首次打印")
-        
         # 设置训练参数
         training_args = DPOConfig(
             output_dir=self.config.output_dir,
@@ -281,6 +266,25 @@ class DPOTrainerWrapper:
             dataloader_pin_memory=False,  # 禁用pin_memory，减少显存占用
             dataloader_persistent_workers=False,  # 禁用持久化workers，避免死锁
         )
+        
+        # 打印实际用到的训练参数（与 SFT 一致，仅主进程）
+        if int(os.environ.get("LOCAL_RANK", 0)) == 0:
+            world_size = int(os.environ.get("WORLD_SIZE", 1))
+            per_device = training_args.per_device_train_batch_size
+            grad_accum = training_args.gradient_accumulation_steps
+            eff_batch = per_device * world_size * grad_accum
+            steps_per_epoch = math.ceil(len(train_dataset) / eff_batch)
+            total_steps_est = steps_per_epoch * training_args.num_train_epochs
+            logger.info("=" * 50 + " DPO 训练参数 " + "=" * 50)
+            for k, v in vars(training_args).items():
+                logger.info(f"  {k}: {v}")
+            logger.info("-" * 50)
+            logger.info("总步数计算公式:")
+            logger.info(f"  有效batch = per_device_batch_size × WORLD_SIZE × gradient_accumulation_steps")
+            logger.info(f"            = {per_device} × {world_size} × {grad_accum} = {eff_batch}")
+            logger.info(f"  每epoch步数 = ceil(样本数 / 有效batch) = ceil({len(train_dataset)} / {eff_batch}) = {steps_per_epoch}")
+            logger.info(f"  预估总步数 = 每epoch步数 × num_train_epochs = {steps_per_epoch} × {training_args.num_train_epochs} = {total_steps_est}")
+            logger.info("=" * 50)
         
         # 创建DPOTrainer（添加每步耗时 callback）
         self.trainer = DPOTrainer(
