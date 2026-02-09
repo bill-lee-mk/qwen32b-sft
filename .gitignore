@@ -18,10 +18,10 @@ processed_training_data/*
 !processed_training_data/cache/
 !processed_training_data/cache/.gitkeep
 
-# 模型文件 - 在 models/.gitignore 中更详细配置
-models/*.bin
-models/*.safetensors
-models/*.pt
+# models: 忽略所有文件，仅保留目录结构（.gitignore + .gitkeep）
+models/**
+!models/**/.gitignore
+!models/**/.gitkeep
 
 #Visual Studio files
 *.[Oo]bj
