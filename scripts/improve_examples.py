@@ -72,6 +72,24 @@ def extract_failed_standard_difficulty(
     return failed
 
 
+def _is_server_error(r: dict) -> bool:
+    """判断是否为服务端错误（可重试）。如 DB 写入失败、HTTP 5xx、超时等"""
+    if not r:
+        return True
+    msg = str(r.get("message", "")).lower()
+    errors = r.get("errors") or []
+    if isinstance(errors, str):
+        errors = [errors]
+    err_str = " ".join(str(e).lower() for e in errors)
+    body = str(r.get("response_body", "")).lower()
+    combined = f"{msg} {err_str} {body}"
+    patterns = (
+        "could not save", "save evaluation", "db", "database", "500", "503",
+        "timeout", "服务端", "server error", "internal",
+    )
+    return any(p in combined for p in patterns)
+
+
 def run(
     results_path: str,
     mcqs_path: str,
@@ -83,9 +101,13 @@ def run(
     parallel: int = 50,
     timeout: int = 180,
     api_key: str | None = None,
+    retry_delay: int = 60,
+    max_retries: int = 3,
+    failed_output: str | None = "processed_training_data/improve_examples_failed.json",
 ) -> dict:
     """
     闭环：失败题 (standard,difficulty) → raw_data 候选 → InceptBench 评分 → 保留 ≥0.85 的 1-2 条 → 更新 examples
+    服务端错误会记录并延迟重试，超过 max_retries 次后写入 failed_output 供后续处理。
     """
     import os
     api_key = api_key or os.environ.get("INCEPTBENCH_API_KEY") or os.environ.get("INCEPTBENCH_TOKEN")
@@ -169,13 +191,18 @@ def run(
     lock = threading.Lock()
     done_total = [0]
     round_num = [0]
+    server_error_keys: set[tuple[str, str]] = set()
+    failed_records: list[dict] = []
+    retry_count = 0
 
     while pending_by_key:
         round_num[0] += 1
-        # 本轮：每个未达标组合取 1 个候选
+        # 本轮：每个未达标组合取 1 个候选（跳过因服务端错误延后的组合）
         this_round: list[tuple[tuple[str, str], dict, dict]] = []
         to_remove = []
         for key, lst in list(pending_by_key.items()):
+            if key in server_error_keys:
+                continue
             if not lst:
                 to_remove.append(key)
                 continue
@@ -185,6 +212,29 @@ def run(
                 to_remove.append(key)
         for k in to_remove:
             del pending_by_key[k]
+
+        # 若本轮为空但仍有待处理项（全部为服务端错误延后），则等待后重试
+        if not this_round and pending_by_key:
+            retry_count += 1
+            if retry_count > max_retries:
+                for key in list(server_error_keys):
+                    lst = pending_by_key.get(key, [])
+                    err_msg = "服务端错误，已超过最大重试次数"
+                    failed_records.append({
+                        "standard": key[0],
+                        "difficulty": key[1],
+                        "retries": retry_count,
+                        "remaining_candidates": len(lst),
+                    })
+                    del pending_by_key[key]
+                server_error_keys.clear()
+                retry_count = 0
+                print(f"\n  已达最大重试次数 {max_retries}，{len(failed_records)} 个组合写入失败记录")
+                continue
+            print(f"\n  等待 {retry_delay}s 后重试服务端错误组合（第 {retry_count}/{max_retries} 次）...")
+            time.sleep(retry_delay)
+            server_error_keys.clear()
+            continue
 
         if not this_round:
             break
@@ -214,6 +264,13 @@ def run(
                         kept_by_key[key].append((c, s))
                         if key in pending_by_key:
                             del pending_by_key[key]
+                else:
+                    if _is_server_error(r):
+                        with lock:
+                            if key not in pending_by_key:
+                                pending_by_key[key] = []
+                            pending_by_key[key].insert(0, (c, norm))
+                            server_error_keys.add(key)
                 with lock:
                     done_total[0] += 1
                     d = done_total[0]
@@ -229,6 +286,7 @@ def run(
                 futures = {ex.submit(_eval, x): x for x in this_round}
                 for fut in as_completed(futures):
                     key, c, s, elapsed, r = fut.result()
+                    _, _, norm = futures[fut]
                     if s is not None:
                         scored.append((key, c, s))
                         if s >= threshold:
@@ -236,6 +294,14 @@ def run(
                                 kept_by_key[key].append((c, s))
                                 if key in pending_by_key:
                                     del pending_by_key[key]
+                    else:
+                        # 服务端错误：放回候选，延后重试
+                        if _is_server_error(r):
+                            with lock:
+                                if key not in pending_by_key:
+                                    pending_by_key[key] = []
+                                pending_by_key[key].insert(0, (c, norm))
+                                server_error_keys.add(key)
                     with lock:
                         done_total[0] += 1
                         d = done_total[0]
@@ -294,9 +360,19 @@ def run(
         json.dump(unique, f, ensure_ascii=False, indent=2)
     print(f"已更新 examples: {examples_path} ({len(unique)} 条)")
 
+    if failed_records and failed_output:
+        failed_path = Path(failed_output)
+        if not failed_path.is_absolute():
+            failed_path = PROJECT_ROOT / failed_path
+        failed_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(failed_path, "w", encoding="utf-8") as f:
+            json.dump(failed_records, f, ensure_ascii=False, indent=2)
+        print(f"服务端错误超重试的组合已写入: {failed_path} ({len(failed_records)} 个，可稍后重跑本命令重试)")
+
     return {
         "failed_pairs": len(failed),
         "evaluated": done_total[0],
         "kept": sum(len(v) for v in kept_by_key.values()),
         "examples_count": len(unique),
+        "server_error_failed": len(failed_records),
     }

@@ -116,6 +116,9 @@ def main():
     improve_parser.add_argument("--max-candidates-per-pair", type=int, default=0, help="每个组合最多试评的候选数，0=不限制取全部（增加命中率）")
     improve_parser.add_argument("--parallel", type=int, default=20, help="InceptBench 并行评分数")
     improve_parser.add_argument("--timeout", type=int, default=180, help="单题超时秒数")
+    improve_parser.add_argument("--retry-delay", type=int, default=60, help="服务端错误时等待秒数后再重试")
+    improve_parser.add_argument("--max-retries", type=int, default=3, help="服务端错误最大重试次数")
+    improve_parser.add_argument("--failed-output", default="processed_training_data/improve_examples_failed.json", help="服务端错误超重试的组合记录路径，空不写入")
     
     args = parser.parse_args()
     
@@ -260,6 +263,9 @@ def main():
             max_candidates_per_pair=getattr(args, "max_candidates_per_pair", 0),
             parallel=args.parallel,
             timeout=args.timeout,
+            retry_delay=getattr(args, "retry_delay", 60),
+            max_retries=getattr(args, "max_retries", 3),
+            failed_output=getattr(args, "failed_output", "processed_training_data/improve_examples_failed.json"),
         )
         if "error" in report:
             print(f"错误: {report['error']}")
