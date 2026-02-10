@@ -108,6 +108,24 @@ def validate_mcq(mcq: dict, index: int = 0) -> list:
         if not img or (isinstance(img, list) and not img):
             issues.append("stem_references_image_but_no_image_url")
 
+    # 5. 单题单选但题干用复数 "which choices" 易被理解为多选
+    if "which choices" in q_lower or "which options" in q_lower:
+        if "correctly complete" in q_lower or "are correct" in q_lower:
+            issues.append("stem_says_choices_plural_may_imply_multiple_answers")
+
+    # 6. 选项不得重复（A 与 C 等同会导致双正确答案）
+    if isinstance(opts, dict):
+        texts = [str(opts.get(k, "")).strip() for k in ["A", "B", "C", "D"] if k in opts]
+    else:
+        texts = []
+        if isinstance(opts, list):
+            for o in opts:
+                k = str(o.get("key", "")).upper().strip()[:1]
+                if k in "ABCD":
+                    texts.append(str(o.get("text", "")).strip())
+    if len(texts) >= 2 and len(set(texts)) < len(texts):
+        issues.append("duplicate_option_text")
+
     return issues
 
 

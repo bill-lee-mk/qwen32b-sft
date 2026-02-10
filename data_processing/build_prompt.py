@@ -52,22 +52,24 @@ Your task: Generate one multiple-choice question (MCQ) that assesses the given s
 Rules:
 1. The question MUST directly assess the EXACT skill described in the standard—not a related or adjacent skill. Match the standard precisely.
 2. Difficulty must match the request (easy/medium/hard).
-3. Provide exactly 4 answer options (A, B, C, D) with exactly ONE correct answer. No ambiguity.
-4. Distractors should be plausible but clearly incorrect.
-5. answer_explanation MUST accurately describe ONLY the correct option and why it is correct. Do NOT reference wrong options or incorrect rules.
-6. The answer key (answer field) MUST match the content of the correct option in answer_options. Verify consistency.
-7. Clarity: NEVER use "Which word..." when the correct answer is a phrase (e.g., "will paint", "has been"). Use "Which choice...", "Which option...", or "Which words..." instead.
-8. Stem–option match: If the stem has a blank (e.g. "a feeling of ______"), each option must be a phrase that can be inserted into that blank to form a grammatical sentence. Do NOT use full clauses (e.g. "disappointment was heavy") as options for a single blank; use phrases (e.g. "disappointment").
-9. answer_explanation must state the correct option letter (e.g. "Option B is correct because...") and describe why that option is right; the explanation must not contradict the correct option text.
-10. For roots/affixes (L.3.4.B, L.3.4.C, RF.3.3): verify Latin vs Greek roots and affix meanings are factually correct. RF.3.3.B is specifically Latin suffixes (e.g. -tion, -able, -ible, -ment from Latin); do NOT use -ful or -ly for RF.3.3.B (they are not Latin suffixes).
-11. Single correct answer: For items like \"Which word in the sentence is [an abstract noun/a verb/...]?\", ensure the sentence contains exactly ONE word that fits the criterion. Avoid sentences where two or more options could be correct (e.g. two abstract nouns in the same sentence).
-12. No unreferenced stimuli: Do not say \"Look at the picture\" or \"Use the image\" unless you actually provide image_url. If no image is used, keep the item self-contained with text only.
-13. Tense and time consistency: If the stem or sentence uses time cues (e.g. \"yesterday\", \"present tense\"), ensure the correct answer and all options are consistent with that cue; avoid conflicting directives.
-14. Return ONLY a valid JSON object. No markdown, no extra text."""
+3. Provide exactly 4 answer options (A, B, C, D) with exactly ONE correct answer. No ambiguity. Every option must be distinct—no two options may have identical text.
+4. For single-answer MCQs use singular wording: "Which choice..." or "Which option...", not "Which choices..." (plural implies multiple correct answers).
+5. Distractors should be plausible but clearly incorrect.
+6. answer_explanation MUST accurately describe ONLY the correct option and why it is correct. Use correct grammatical terms (e.g. comparative adverb vs comparative adjective) and check that the word actually has that function in the sentence. Do NOT reference wrong options or incorrect rules.
+7. The answer key (answer field) MUST match the content of the correct option in answer_options. Verify consistency.
+8. Clarity: NEVER use "Which word..." when the correct answer is a phrase (e.g., "will paint", "has been"). Use "Which choice...", "Which option...", or "Which words..." instead.
+9. Stem–option match: If the stem has a blank (e.g. "a feeling of ______"), each option must be a phrase that can be inserted into that blank to form a grammatical sentence. Do NOT use full clauses (e.g. "disappointment was heavy") as options for a single blank; use phrases (e.g. "disappointment").
+10. answer_explanation must state the correct option letter (e.g. "Option B is correct because...") and describe why that option is right; the explanation must not contradict the correct option text.
+11. For roots/affixes (L.3.4.B, L.3.4.C, RF.3.3): verify Latin vs Greek roots and affix meanings are factually correct. RF.3.3.B is specifically Latin suffixes (e.g. -tion, -able, -ible, -ment from Latin); do NOT use -ful or -ly for RF.3.3.B (they are not Latin suffixes). For RF.3.3.B focus on decoding (identify base + suffix or which word uses the suffix), not standalone \"What does -ment mean?\" semantic questions.
+12. RF.3.3.A (prefixes): Avoid pure recall (e.g. \"What does un- mean?\"). Use the prefix in a word or sentence context so the task involves application, not memorization alone.
+13. Single correct answer: For items like \"Which word in the sentence is [an abstract noun/a verb/...]?\", ensure the sentence contains exactly ONE word that fits the criterion. Avoid sentences where two or more options could be correct (e.g. two abstract nouns in the same sentence).
+14. No unreferenced stimuli: Do not say \"Look at the picture\" or \"Use the image\" unless you actually provide image_url. If no image is used, keep the item self-contained with text only.
+15. Tense and time consistency: If the stem or sentence uses time cues (e.g. \"yesterday\", \"present tense\"), ensure the correct answer and all options are consistent with that cue; avoid conflicting directives.
+16. Return ONLY a valid JSON object. No markdown, no extra text."""
     if include_think_chain:
-        base += "\n\n15. You may optionally include <think>...</think> before the JSON, but the output MUST end with a complete JSON object."
+        base += "\n\n17. You may optionally include <think>...</think> before the JSON, but the output MUST end with a complete JSON object."
     else:
-        base += "\n\n15. Output ONLY the JSON object."
+        base += "\n\n17. Output ONLY the JSON object."
     base += f"\n\nOutput schema:\n{MCQ_SCHEMA.strip()}"
     return base
 
