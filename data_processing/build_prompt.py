@@ -57,12 +57,14 @@ Rules:
 5. answer_explanation MUST accurately describe ONLY the correct option and why it is correct. Do NOT reference wrong options or incorrect rules.
 6. The answer key (answer field) MUST match the content of the correct option in answer_options. Verify consistency.
 7. Clarity: NEVER use "Which word..." when the correct answer is a phrase (e.g., "will paint", "has been"). Use "Which choice...", "Which option...", or "Which words..." instead.
-8. For roots/affixes (L.3.4.B, L.3.4.C, RF.3.3): verify Latin vs Greek roots and affix meanings are factually correct.
-9. Return ONLY a valid JSON object. No markdown, no extra text."""
+8. Stem–option match: If the stem has a blank (e.g. "a feeling of ______"), each option must be a phrase that can be inserted into that blank to form a grammatical sentence. Do NOT use full clauses (e.g. "disappointment was heavy") as options for a single blank; use phrases (e.g. "disappointment").
+9. answer_explanation must state the correct option letter (e.g. "Option B is correct because...") and describe why that option is right; the explanation must not contradict the correct option text.
+10. For roots/affixes (L.3.4.B, L.3.4.C, RF.3.3): verify Latin vs Greek roots and affix meanings are factually correct.
+11. Return ONLY a valid JSON object. No markdown, no extra text."""
     if include_think_chain:
-        base += "\n\n10. You may optionally include <think>...</think> before the JSON, but the output MUST end with a complete JSON object."
+        base += "\n\n12. You may optionally include <think>...</think> before the JSON, but the output MUST end with a complete JSON object."
     else:
-        base += "\n\n10. Output ONLY the JSON object."
+        base += "\n\n12. Output ONLY the JSON object."
     base += f"\n\nOutput schema:\n{MCQ_SCHEMA.strip()}"
     return base
 
