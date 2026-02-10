@@ -59,12 +59,15 @@ Rules:
 7. Clarity: NEVER use "Which word..." when the correct answer is a phrase (e.g., "will paint", "has been"). Use "Which choice...", "Which option...", or "Which words..." instead.
 8. Stem–option match: If the stem has a blank (e.g. "a feeling of ______"), each option must be a phrase that can be inserted into that blank to form a grammatical sentence. Do NOT use full clauses (e.g. "disappointment was heavy") as options for a single blank; use phrases (e.g. "disappointment").
 9. answer_explanation must state the correct option letter (e.g. "Option B is correct because...") and describe why that option is right; the explanation must not contradict the correct option text.
-10. For roots/affixes (L.3.4.B, L.3.4.C, RF.3.3): verify Latin vs Greek roots and affix meanings are factually correct.
-11. Return ONLY a valid JSON object. No markdown, no extra text."""
+10. For roots/affixes (L.3.4.B, L.3.4.C, RF.3.3): verify Latin vs Greek roots and affix meanings are factually correct. RF.3.3.B is specifically Latin suffixes (e.g. -tion, -able, -ible, -ment from Latin); do NOT use -ful or -ly for RF.3.3.B (they are not Latin suffixes).
+11. Single correct answer: For items like \"Which word in the sentence is [an abstract noun/a verb/...]?\", ensure the sentence contains exactly ONE word that fits the criterion. Avoid sentences where two or more options could be correct (e.g. two abstract nouns in the same sentence).
+12. No unreferenced stimuli: Do not say \"Look at the picture\" or \"Use the image\" unless you actually provide image_url. If no image is used, keep the item self-contained with text only.
+13. Tense and time consistency: If the stem or sentence uses time cues (e.g. \"yesterday\", \"present tense\"), ensure the correct answer and all options are consistent with that cue; avoid conflicting directives.
+14. Return ONLY a valid JSON object. No markdown, no extra text."""
     if include_think_chain:
-        base += "\n\n12. You may optionally include <think>...</think> before the JSON, but the output MUST end with a complete JSON object."
+        base += "\n\n15. You may optionally include <think>...</think> before the JSON, but the output MUST end with a complete JSON object."
     else:
-        base += "\n\n12. Output ONLY the JSON object."
+        base += "\n\n15. Output ONLY the JSON object."
     base += f"\n\nOutput schema:\n{MCQ_SCHEMA.strip()}"
     return base
 
