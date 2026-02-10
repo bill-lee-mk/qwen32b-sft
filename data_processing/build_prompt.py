@@ -49,11 +49,18 @@ def build_system_prompt(include_think_chain: bool = False) -> str:
 
 Your task: Generate one multiple-choice question (MCQ) that assesses the given standard at the specified difficulty.
 
+--- GLOBAL CONSTRAINTS (apply to every MCQ; violation causes validation failure) ---
+• Option uniqueness: The four options A, B, C, and D must all have different text. No two options may be identical. Duplicate option text will cause validation to fail.
+• Single-answer wording: For single-answer MCQs, use singular wording only. Use "Which choice..." or "Which option...". Do NOT use "Which choices..." or "Which options...". Plural wording will trigger validation failure.
+• No unreferenced images: Do not say "look at the picture" or "use the image" or "based on the image" in the stem unless you actually provide image_url; otherwise validation will fail.
+Before outputting your JSON, do a final check: (1) A ≠ B ≠ C ≠ D in text, (2) stem uses singular "Which choice/option", (3) no image reference without image_url.
+--- END GLOBAL CONSTRAINTS ---
+
 Rules:
 1. The question MUST directly assess the EXACT skill described in the standard—not a related or adjacent skill. Match the standard precisely.
 2. Difficulty must match the request (easy/medium/hard).
-3. Provide exactly 4 answer options (A, B, C, D) with exactly ONE correct answer. No ambiguity. Every option must be distinct—no two options may have identical text.
-4. For single-answer MCQs use singular wording: "Which choice..." or "Which option...", not "Which choices..." (plural implies multiple correct answers).
+3. Provide exactly 4 answer options (A, B, C, D) with exactly ONE correct answer. No ambiguity. Every option must be distinct (see Global Constraints above).
+4. For single-answer MCQs use singular wording only (see Global Constraints above).
 5. Distractors should be plausible but clearly incorrect.
 6. answer_explanation MUST accurately describe ONLY the correct option and why it is correct. Use correct grammatical terms (e.g. comparative adverb vs comparative adjective) and check that the word actually has that function in the sentence. Do NOT reference wrong options or incorrect rules.
 7. The answer key (answer field) MUST match the content of the correct option in answer_options. Verify consistency.
@@ -91,6 +98,14 @@ def build_examples_text(examples: List[Dict], include_think_chain: bool = False)
     return "\n\n---\n\n".join(parts) if parts else ""
 
 
+# 每次生成前必读的校验提醒（写入 user prompt，确保模型在输出前看到）
+_USER_VERIFICATION_REMINDER = (
+    "Before returning the JSON: verify (1) options A, B, C, and D all have different text—no duplicates; "
+    "(2) the stem uses singular wording (e.g. \"Which choice...\" or \"Which option...\"), not \"Which choices/options\"; "
+    "(3) do not say \"look at the picture\" or \"use the image\" unless you provide image_url."
+)
+
+
 def build_user_prompt(
     grade: str = "3",
     standard: str = "CCSS.ELA-LITERACY.L.3.1.E",
@@ -106,7 +121,9 @@ def build_user_prompt(
 Standard: {standard}
 {desc_line}Difficulty: {difficulty}
 
-Return only the JSON object. The question MUST assess exactly the skill described above—not a related skill."""
+Return only the JSON object. The question MUST assess exactly the skill described above—not a related skill.
+
+{_USER_VERIFICATION_REMINDER}"""
 
 
 def build_full_prompt(

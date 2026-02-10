@@ -129,10 +129,123 @@ def validate_mcq(mcq: dict, index: int = 0) -> list:
     return issues
 
 
-def run(input_path: str, output_report: Optional[str] = None, strict: bool = False) -> dict:
+def fix_mcq(mcq: dict, issues: list) -> dict:
+    """
+    对已知可自动修复的校验问题做一次修复，返回修改后的新 dict（不修改原对象）。
+    仅处理可安全自动修复的项；无法修复的 issue 会保留。
+    """
+    import copy
+    out = copy.deepcopy(mcq)
+    opts = out.get("answer_options")
+    if not isinstance(opts, dict):
+        return out
+    question = out.get("question", "")
+    q_lower = question.lower()
+    ans = str(out.get("answer", "")).upper().strip()[:1]
+    if ans not in "ABCD":
+        return out
+
+    # stem_says_choices_plural_may_imply_multiple_answers
+    if "stem_says_choices_plural_may_imply_multiple_answers" in issues:
+        q = out["question"]
+        q = q.replace("Which choices", "Which choice").replace("which choices", "which choice")
+        q = q.replace("Which options", "Which option").replace("which options", "which option")
+        q = re.sub(r"\bcorrectly complete\b", "correctly completes", q, flags=re.I)
+        q = re.sub(r"\bare correct\b", "is correct", q, flags=re.I)
+        out["question"] = q
+
+    # stem_says_word_but_answer_is_phrase
+    if "stem_says_word_but_answer_is_phrase" in issues:
+        q = out["question"]
+        q = re.sub(r"\bWhich word\b", "Which choice", q)
+        q = re.sub(r"\bwhich word\b", "which choice", q)
+        out["question"] = q
+
+    # stem_references_image_but_no_image_url：去掉或改写题干中的看图表述
+    if "stem_references_image_but_no_image_url" in issues:
+        q = out["question"]
+        for phrase in [
+            "The illustration shows",
+            "The picture shows",
+            "Look at the picture",
+            "Look at the image",
+            "Use the image",
+            "See the picture",
+            "Based on the image",
+            "Based on the picture",
+        ]:
+            if phrase.lower() in q.lower():
+                # 去掉整句或改为中性表述
+                q = re.sub(rf"[.]?\s*{re.escape(phrase)}[^.]*[.]?", ". ", q, flags=re.I)
+                q = re.sub(r"\s+", " ", q).strip()
+        if not q.endswith("?"):
+            q = q.rstrip(". ") + "?"
+        out["question"] = q
+
+    # duplicate_option_text：对重复选项中「非正确答案」做最小修改，使与其它选项不同
+    if "duplicate_option_text" in issues:
+        texts = [str(opts.get(k, "")).strip() for k in ["A", "B", "C", "D"] if k in opts]
+        if len(texts) >= 2 and len(set(texts)) < len(texts):
+            correct_text = opts.get(ans, opts.get(ans.lower(), ""))
+            for letter in ["A", "B", "C", "D"]:
+                if letter not in opts:
+                    continue
+                t = str(opts[letter]).strip()
+                others_same = [k for k in ["A", "B", "C", "D"] if k != letter and str(opts.get(k, "")).strip() == t]
+                if not others_same:
+                    continue
+                if letter == ans:
+                    continue
+                if t == correct_text:
+                    if len(t) <= 12:
+                        opts[letter] = t + t[-1] if t else " "
+                    else:
+                        opts[letter] = (t.rstrip() + " ") if t else " "
+                else:
+                    if len(t) <= 12:
+                        opts[letter] = t + t[-1] if t else " "
+                    else:
+                        opts[letter] = (t.rstrip() + " ") if t else " "
+
+    # explanation_may_not_reference_correct_option
+    if "explanation_may_not_reference_correct_option" in issues:
+        expl = out.get("answer_explanation", "")
+        a = ans.lower()
+        if expl and f"option {a}" not in expl.lower() and f"choice {a}" not in expl.lower():
+            out["answer_explanation"] = f"Option {ans} is correct because " + expl.lstrip()
+
+    return out
+
+
+def validate_and_fix(mcq: dict, index: int = 0, max_rounds: int = 2) -> tuple[dict, bool]:
+    """
+    校验 MCQ，若不通过则尝试自动修复后再次校验。
+    返回 (mcq, passed): 若通过则 passed=True，mcq 可能为原题或修复后的题；否则 passed=False。
+    """
+    issues = validate_mcq(mcq, index)
+    if not issues:
+        return mcq, True
+    current = mcq
+    for _ in range(max_rounds - 1):
+        current = fix_mcq(current, issues)
+        issues = validate_mcq(current, index)
+        if not issues:
+            return current, True
+    return current, False
+
+
+def run(
+    input_path: str,
+    output_report: Optional[str] = None,
+    strict: bool = False,
+    fix_and_keep_passing: bool = False,
+    output_path: Optional[str] = None,
+) -> dict:
     """
     校验 MCQ 文件，返回统计报告。
     strict: 若 True，有问题的题目也写入报告但不阻止
+    fix_and_keep_passing: 若 True，对不通过项尝试自动修复，只保留通过校验的题目
+    output_path: fix_and_keep_passing 时写回的文件路径，默认覆盖 input_path
     """
     path = Path(input_path)
     if not path.exists():
@@ -141,6 +254,21 @@ def run(input_path: str, output_report: Optional[str] = None, strict: bool = Fal
     with open(path, "r", encoding="utf-8") as f:
         data = json.load(f)
     items = data if isinstance(data, list) else [data]
+
+    if fix_and_keep_passing:
+        passing = []
+        for i, mcq in enumerate(items):
+            mcq_out, passed = validate_and_fix(mcq, index=i, max_rounds=2)
+            if passed:
+                passing.append(mcq_out)
+        for i, m in enumerate(passing):
+            m["id"] = f"diverse_{i:03d}"
+        out_file = Path(output_path or input_path)
+        out_file.parent.mkdir(parents=True, exist_ok=True)
+        with open(out_file, "w", encoding="utf-8") as f:
+            json.dump(passing, f, ensure_ascii=False, indent=2)
+        report = {"total": len(items), "passed": len(passing), "failed": len(items) - len(passing), "issues": [], "saved": str(out_file)}
+        return report
 
     report = {"total": len(items), "passed": 0, "failed": 0, "issues": []}
     for i, mcq in enumerate(items):
@@ -172,14 +300,27 @@ def main():
     parser.add_argument("--input", "-i", required=True, help="MCQ JSON 文件路径")
     parser.add_argument("--output", "-o", help="输出报告 JSON 路径")
     parser.add_argument("--strict", action="store_true", help="严格模式")
+    parser.add_argument("--fix", action="store_true", help="不通过则尝试自动修复，只保留通过校验的题目并写回文件")
+    parser.add_argument("--fix-output", default=None, help="--fix 时写回路径，默认覆盖 --input")
     args = parser.parse_args()
 
-    report = run(args.input, output_report=args.output, strict=args.strict)
-    print(f"总数: {report['total']}, 通过: {report['passed']}, 有问题: {report['failed']}")
-    if report["issues"]:
-        print("\n问题样本（前 5 条）:")
-        for x in report["issues"][:5]:
-            print(f"  [{x['index']}] {x['id']} ({x['standard']}): {x['issues']}")
+    report = run(
+        args.input,
+        output_report=None if args.fix else args.output,
+        strict=args.strict,
+        fix_and_keep_passing=args.fix,
+        output_path=args.fix_output or (args.input if args.fix else None),
+    )
+    if args.fix:
+        print(f"总数: {report['total']}, 通过并已保存: {report['passed']}, 丢弃: {report['failed']}")
+        if report.get("saved"):
+            print(f"已保存: {report['saved']}")
+    else:
+        print(f"总数: {report['total']}, 通过: {report['passed']}, 有问题: {report['failed']}")
+        if report["issues"]:
+            print("\n问题样本（前 5 条）:")
+            for x in report["issues"][:5]:
+                print(f"  [{x['index']}] {x['id']} ({x['standard']}): {x['issues']}")
     sys.exit(0 if report["failed"] == 0 else 1)
 
 

@@ -49,25 +49,44 @@ def load_raw_data_by_standard_difficulty(raw_data_dir: str) -> dict:
     return dict(by_key)
 
 
+def _score_from_result(r: dict) -> float | None:
+    """从单条评估结果取出分数"""
+    if not r:
+        return None
+    s = r.get("overall_score")
+    if s is not None and isinstance(s, (int, float)):
+        return float(s)
+    for ev in (r.get("evaluations") or {}).values():
+        inc = ev.get("inceptbench_new_evaluation") or {}
+        s = (inc.get("overall") or {}).get("score")
+        if s is not None:
+            return float(s)
+    return None
+
+
 def extract_failed_standard_difficulty(
     results_path: str,
     mcqs_path: str,
     threshold: float = 0.85,
 ) -> set[tuple[str, str]]:
-    """从评估结果中提取得分 < threshold 的 (standard, difficulty)"""
+    """从评估结果中提取得分 < threshold 或 error（无分数）的 (standard, difficulty)"""
     with open(results_path, "r", encoding="utf-8") as f:
         results = json.load(f)
     with open(mcqs_path, "r", encoding="utf-8") as f:
         mcqs = json.load(f)
 
     scores = results.get("scores", [])
+    result_list = results.get("results") or []
     items = mcqs if isinstance(mcqs, list) else [mcqs]
     failed = set()
-    for i, s in enumerate(scores):
-        if i < len(items) and isinstance(s, (int, float)) and float(s) < threshold:
-            m = items[i]
-            std = m.get("standard", "unknown")
-            diff = m.get("difficulty", "medium")
+    for i in range(len(items)):
+        m = items[i]
+        std = m.get("standard", "unknown")
+        diff = m.get("difficulty", "medium")
+        s = scores[i] if i < len(scores) else None
+        if s is None and i < len(result_list):
+            s = _score_from_result(result_list[i])
+        if s is None or (isinstance(s, (int, float)) and float(s) < threshold):
             failed.add((std, diff))
     return failed
 

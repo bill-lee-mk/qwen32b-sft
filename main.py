@@ -321,10 +321,15 @@ def main():
                 evaluator = InceptBenchEvaluator(api_key=args.api_key, timeout=timeout)
                 results_by_idx = {}
                 done = 0
+                n_total = len(items)
                 with ThreadPoolExecutor(max_workers=parallel) as ex:
                     futures = {ex.submit(evaluator.evaluate_mcq, q): i for i, q in enumerate(items)}
                     for fut in as_completed(futures):
                         i = futures[fut]
+                        q = items[i]
+                        std = (q.get("standard") or "").replace("CCSS.ELA-LITERACY.", "")
+                        diff = q.get("difficulty") or "medium"
+                        pair = f"({std}, {diff})"
                         try:
                             r = fut.result()
                             results_by_idx[i] = r
@@ -333,12 +338,32 @@ def main():
                                 ev = next(iter(r.get("evaluations", {}).values()), {})
                                 s = (ev.get("inceptbench_new_evaluation") or {}).get("overall", {}).get("score")
                             done += 1
-                            status = f"score={s:.2f}" if isinstance(s, (int, float)) else "error"
-                            print(f"  [{done}/{len(items)}] 题{i+1}: {status}")
+                            # 进度=已完成数/总数，题号=第几题(1-based)，并行时完成顺序不定故进度与题号常不一致
+                            progress = f"完成 {done}/{n_total}"
+                            label = f"题{i+1} {pair}"
+                            if isinstance(s, (int, float)):
+                                sf = float(s)
+                                status = f"score={sf:.2f}"
+                                if sf < 0.85:
+                                    status += "  X"
+                                print(f"  [{progress}] {label}: {status}")
+                            else:
+                                err_reason = r.get("message") or r.get("status") or ""
+                                if r.get("errors"):
+                                    err_reason = err_reason or str(r.get("errors"))[:80]
+                                if not err_reason and "evaluations" in r:
+                                    for ev in (r.get("evaluations") or {}).values():
+                                        if ev.get("errors"):
+                                            err_reason = str(ev.get("errors"))[:80]
+                                            break
+                                status = "error (原因: " + (err_reason[:100] if err_reason else "未知") + ")"
+                                print(f"  [{progress}] {label}: {status}")
                         except Exception as e:
                             results_by_idx[i] = {"overall_score": 0.0, "status": "error", "message": str(e)}
                             done += 1
-                            print(f"  [{done}/{len(items)}] 题{i+1}: error {e}")
+                            progress = f"完成 {done}/{n_total}"
+                            label = f"题{i+1} {pair}"
+                            print(f"  [{progress}] {label}: error (原因: {e})")
 
                 scores = []
                 for i in range(len(items)):

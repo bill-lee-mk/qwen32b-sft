@@ -14,6 +14,10 @@
 
   # 3. 多样化批量生成（20 条，覆盖不同难度/标准，多线程）
   python scripts/generate_mcq.py --provider gemini --diverse 20 --output evaluation_output/mcqs.json
+
+  # 4. 使用 Kimi (Moonshot) 生成（需配置 KIMI_API_KEY，新用户有免费额度）
+  python scripts/generate_mcq.py --provider kimi --output evaluation_output/mcqs.json
+  python scripts/generate_mcq.py --provider kimi --all-combinations --output evaluation_output/mcqs_240.json
 """
 import argparse
 import json
@@ -31,6 +35,7 @@ from data_processing.analyze_dimensions import analyze_dimensions, build_diverse
 from data_processing.build_prompt import build_full_prompt
 from data_processing.select_examples import extract_json_from_text, is_valid_mcq
 from evaluation.inceptbench_client import normalize_for_inceptbench
+from scripts.validate_mcq import validate_and_fix
 
 
 def call_gemini(prompt: str, api_key: str, model: str = "gemini-3-flash-preview") -> str:
@@ -77,6 +82,19 @@ def call_deepseek(messages: list, api_key: str, model: str = "deepseek-chat") ->
     return call_openai(messages, api_key, model, base_url="https://api.deepseek.com")
 
 
+# Kimi (Moonshot) 官方 API：https://platform.moonshot.cn ，OpenAI 兼容，需配置 API Key；新用户有免费额度
+# 可选模型：kimi-latest（推荐）、moonshot-v1-8k、kimi-k2-0905-preview、kimi-k2-turbo-preview 等
+# 用量规则（以控制台为准）：并发数=3（同时请求数）、RPM=20（每分钟请求数）、TPM=500000（每分钟 token）、TPD=500000（每日 token）
+# 本仓库：Kimi 默认 --workers 3，不超过并发；若触发限频可加 --workers 2 或 1
+KIMI_API_BASE = "https://api.moonshot.cn/v1"
+KIMI_MAX_CONCURRENCY = 3  # 与平台「并发数: 3」一致
+
+
+def call_kimi(messages: list, api_key: str, model: str = "kimi-latest") -> str:
+    """调用 Kimi (Moonshot) API，OpenAI 兼容接口"""
+    return call_openai(messages, api_key, model, base_url=KIMI_API_BASE)
+
+
 def parse_mcq(text: str) -> dict | None:
     """从模型回复中解析 MCQ JSON"""
     obj = extract_json_from_text(text)
@@ -89,6 +107,30 @@ def parse_mcq(text: str) -> dict | None:
 def _filter_examples_for_standard_difficulty(examples: list, standard: str, difficulty: str) -> list:
     """仅保留与当前 (standard, difficulty) 匹配的示例，避免 prompt 超出 64K 上下文"""
     return [e for e in examples if e.get("standard") == standard and e.get("difficulty") == difficulty]
+
+
+def _validate_and_keep_passing(results: list) -> tuple[list, dict]:
+    """
+    对每条生成题做校验，不通过则尝试自动修复；只保留最终通过校验的题目，并重新编号 id。
+    返回 (通过校验的题目列表, {"fixed": 修复后通过数, "dropped": 仍不通过被丢弃数})
+    """
+    from scripts.validate_mcq import validate_mcq
+
+    passing = []
+    fixed_count = 0
+    dropped_count = 0
+    for idx, mcq in enumerate(results):
+        had_issues_before = len(validate_mcq(mcq, idx)) > 0
+        mcq_out, passed = validate_and_fix(mcq, index=idx, max_rounds=2)
+        if passed:
+            if had_issues_before:
+                fixed_count += 1
+            passing.append(mcq_out)
+        else:
+            dropped_count += 1
+    for i, m in enumerate(passing):
+        m["id"] = f"diverse_{i:03d}"
+    return passing, {"fixed": fixed_count, "dropped": dropped_count}
 
 
 def _generate_one(
@@ -118,6 +160,8 @@ def _generate_one(
                 raw = call_gemini(f"{system}\n\n{user}", api_key, model)
             elif provider == "deepseek":
                 raw = call_deepseek(messages, api_key, model)
+            elif provider == "kimi":
+                raw = call_kimi(messages, api_key, model)
             else:
                 raw = call_openai(messages, api_key, model)
             mcq = parse_mcq(raw)
@@ -145,8 +189,8 @@ def _generate_one(
 
 def main():
     parser = argparse.ArgumentParser(description="生成 MCQ（generate_mcq）")
-    parser.add_argument("--provider", choices=["gemini", "openai", "deepseek"], required=True, help="API 提供商")
-    parser.add_argument("--api-key", default=None, help="API Key（环境变量: GEMINI_API_KEY / OPENAI_API_KEY / DEEPSEEK_API_KEY）")
+    parser.add_argument("--provider", choices=["gemini", "openai", "deepseek", "kimi"], required=True, help="API 提供商")
+    parser.add_argument("--api-key", default=None, help="API Key（环境变量: GEMINI_API_KEY / OPENAI_API_KEY / DEEPSEEK_API_KEY / KIMI_API_KEY）")
     parser.add_argument("--model", default=None, help="模型名")
     parser.add_argument("--examples", default=None, help="示例 JSON 路径，默认 processed_training_data/examples.json")
     parser.add_argument("--grade", default="3", help="年级")
@@ -156,7 +200,7 @@ def main():
     parser.add_argument("--batch", type=int, default=1, help="生成条数（同参数重复）")
     parser.add_argument("--diverse", type=int, default=None, help="多样化生成 N 条，覆盖不同难度/标准")
     parser.add_argument("--all-combinations", action="store_true", help="遍历生成全部 (standard,difficulty) 组合（如 240 条）")
-    parser.add_argument("--workers", type=int, default=None, help="--diverse 时的并行线程数（Gemini 免费版默认 2，其他默认 10）")
+    parser.add_argument("--workers", type=int, default=None, help="--diverse 时的并行线程数（Gemini 默认 2，Kimi 默认 3 以匹配并发限制，其他 10）")
     parser.add_argument("--input-dir", default="raw_data", help="--diverse 时分析 raw_data 的目录")
     parser.add_argument("--include-think-chain", action="store_true", help="是否要求输出 <think>")
     args = parser.parse_args()
@@ -168,6 +212,9 @@ def main():
     elif args.provider == "deepseek":
         api_key = args.api_key or os.environ.get("DEEPSEEK_API_KEY")
         model = args.model or "deepseek-chat"
+    elif args.provider == "kimi":
+        api_key = args.api_key or os.environ.get("KIMI_API_KEY")
+        model = args.model or "kimi-latest"
     else:
         api_key = args.api_key or os.environ.get("OPENAI_API_KEY")
         model = args.model or "gpt-4o"
@@ -201,11 +248,15 @@ def main():
         n = len(plan)
         workers = args.workers
         if workers is None:
-            workers = 2 if args.provider == "gemini" else 10  # Gemini 免费版 5 次/分钟
+            workers = 2 if args.provider == "gemini" else (KIMI_MAX_CONCURRENCY if args.provider == "kimi" else 10)
         workers = min(workers, n)
+        if args.provider == "kimi":
+            workers = min(workers, KIMI_MAX_CONCURRENCY)  # 不超过平台并发数
         print(f"多样化生成 {n} 条，{workers} 线程并行，覆盖 {len(set(p[0] for p in plan))} 个标准、{len(set(p[1] for p in plan))} 个难度")
         if args.provider == "gemini" and workers > 2:
             print("  提示: Gemini 免费版约 5 次/分钟，建议 --workers 2；遇 429 会自动重试")
+        if args.provider == "kimi":
+            print("  提示: Kimi 并发≤3、RPM=20；若遇限频可 --workers 2 或 1")
         if n >= 50 and len(examples) < 8:
             print("  建议: 可先运行 python main.py select-examples -n 8 以增加示例覆盖")
         print(f"  计划: {plan[:5]}..." if len(plan) > 5 else f"  计划: {plan}")
@@ -243,6 +294,15 @@ def main():
         if not results:
             print("未成功生成任何 MCQ")
             sys.exit(1)
+        # 校验并自动修复，只保留通过校验的题目
+        results, validated_stats = _validate_and_keep_passing(results)
+        if validated_stats["dropped"]:
+            print(f"  [校验] 丢弃未通过校验: {validated_stats['dropped']} 题")
+        if validated_stats["fixed"]:
+            print(f"  [校验] 自动修复后通过: {validated_stats['fixed']} 题")
+        if not results:
+            print("无题目通过校验，不写入文件")
+            sys.exit(1)
     else:
         # 单参数模式（原有逻辑）
         filtered = _filter_examples_for_standard_difficulty(examples, args.standard, args.difficulty)
@@ -262,6 +322,8 @@ def main():
                 raw = call_gemini(full_prompt, api_key, model)
             elif args.provider == "deepseek":
                 raw = call_deepseek(messages, api_key, model)
+            elif args.provider == "kimi":
+                raw = call_kimi(messages, api_key, model)
             else:
                 raw = call_openai(messages, api_key, model)
 
@@ -277,11 +339,18 @@ def main():
                 print(f"生成 {i+1}/{args.batch}: 解析失败")
                 print(f"  raw: {raw[:200]}...")
 
+        # 单条/批量模式：校验并自动修复，只保留通过校验的题目
+        results, validated_stats = _validate_and_keep_passing(results)
+        if validated_stats["dropped"]:
+            print(f"  [校验] 丢弃未通过校验: {validated_stats['dropped']} 题")
+        if validated_stats["fixed"]:
+            print(f"  [校验] 自动修复后通过: {validated_stats['fixed']} 题")
+
     if not results:
-        print("未成功生成任何 MCQ")
+        print("未成功生成任何 MCQ 或无一题通过校验")
         sys.exit(1)
 
-    # 输出
+    # 输出：仅保存通过校验的题目
     if args.output:
         out_path = Path(args.output)
         out_path.parent.mkdir(parents=True, exist_ok=True)
@@ -291,30 +360,7 @@ def main():
         else:
             with open(out_path, "w", encoding="utf-8") as f:
                 json.dump(results, f, ensure_ascii=False, indent=2)
-        print(f"已保存到: {out_path}")
-
-        # 方案 B：生成后自动校验
-        try:
-            from scripts.validate_mcq import run as validate_run
-            report = validate_run(str(out_path), output_report=None)
-            if report["failed"] > 0:
-                print(f"\n[校验] 总数: {report['total']}, 通过: {report['passed']}, 有问题: {report['failed']}")
-                for x in report["issues"][:3]:
-                    print(f"  [{x['index']}] {x['id']} ({x['standard']}): {x['issues']}")
-            else:
-                print(f"\n[校验] 全部通过 ({report['total']} 题)")
-        except ImportError:
-            import subprocess
-            r = subprocess.run(
-                [sys.executable, str(PROJECT_ROOT / "main.py"), "validate-mcq", "-i", str(out_path)],
-                cwd=str(PROJECT_ROOT),
-                capture_output=True,
-                text=True,
-            )
-            if r.returncode != 0 and r.stdout:
-                print(f"\n[校验] {r.stdout.strip()}")
-        except Exception as e:
-            print(f"\n[校验] 校验跳过: {e}")
+        print(f"已保存到: {out_path}（仅通过校验的 {len(results)} 题）")
     else:
         print(json.dumps(results[0] if len(results) == 1 else results, ensure_ascii=False, indent=2))
 
