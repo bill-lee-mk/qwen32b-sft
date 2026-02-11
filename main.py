@@ -122,8 +122,8 @@ def main():
     # 闭环自动化：生成 → 评估 → 若通过率 < 目标则 improve-examples → 重复直到达标或达最大轮数
     loop_parser = subparsers.add_parser("closed-loop", help="闭环：生成→评估→未达标则补示例/改prompt→重复")
     loop_parser.add_argument("--provider", default="deepseek", help="生成 MCQ 使用的模型（deepseek / kimi）")
-    loop_parser.add_argument("--mcqs", default="evaluation_output/mcqs_240.json", help="MCQ 输出路径")
-    loop_parser.add_argument("--results", default="evaluation_output/results_240.json", help="评估结果输出路径")
+    loop_parser.add_argument("--mcqs", default="evaluation_output/mcqs_240.json", help="MCQ 输出路径（默认会改为 evaluation_output/mcqs_240_<provider>.json）")
+    loop_parser.add_argument("--results", default="evaluation_output/results_240.json", help="评估结果路径（默认会改为 evaluation_output/results_240_<provider>.json）")
     loop_parser.add_argument("--examples", default="processed_training_data/examples.json", help="few-shot 示例路径（每轮 improve 会更新）")
     loop_parser.add_argument("--pass-rate-target", type=float, default=95.0, help="通过率目标（百分数，默认 95）")
     loop_parser.add_argument("--max-rounds", type=int, default=10, help="最大循环轮数")
@@ -360,11 +360,16 @@ def main():
             else:
                 # 多题：一次只能提交一题，--parallel 个进程并行
                 from concurrent.futures import ThreadPoolExecutor, as_completed
-                print(f"评估 {len(items)} 题，每次 1 题，{parallel} 并行，超时 {timeout}s/题")
+                n_total = len(items)
+                # 按本题集最大「题号+(标准,难度)」长度固定 label 宽度，使 score/error 列对齐
+                label_width = max(
+                    len(f"题{i+1:>3} ({(q.get('standard') or '').replace('CCSS.ELA-LITERACY.', '')}, {q.get('difficulty') or 'medium'})")
+                    for i, q in enumerate(items)
+                )
+                print(f"[评估] {n_total} 题，每次 1 题，{parallel} 并行，超时 {timeout}s/题")
                 evaluator = InceptBenchEvaluator(api_key=args.api_key, timeout=timeout)
                 results_by_idx = {}
                 done = 0
-                n_total = len(items)
                 with ThreadPoolExecutor(max_workers=parallel) as ex:
                     futures = {ex.submit(evaluator.evaluate_mcq, q): i for i, q in enumerate(items)}
                     for fut in as_completed(futures):
@@ -372,7 +377,6 @@ def main():
                         q = items[i]
                         std = (q.get("standard") or "").replace("CCSS.ELA-LITERACY.", "")
                         diff = q.get("difficulty") or "medium"
-                        pair = f"({std}, {diff})"
                         try:
                             r = fut.result()
                             results_by_idx[i] = r
@@ -381,15 +385,14 @@ def main():
                                 ev = next(iter(r.get("evaluations", {}).values()), {})
                                 s = (ev.get("inceptbench_new_evaluation") or {}).get("overall", {}).get("score")
                             done += 1
-                            # 进度=已完成数/总数，题号=第几题(1-based)，并行时完成顺序不定故进度与题号常不一致
-                            progress = f"完成 {done}/{n_total}"
-                            label = f"题{i+1} {pair}"
+                            progress = f"{done:>3}/{n_total}"
+                            label = f"题{i+1:>3} ({std}, {diff})".ljust(label_width)
                             if isinstance(s, (int, float)):
                                 sf = float(s)
                                 status = f"score={sf:.2f}"
                                 if sf < 0.85:
                                     status += "  X"
-                                print(f"  [{progress}] {label}: {status}")
+                                print(f"[评估] [{progress}] {label}: {status}")
                             else:
                                 err_reason = r.get("message") or r.get("status") or ""
                                 if r.get("errors"):
@@ -400,52 +403,122 @@ def main():
                                             err_reason = str(ev.get("errors"))[:80]
                                             break
                                 status = "error (原因: " + (err_reason[:100] if err_reason else "未知") + ")"
-                                print(f"  [{progress}] {label}: {status}")
+                                print(f"[评估] [{progress}] {label}: {status}")
                         except Exception as e:
                             results_by_idx[i] = {"overall_score": 0.0, "status": "error", "message": str(e)}
                             done += 1
-                            progress = f"完成 {done}/{n_total}"
-                            label = f"题{i+1} {pair}"
-                            print(f"  [{progress}] {label}: error (原因: {e})")
+                            progress = f"{done:>3}/{n_total}"
+                            label = f"题{i+1:>3} ({std}, {diff})".ljust(label_width)
+                            print(f"[评估] [{progress}] {label}: error (原因: {e})")
 
-                scores = []
+                # 总评估数 = 提交的题目数；有效题目数 = 拿到数值分数的题目数；无分数题 = 总评估数 - 有效题目数
+                # scores 与 items 按下标对齐，无分数题为 None，便于下游 improve-examples 等按 index 取分
+                n_submitted = len(items)
+                scores = [None] * n_submitted
+                error_details = []  # 无分数题目明细，用于排查是题目问题还是评分服务问题
                 for i in range(len(items)):
                     r = results_by_idx.get(i, {})
+                    q = items[i]
                     s = r.get("overall_score")
                     if s is None and "evaluations" in r:
                         ev = next(iter(r.get("evaluations", {}).values()), {})
                         s = (ev.get("inceptbench_new_evaluation") or {}).get("overall", {}).get("score")
                     if isinstance(s, (int, float)):
-                        scores.append(float(s))
+                        scores[i] = float(s)
+                    else:
+                        reason = r.get("message") or r.get("status") or ""
+                        if r.get("errors"):
+                            reason = reason or str(r.get("errors"))[:200]
+                        if not reason and "evaluations" in r:
+                            for ev in (r.get("evaluations") or {}).values():
+                                if ev.get("errors"):
+                                    reason = str(ev.get("errors"))[:200]
+                                    break
+                        reason = (reason or "未知").strip()
+                        # 判定：服务端问题（DB/500/超时等） vs 题目或请求问题
+                        reason_lower = reason.lower()
+                        if any(x in reason_lower for x in (
+                            "could not save", "save evaluation", "db", "database", "500", "503", "timeout",
+                            "服务端", "server error", "internal", "overall"
+                        )):
+                            classification = "service"
+                        else:
+                            classification = "question_or_request"
+                        error_details.append({
+                            "index": i,
+                            "question_id": q.get("id"),
+                            "standard": q.get("standard"),
+                            "difficulty": q.get("difficulty"),
+                            "reason": reason[:300],
+                            "classification": classification,
+                        })
 
-                if scores:
-                    avg = sum(scores) / len(scores)
-                    passed = sum(1 for s in scores if s >= 0.85)
-                    print(f"\n=== 汇总 ===")
-                    print(f"平均分: {avg:.2f}")
-                    print(f"通过率(>=0.85): {passed}/{len(scores)} ({100*passed/len(scores):.1f}%)")
+                n_valid = sum(1 for s in scores if s is not None)
+                n_error = n_submitted - n_valid
+
+                if n_valid:
+                    valid_scores = [s for s in scores if s is not None]
+                    avg = sum(valid_scores) / len(valid_scores)
+                    passed = sum(1 for s in scores if s is not None and s >= 0.85)
+                    print(f"\n[评估] === 汇总 ===")
+                    print(f"[评估] 总评估数: {n_submitted}（提交给评分服务的题目数）")
+                    print(f"[评估] 有效分数数: {n_valid}（拿到数值分数的题目数）")
+                    if n_error:
+                        print(f"[评估] 无分数: {n_error} 题（见下方明细，需区分服务端问题与题目问题）")
+                    print(f"[评估] 通过率(>=0.85，按有效题目): {passed}/{n_valid} ({100*passed/n_valid:.1f}%)")
+                    if n_submitted > n_valid:
+                        print(f"[评估] 若将无分数题按不通过计: {passed}/{n_submitted} ({100*passed/n_submitted:.1f}%)")
+                    print(f"[评估] 平均分: {avg:.2f}")
+                    if error_details:
+                        print(f"\n[评估] 无分数题目明细（建议先排查「服务端」再重试或联系评分方）:")
+                        for e in error_details:
+                            std_short = (e.get("standard") or "").replace("CCSS.ELA-LITERACY.", "")
+                            kind = "服务端" if e.get("classification") == "service" else "题目/请求"
+                            print(f"[评估]   题{e['index']+1:>3} ({std_short}, {e.get('difficulty','')}): {e.get('reason','')[:80]}... 判定: {kind}")
                 else:
-                    print("\n无有效分数")
+                    print("\n[评估] 无有效分数")
 
                 if args.output:
                     out_data = {
-                        "total": len(items),
+                        "total": n_submitted,
+                        "total_submitted": n_submitted,
+                        "valid_score_count": n_valid,
+                        "error_count": n_error,
                         "scores": scores,
                         "results": [results_by_idx.get(i) for i in range(len(items))],
                     }
-                    if scores:
-                        out_data["avg_score"] = round(sum(scores) / len(scores), 2)
-                        out_data["pass_count"] = sum(1 for s in scores if s >= 0.85)
-                        out_data["pass_rate"] = round(100 * out_data["pass_count"] / len(scores), 1)
+                    if error_details:
+                        out_data["error_details"] = error_details
+                    if n_valid:
+                        out_data["avg_score"] = round(sum(valid_scores) / n_valid, 2)
+                        out_data["pass_count"] = passed
+                        out_data["pass_rate"] = round(100 * out_data["pass_count"] / n_valid, 1)
+                        out_data["pass_rate_if_errors_as_fail"] = round(100 * out_data["pass_count"] / n_submitted, 1)
                     with open(args.output, 'w') as f:
                         json.dump(out_data, f, indent=2, ensure_ascii=False)
-                    print(f"已保存: {args.output}")
+                    print(f"[评估] 已保存: {args.output}")
+                    if error_details:
+                        err_path = args.output.replace(".json", "_errors.json")
+                        if err_path == args.output:
+                            err_path = os.path.join(os.path.dirname(args.output), "evaluation_errors.json")
+                        with open(err_path, 'w') as f:
+                            json.dump({"total_submitted": n_submitted, "error_count": n_error, "error_details": error_details}, f, indent=2, ensure_ascii=False)
+                        print(f"[评估] 无分数题明细已保存: {err_path}（可据此排查服务端 vs 题目问题）")
 
     elif args.command == "closed-loop":
         import subprocess
         project_root = os.path.dirname(os.path.abspath(__file__))
-        mcqs_path = os.path.join(project_root, args.mcqs) if not os.path.isabs(args.mcqs) else args.mcqs
-        results_path = os.path.join(project_root, args.results) if not os.path.isabs(args.results) else args.results
+        # 默认路径中注入模型名，便于区分各模型生成/评测结果
+        default_mcqs = "evaluation_output/mcqs_240.json"
+        default_results = "evaluation_output/results_240.json"
+        if args.mcqs == default_mcqs:
+            mcqs_path = os.path.join(project_root, f"evaluation_output/mcqs_240_{args.provider}.json")
+        else:
+            mcqs_path = os.path.join(project_root, args.mcqs) if not os.path.isabs(args.mcqs) else args.mcqs
+        if args.results == default_results:
+            results_path = os.path.join(project_root, f"evaluation_output/results_240_{args.provider}.json")
+        else:
+            results_path = os.path.join(project_root, args.results) if not os.path.isabs(args.results) else args.results
         examples_path = os.path.join(project_root, args.examples) if not os.path.isabs(args.examples) else args.examples
         target = args.pass_rate_target
         max_rounds = args.max_rounds
@@ -460,7 +533,7 @@ def main():
                 break
             # 2. 评估
             eval_cmd = [sys.executable, os.path.join(project_root, "main.py"), "evaluate", "--input", mcqs_path, "--output", results_path]
-            print(f"  [2/4] 评估: main.py evaluate --input {args.mcqs} --output {args.results}")
+            print(f"  [2/4] 评估: main.py evaluate --input .../mcqs_240_{args.provider}.json --output .../results_240_{args.provider}.json")
             r = subprocess.run(eval_cmd, cwd=project_root)
             if r.returncode != 0:
                 print(f"  评估失败 exit={r.returncode}")
@@ -468,26 +541,33 @@ def main():
             with open(results_path, "r", encoding="utf-8") as f:
                 out_data = json.load(f)
             scores = out_data.get("scores") or []
-            total = len(scores)
-            if not total:
+            # 与题目对齐：scores[i] 为第 i 题分数或 None；有效数 = 非 None 个数
+            n_valid = out_data.get("valid_score_count")
+            if n_valid is None:
+                n_valid = sum(1 for s in scores if s is not None and isinstance(s, (int, float)))
+            if not n_valid:
                 print("  无有效分数，结束闭环")
                 break
-            pass_count = out_data.get("pass_count") or sum(1 for s in scores if float(s) >= 0.85)
-            pass_rate = 100.0 * pass_count / total
-            print(f"  通过率(>=0.85): {pass_count}/{total} ({pass_rate:.1f}%)")
+            pass_count = out_data.get("pass_count") or sum(1 for s in scores if s is not None and float(s) >= 0.85)
+            pass_rate = 100.0 * pass_count / n_valid
+            n_submitted = out_data.get("total") or out_data.get("total_submitted") or len(scores)
+            n_error = n_submitted - n_valid
+            if n_error:
+                print(f"  无分数题: {n_error} 题（见 results 中 error_details，建议排查服务端/题目）")
+            print(f"  通过率(>=0.85): {pass_count}/{n_valid} ({pass_rate:.1f}%)（分母=有效分数数；总提交 {n_submitted}）")
             if pass_rate >= target:
                 print(f"\n  已达目标通过率 {pass_rate:.1f}% >= {target}%，闭环结束")
                 break
             # 3. 增加失败组合示例
             imp_cmd = [sys.executable, os.path.join(project_root, "main.py"), "improve-examples", "--results", results_path, "--mcqs", mcqs_path, "--output", examples_path, "--raw-data-dir", args.raw_data_dir]
-            print(f"  [3/4] 补示例: main.py improve-examples --results {args.results} --mcqs {args.mcqs} --output {args.examples}")
+            print(f"  [3/4] 补示例: main.py improve-examples --results .../results_240_{args.provider}.json --mcqs .../mcqs_240_{args.provider}.json --output {args.examples}")
             r = subprocess.run(imp_cmd, cwd=project_root)
             if r.returncode != 0:
                 print(f"  improve-examples 失败 exit={r.returncode}")
             # 4. 从失败题反馈改进 prompt 规则（仅对有示例仍低分的组合加针对性规则；先补示例再改 prompt）
             prompt_rules_path = os.path.join(project_root, "processed_training_data", "prompt_rules.json")
             imp_prompt_cmd = [sys.executable, os.path.join(project_root, "scripts", "improve_prompt.py"), "--results", results_path, "--mcqs", mcqs_path, "--output", prompt_rules_path, "--examples", examples_path]
-            print(f"  [4/4] 改 prompt 规则: scripts/improve_prompt.py --results {args.results} --mcqs {args.mcqs} --examples {args.examples}")
+            print(f"  [4/4] 改 prompt 规则: scripts/improve_prompt.py --results .../results_240_{args.provider}.json --mcqs .../mcqs_240_{args.provider}.json --examples {args.examples}")
             subprocess.run(imp_prompt_cmd, cwd=project_root)
             if round_num == max_rounds:
                 print(f"\n  已达最大轮数 {max_rounds}，当前通过率 {pass_rate:.1f}%")

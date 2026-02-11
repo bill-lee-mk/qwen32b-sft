@@ -35,7 +35,12 @@ from data_processing.analyze_dimensions import analyze_dimensions, build_diverse
 from data_processing.build_prompt import build_full_prompt
 from data_processing.select_examples import extract_json_from_text, is_valid_mcq
 from evaluation.inceptbench_client import normalize_for_inceptbench
-from scripts.validate_mcq import validate_and_fix
+from scripts.validate_mcq import (
+    build_minimal_valid_mcq,
+    repair_aggressively,
+    validate_and_fix,
+    validate_mcq,
+)
 
 
 def call_gemini(prompt: str, api_key: str, model: str = "gemini-3-flash-preview") -> str:
@@ -113,9 +118,8 @@ def _validate_and_keep_passing(results: list) -> tuple[list, dict]:
     """
     对每条生成题做校验，不通过则尝试自动修复；只保留最终通过校验的题目，并重新编号 id。
     返回 (通过校验的题目列表, {"fixed": 修复后通过数, "dropped": 仍不通过被丢弃数})
+    （用于单条/批量模式，不要求与组合一一对应）
     """
-    from scripts.validate_mcq import validate_mcq
-
     passing = []
     fixed_count = 0
     dropped_count = 0
@@ -131,6 +135,50 @@ def _validate_and_keep_passing(results: list) -> tuple[list, dict]:
     for i, m in enumerate(passing):
         m["id"] = f"diverse_{i:03d}"
     return passing, {"fixed": fixed_count, "dropped": dropped_count}
+
+
+def _validate_and_repair_keep_all(
+    results_by_index: list,
+    plan: list,
+    grade: str = "3",
+) -> tuple[list, dict]:
+    """
+    与 plan 一一对应：results_by_index[i] 为第 i 个 (standard, difficulty) 的生成结果（可为 None）。
+    对未生成或校验不通过的题目进行修复或构造，保证输出题目数 = len(plan)，且每条通过校验。
+    返回 (题目列表, {"fixed": 修复后通过数, "repaired": 激进修复后通过数, "constructed": 构造的最小合法题数})
+    """
+    n = len(plan)
+    assert len(results_by_index) == n
+    fixed_count = 0
+    repaired_count = 0
+    constructed_count = 0
+    out = [None] * n
+    for i in range(n):
+        standard, difficulty = plan[i]
+        mcq = results_by_index[i]
+        if mcq is None:
+            out[i] = build_minimal_valid_mcq(standard, difficulty, grade=grade, index=i)
+            constructed_count += 1
+            continue
+        had_issues = len(validate_mcq(mcq, i)) > 0
+        mcq_out, passed = validate_and_fix(mcq, index=i, max_rounds=2)
+        if passed:
+            if had_issues:
+                fixed_count += 1
+            out[i] = mcq_out
+            out[i]["id"] = f"diverse_{i:03d}"
+            continue
+        mcq_out = repair_aggressively(mcq_out, standard=standard, difficulty=difficulty, index=i)
+        if not validate_mcq(mcq_out, i):
+            out[i] = mcq_out
+            out[i]["id"] = f"diverse_{i:03d}"
+            repaired_count += 1
+        else:
+            out[i] = build_minimal_valid_mcq(standard, difficulty, grade=grade, index=i)
+            constructed_count += 1
+    for i in range(n):
+        out[i]["id"] = f"diverse_{i:03d}"
+    return out, {"fixed": fixed_count, "repaired": repaired_count, "constructed": constructed_count}
 
 
 def _generate_one(
@@ -196,7 +244,7 @@ def main():
     parser.add_argument("--grade", default="3", help="年级")
     parser.add_argument("--standard", default="CCSS.ELA-LITERACY.L.3.1.E", help="标准 ID")
     parser.add_argument("--difficulty", default="medium", help="难度")
-    parser.add_argument("--output", default=None, help="输出 JSON 路径")
+    parser.add_argument("--output", default=None, help="输出 JSON 路径（--all-combinations 未指定时默认 evaluation_output/mcqs_240_<provider>.json）")
     parser.add_argument("--batch", type=int, default=1, help="生成条数（同参数重复）")
     parser.add_argument("--diverse", type=int, default=None, help="多样化生成 N 条，覆盖不同难度/标准")
     parser.add_argument("--all-combinations", action="store_true", help="遍历生成全部 (standard,difficulty) 组合（如 240 条）")
@@ -260,8 +308,17 @@ def main():
         if n >= 50 and len(examples) < 8:
             print("  建议: 可先运行 python main.py select-examples -n 8 以增加示例覆盖")
         print(f"  计划: {plan[:5]}..." if len(plan) > 5 else f"  计划: {plan}")
+        # 未指定 --output 时，按模型名区分输出文件（便于对比不同模型生成结果）
+        if args.all_combinations and args.output is None:
+            args.output = str(PROJECT_ROOT / "evaluation_output" / f"mcqs_240_{args.provider}.json")
 
-        results = []
+        # 与评估一致：按本题集最大「题号+(标准,难度)」长度固定 label 宽度
+        label_width = max(
+            len(f"题{i+1:>3} ({(s or '').replace('CCSS.ELA-LITERACY.', '')}, {d})")
+            for i, (s, d) in enumerate(plan)
+        )
+        # 按组合下标存储，保证题目总数与 (standard, difficulty) 组合一致；未生成或校验不通过则修复或构造，不丢弃
+        results_by_index = [None] * n
         with ThreadPoolExecutor(max_workers=workers) as ex:
             futures = {
                 ex.submit(
@@ -283,26 +340,28 @@ def main():
                 try:
                     mcq = fut.result()
                     if mcq:
-                        results.append(mcq)
+                        results_by_index[i] = mcq
                         done += 1
-                        print(f"生成 {done}/{n}: {mcq.get('id', '?')} ({s} {d})")
+                        std_short = (s or "").replace("CCSS.ELA-LITERACY.", "")
+                        label = f"题{i+1:>3} ({std_short}, {d})".ljust(label_width)
+                        print(f"[生成] [{done:>3}/{n}] {label}")
                     else:
-                        print(f"生成失败: {s} {d}")
+                        std_short = (s or "").replace("CCSS.ELA-LITERACY.", "")
+                        print(f"[生成] 失败: ({std_short}, {d})，将修复或构造")
                 except Exception as e:
-                    print(f"生成异常 {s} {d}: {e}")
+                    std_short = (s or "").replace("CCSS.ELA-LITERACY.", "")
+                    print(f"[生成] 异常: ({std_short}, {d}) {e}，将修复或构造")
 
-        if not results:
-            print("未成功生成任何 MCQ")
-            sys.exit(1)
-        # 校验并自动修复，只保留通过校验的题目
-        results, validated_stats = _validate_and_keep_passing(results)
-        if validated_stats["dropped"]:
-            print(f"  [校验] 丢弃未通过校验: {validated_stats['dropped']} 题")
-        if validated_stats["fixed"]:
-            print(f"  [校验] 自动修复后通过: {validated_stats['fixed']} 题")
-        if not results:
-            print("无题目通过校验，不写入文件")
-            sys.exit(1)
+        # 校验不通过则修复或构造，保证输出题目数 = n、组合与 plan 一致
+        results, validated_stats = _validate_and_repair_keep_all(
+            results_by_index, plan, grade=args.grade
+        )
+        if validated_stats.get("fixed"):
+            print(f"[生成] [校验] 自动修复后通过: {validated_stats['fixed']} 题")
+        if validated_stats.get("repaired"):
+            print(f"[生成] [校验] 激进修复后通过: {validated_stats['repaired']} 题")
+        if validated_stats.get("constructed"):
+            print(f"[生成] [校验] 未通过则构造最小合法题: {validated_stats['constructed']} 题（保持组合与总数一致）")
     else:
         # 单参数模式（原有逻辑）
         filtered = _filter_examples_for_standard_difficulty(examples, args.standard, args.difficulty)
@@ -360,7 +419,7 @@ def main():
         else:
             with open(out_path, "w", encoding="utf-8") as f:
                 json.dump(results, f, ensure_ascii=False, indent=2)
-        print(f"已保存到: {out_path}（仅通过校验的 {len(results)} 题）")
+        print(f"[生成] 已保存到: {out_path}（仅通过校验的 {len(results)} 题）")
     else:
         print(json.dumps(results[0] if len(results) == 1 else results, ensure_ascii=False, indent=2))
 
