@@ -122,3 +122,30 @@ class MCQGenerator:
             f"<|im_start|>user\n{user}<|im_end|>\n"
             "<|im_start|>assistant\n"
         )
+
+    def generate_raw(
+        self,
+        prompt: str,
+        max_new_tokens: int = 8192,
+        temperature: float = 0.7,
+        top_p: float = 0.9,
+    ) -> str:
+        """按给定完整 prompt 生成续写，用于 OpenAI 兼容的 /v1/chat/completions。"""
+        import torch
+        if not self.model_loaded:
+            raise RuntimeError("模型未加载")
+        inputs = self.tokenizer(prompt, return_tensors="pt").to(self.model.device)
+        with torch.no_grad():
+            outputs = self.model.generate(
+                **inputs,
+                max_new_tokens=max_new_tokens,
+                temperature=temperature,
+                top_p=top_p,
+                do_sample=True,
+                pad_token_id=self.tokenizer.pad_token_id,
+                eos_token_id=self.tokenizer.eos_token_id,
+            )
+        return self.tokenizer.decode(
+            outputs[0][inputs["input_ids"].shape[1]:],
+            skip_special_tokens=True,
+        )

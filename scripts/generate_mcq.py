@@ -81,17 +81,50 @@ def call_openai(messages: list, api_key: str, model: str = "gpt-4o", base_url: s
 
 
 def call_deepseek(messages: list, api_key: str, model: str = "deepseek-chat") -> str:
-    """调用 DeepSeek API"""
-    return call_openai(messages, api_key, model, base_url="https://api.deepseek.com")
+    """调用 DeepSeek API。reasoner 模型会返回 reasoning_content + content，取 content 作为最终答案用于解析 MCQ。"""
+    try:
+        from openai import OpenAI
+    except ImportError:
+        raise ImportError("请安装: pip install openai")
+    client = OpenAI(api_key=api_key, base_url="https://api.deepseek.com")
+    response = client.chat.completions.create(
+        model=model,
+        messages=messages,
+        temperature=0.7,
+        max_tokens=8192,
+    )
+    msg = response.choices[0].message
+    content = (getattr(msg, "content", None) or "").strip()
+    # deepseek-reasoner 的最终答案在 content；若为空则尝试 reasoning_content（部分版本或流式可能不同）
+    if not content and getattr(msg, "reasoning_content", None):
+        content = (msg.reasoning_content or "").strip()
+    return content
 
 
-# Kimi (Moonshot) 官方 API：https://platform.moonshot.cn ，OpenAI 兼容，需配置 API Key；新用户有免费额度
+# Kimi (Moonshot) 官方 API：https://platform.moonshot.cn ，OpenAI 兼容，需配置 API Key；RPM 较低，默认 1 并发
 KIMI_API_BASE = "https://api.moonshot.cn/v1"
-KIMI_MAX_CONCURRENCY = 3  # 与平台「并发数: 3」一致
+KIMI_MAX_CONCURRENCY = 1
+
+
+def _is_local_model(model: str) -> bool:
+    """是否为本地模型：'local' 或指向本地目录的路径（如 models/qwen3-32B/final_model）"""
+    m = (model or "").strip()
+    if m.lower() == "local":
+        return True
+    if not m:
+        return False
+    if m.startswith("models/") or m.startswith("/"):
+        return True
+    p = PROJECT_ROOT / m
+    if "/" in m and p.exists() and p.is_dir():
+        return True
+    return False
 
 
 def _model_to_provider(model: str) -> str:
-    """从模型名推断 API 提供商：deepseek / kimi / gemini / openai"""
+    """从模型名推断 API 提供商：local / deepseek / kimi / gemini / openai"""
+    if _is_local_model(model):
+        return "local"
     m = (model or "").strip().lower()
     if m.startswith("deepseek-") or m == "deepseek":
         return "deepseek"
@@ -103,8 +136,10 @@ def _model_to_provider(model: str) -> str:
 
 
 def _get_api_key_for_model(model: str) -> str | None:
-    """根据模型名返回对应环境变量中的 API Key"""
+    """根据模型名返回对应环境变量中的 API Key；本地模型返回 dummy。"""
     provider = _model_to_provider(model)
+    if provider == "local":
+        return "dummy"
     env_map = {"deepseek": "DEEPSEEK_API_KEY", "kimi": "KIMI_API_KEY", "gemini": "GEMINI_API_KEY", "openai": "OPENAI_API_KEY"}
     return os.environ.get(env_map[provider])
 
@@ -114,9 +149,84 @@ def call_kimi(messages: list, api_key: str, model: str = "kimi-latest") -> str:
     return call_openai(messages, api_key, model, base_url=KIMI_API_BASE)
 
 
+def _get_local_api_base() -> str:
+    """本地模型 API 根地址，默认 http://127.0.0.1:8000"""
+    base = os.environ.get("LOCAL_API_BASE", "http://127.0.0.1:8000").strip().rstrip("/")
+    return f"{base}/v1" if not base.endswith("/v1") else base
+
+
+def _check_local_api_reachable() -> None:
+    """本地模型：在开始批量生成前检查 serve-api 是否可达，避免大量 Connection refused"""
+    base = _get_local_api_base()
+    health_url = base.rstrip("/").replace("/v1", "") + "/health"
+    try:
+        import urllib.request
+        req = urllib.request.Request(health_url)
+        with urllib.request.urlopen(req, timeout=5) as _:
+            pass
+    except Exception as e:
+        raise RuntimeError(
+            f"本地 API 不可达: {health_url}\n"
+            f"错误: {e}\n"
+            "请先在本机启动: python main.py serve-api --model <模型路径>\n"
+            "若闭环在远程执行，请设置: export LOCAL_API_BASE=http://<服务器IP>:8000"
+        ) from e
+
+
+# 本地模型单条超时（秒）；32B 单条可能 5–10 分钟，默认 15 分钟，可用环境变量 LOCAL_API_TIMEOUT 覆盖
+def _local_api_timeout() -> float:
+    try:
+        return float(os.environ.get("LOCAL_API_TIMEOUT", "900").strip())
+    except ValueError:
+        return 900.0
+
+
+# 本地生成 MCQ 的 max_tokens；单题 JSON 通常 500–2000 token，4096 足够且加快单条返回
+LOCAL_API_MAX_TOKENS = 4096
+
+
+def call_local(messages: list, base_url: str, model: str = "local") -> str:
+    """调用本地 serve-api 的 OpenAI 兼容 /v1/chat/completions（需先启动 python main.py serve-api --model <path>）"""
+    try:
+        from openai import OpenAI
+    except ImportError:
+        raise ImportError("请安装: pip install openai")
+    client = OpenAI(api_key="dummy", base_url=base_url)
+    try:
+        response = client.chat.completions.create(
+            model=model,
+            messages=messages,
+            temperature=0.7,
+            max_tokens=LOCAL_API_MAX_TOKENS,
+            timeout=_local_api_timeout(),
+        )
+    except Exception as e:
+        err = str(e).strip()
+        if "connection" in err.lower() or "refused" in err.lower() or "connect" in err.lower():
+            raise RuntimeError(
+                f"连接本地 API 失败 ({base_url})：{err}\n"
+                "请确认：1) serve-api 已启动 (python main.py serve-api --model <path>)；"
+                "2) 本机访问用 LOCAL_API_BASE=http://127.0.0.1:8000；远程访问用 http://<服务器IP>:8000"
+            ) from e
+        if "timeout" in err.lower() or "timed out" in err.lower():
+            raise RuntimeError(
+                f"本地 API 请求超时（单条限 {int(_local_api_timeout())}s）：{err}\n"
+                "可设置环境变量 LOCAL_API_TIMEOUT=1200 延长超时，或降低 --workers"
+            ) from e
+        raise
+    return (response.choices[0].message.content or "").strip()
+
+
 def parse_mcq(text: str) -> dict | None:
-    """从模型回复中解析 MCQ JSON"""
-    obj = extract_json_from_text(text)
+    """从模型回复中解析 MCQ JSON。支持 <think>...</think> 包裹时先去掉再取 JSON。"""
+    if not (text or "").strip():
+        return None
+    s = text.strip()
+    # 去掉 deepseek-reasoner 等可能输出的 <think>...</think> 包裹，避免取到其中的无效内容
+    if s.startswith("<think>") and "</think>" in s:
+        idx = s.index("</think>") + 7
+        s = s[idx:].strip()
+    obj = extract_json_from_text(s)
     if not obj:
         return None
     ok, _ = is_valid_mcq(obj)
@@ -205,8 +315,9 @@ def _generate_one(
     grade: str = "3",
     index: int = 0,
     max_retries: int = 3,
-) -> dict | None:
-    """生成单条 MCQ，供多线程调用。遇 429 自动重试。"""
+) -> tuple[dict | None, float, str | None]:
+    """生成单条 MCQ，供多线程调用。遇 429 自动重试。返回 (mcq_or_none, 耗时秒, 异常信息_or_None)。"""
+    start = time.time()
     filtered = _filter_examples_for_standard_difficulty(examples, standard, difficulty)
     system, user = build_full_prompt(
         grade=grade,
@@ -224,9 +335,12 @@ def _generate_one(
                 raw = call_deepseek(messages, api_key, model)
             elif provider == "kimi":
                 raw = call_kimi(messages, api_key, model)
+            elif provider == "local":
+                raw = call_local(messages, _get_local_api_base(), model)
             else:
                 raw = call_openai(messages, api_key, model)
             mcq = parse_mcq(raw)
+            elapsed = time.time() - start
             if mcq:
                 out = normalize_for_inceptbench(mcq)
                 out["grade"] = grade
@@ -234,8 +348,8 @@ def _generate_one(
                 out["subject"] = "ELA"
                 out["difficulty"] = difficulty
                 out["id"] = f"diverse_{index:03d}"  # 统一 ID 避免冲突
-                return out
-            return None
+                return (out, elapsed, None)
+            return (None, elapsed, None)
         except Exception as e:
             err_str = str(e)
             is_429 = "429" in err_str or "quota" in err_str.lower() or "rate" in err_str.lower()
@@ -244,9 +358,11 @@ def _generate_one(
                 print(f"  [429] {standard} {difficulty}: 等待 {wait_s}s 后重试 ({attempt+1}/{max_retries})")
                 time.sleep(wait_s)
             else:
+                elapsed = time.time() - start
                 print(f"  [WARN] {standard} {difficulty}: {e}")
-                return None
-    return None
+                return (None, elapsed, err_str)
+    elapsed = time.time() - start
+    return (None, elapsed, None)
 
 
 def main():
@@ -261,7 +377,7 @@ def main():
     parser.add_argument("--batch", type=int, default=1, help="生成条数（同参数重复）")
     parser.add_argument("--diverse", type=int, default=None, help="多样化生成 N 条，覆盖不同难度/标准")
     parser.add_argument("--all-combinations", action="store_true", help="遍历生成全部 (standard,difficulty) 组合（如 240 条）")
-    parser.add_argument("--workers", type=int, default=None, help="并行线程数（Gemini 默认 2，Kimi 默认 3，其他 10）")
+    parser.add_argument("--workers", type=int, default=None, help="并行线程数（Gemini 2，Kimi 1，本地 8，DeepSeek/其他 API 10）")
     parser.add_argument("--input-dir", default="raw_data", help="--diverse 时分析 raw_data 的目录")
     parser.add_argument("--include-think-chain", action="store_true", help="是否要求输出 <think>")
     args = parser.parse_args()
@@ -269,10 +385,13 @@ def main():
     model = (args.model or "deepseek-chat").strip()
     provider = _model_to_provider(model)
     api_key = args.api_key or _get_api_key_for_model(model)
-    if not api_key:
+    if provider != "local" and not api_key:
         print("错误: 请提供 --api-key 或设置环境变量（按模型推断: deepseek-* -> DEEPSEEK_API_KEY, kimi-* -> KIMI_API_KEY, gemini-* -> GEMINI_API_KEY, 其他 -> OPENAI_API_KEY）")
         sys.exit(1)
-    print(f"使用模型: {model}")
+    if provider == "local":
+        print("使用模型: 本地 (serve-api)，确保已启动: python main.py serve-api --model <模型路径>")
+    else:
+        print(f"使用模型: {model}")
 
     # 加载示例（默认 examples.json，兼容旧版 few_shot_examples.json）
     examples_path = args.examples or (PROJECT_ROOT / "processed_training_data" / "examples.json")
@@ -300,28 +419,35 @@ def main():
         n = len(plan)
         workers = args.workers
         if workers is None:
-            workers = 2 if provider == "gemini" else (KIMI_MAX_CONCURRENCY if provider == "kimi" else 10)
+            # 生成并发默认：Gemini 2，Kimi 1，本地 8（8 卡机保持队列；单进程 serve-api 仅用 1–2 卡），DeepSeek/其他 API 10
+            workers = 2 if provider == "gemini" else (KIMI_MAX_CONCURRENCY if provider == "kimi" else (8 if provider == "local" else 10))
         workers = min(workers, n)
         if provider == "kimi":
             workers = min(workers, KIMI_MAX_CONCURRENCY)  # 不超过平台并发数
         print(f"多样化生成 {n} 条，{workers} 线程并行，覆盖 {len(set(p[0] for p in plan))} 个标准、{len(set(p[1] for p in plan))} 个难度")
+        if provider == "local":
+            print("  提示: 本地默认 8 并发（8 卡机可保持队列）；单进程 serve-api 串行推理仅用 1–2 卡，若需用满 8 卡可起 8 个 serve-api 实例并做负载均衡")
         if provider == "gemini" and workers > 2:
             print("  提示: Gemini 免费版约 5 次/分钟，建议 --workers 2；遇 429 会自动重试")
         if provider == "kimi":
-            print("  提示: Kimi 并发≤3、RPM=20；若遇限频可 --workers 2 或 1")
+            print("  提示: Kimi RPM 较低，默认 1 并发；遇 429 会自动重试，可试 --workers 2 加速")
         if n >= 50 and len(examples) < 8:
             print("  建议: 可先运行 python main.py select-examples -n 8 以增加示例覆盖")
         print(f"  计划: {plan[:5]}..." if len(plan) > 5 else f"  计划: {plan}")
+        if provider == "local":
+            _check_local_api_reachable()
+            print("  提示: 本地串行推理，首条约 1–3 分钟，后续按队列依次返回；8 卡机默认 --workers 8 保持队列")
         # 未指定 --output 时，按模型名区分输出文件（便于对比不同模型生成结果）
         if args.all_combinations and args.output is None:
-            model_slug = model.replace(".", "_")
+            model_slug = model.replace(".", "_").replace("/", "_")
             args.output = str(PROJECT_ROOT / "evaluation_output" / f"mcqs_240_{model_slug}.json")
 
-        # 与评估一致：按本题集最大「题号+(标准,难度)」长度固定 label 宽度
+        # 与评估一致：按本题集最大「题号+(标准,难度)」长度固定 label 宽度；耗时列固定宽度对齐
         label_width = max(
             len(f"题{i+1:>3} ({(s or '').replace('CCSS.ELA-LITERACY.', '')}, {d})")
             for i, (s, d) in enumerate(plan)
         )
+        time_width = 8  # 耗时列宽度，如 "  12.3s"、" 120.5s"
         # 按组合下标存储，保证题目总数与 (standard, difficulty) 组合一致；未生成或校验不通过则修复或构造，不丢弃
         results_by_index = [None] * n
         with ThreadPoolExecutor(max_workers=workers) as ex:
@@ -343,19 +469,22 @@ def main():
             for fut in as_completed(futures):
                 i, s, d = futures[fut]
                 try:
-                    mcq = fut.result()
+                    mcq, elapsed, err_msg = fut.result()
+                    elapsed_s = f"{elapsed:.1f}s".rjust(time_width)
+                    std_short = (s or "").replace("CCSS.ELA-LITERACY.", "")
+                    label = f"题{i+1:>3} ({std_short}, {d})".ljust(label_width)
                     if mcq:
                         results_by_index[i] = mcq
                         done += 1
-                        std_short = (s or "").replace("CCSS.ELA-LITERACY.", "")
-                        label = f"题{i+1:>3} ({std_short}, {d})".ljust(label_width)
-                        print(f"[生成] [{done:>3}/{n}] {label}")
+                        print(f"[生成] [{done:>3}/{n}] {label}  {elapsed_s}")
+                    elif err_msg:
+                        print(f"[生成] 异常: {label}  {elapsed_s}  {err_msg[:50]}，将修复或构造")
                     else:
-                        std_short = (s or "").replace("CCSS.ELA-LITERACY.", "")
-                        print(f"[生成] 失败: ({std_short}, {d})，将修复或构造")
+                        print(f"[生成] 失败: {label}  {elapsed_s}，将修复或构造")
                 except Exception as e:
                     std_short = (s or "").replace("CCSS.ELA-LITERACY.", "")
-                    print(f"[生成] 异常: ({std_short}, {d}) {e}，将修复或构造")
+                    label = f"题{i+1:>3} ({std_short}, {d})".ljust(label_width)
+                    print(f"[生成] 异常: {label}  {'—':>{time_width}}  {str(e)[:40]}…，将修复或构造")
 
         # 校验不通过则修复或构造，保证输出题目数 = n、组合与 plan 一致
         results, validated_stats = _validate_and_repair_keep_all(
@@ -388,6 +517,8 @@ def main():
                 raw = call_deepseek(messages, api_key, model)
             elif provider == "kimi":
                 raw = call_kimi(messages, api_key, model)
+            elif provider == "local":
+                raw = call_local(messages, _get_local_api_base(), model)
             else:
                 raw = call_openai(messages, api_key, model)
 

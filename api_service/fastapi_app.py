@@ -5,9 +5,10 @@ FastAPI API服务
 """
 import os
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from typing import Dict, List, Optional, Any
+import asyncio
 import uvicorn
 from datetime import datetime
 import logging
@@ -24,6 +25,8 @@ logger = logging.getLogger(__name__)
 
 # 全局模型实例
 generator = None
+# 本地单卡只能串行推理，限制 /v1/chat/completions 同时只处理 1 个请求，避免多线程争抢显存导致卡死/OOM
+_infer_semaphore = asyncio.Semaphore(1)
 
 
 @asynccontextmanager
@@ -171,6 +174,68 @@ async def batch_generate_mcq(request: BatchMCQRequest):
     except Exception as e:
         logger.error(f"批量生成失败: {e}")
         raise HTTPException(status_code=500, detail=f"批量生成失败: {str(e)}")
+
+@app.post("/v1/chat/completions")
+async def openai_chat_completions(request: Request):
+    """OpenAI 兼容的 chat completions，供 generate_mcq / 闭环使用本地模型。"""
+    if not generator or not generator.model_loaded:
+        raise HTTPException(status_code=503, detail="服务未就绪，模型未加载")
+    try:
+        body = await request.json()
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"无效 JSON: {e}")
+    messages = body.get("messages") or []
+    max_tokens = int(body.get("max_tokens", 8192))
+    temperature = float(body.get("temperature", 0.7))
+    try:
+        if hasattr(generator.tokenizer, "apply_chat_template"):
+            prompt = generator.tokenizer.apply_chat_template(
+                messages,
+                tokenize=False,
+                add_generation_prompt=True,
+            )
+        else:
+            # 无 chat_template 时按 Qwen 格式拼接
+            parts = []
+            for m in messages:
+                role, content = (m.get("role") or "user"), (m.get("content") or "")
+                if role == "system":
+                    parts.append(f"<|im_start|>system\n{content}<|im_end|>\n")
+                elif role == "user":
+                    parts.append(f"<|im_start|>user\n{content}<|im_end|>\n")
+                elif role == "assistant":
+                    parts.append(f"<|im_start|>assistant\n{content}<|im_end|>\n")
+            parts.append("<|im_start|>assistant\n")
+            prompt = "".join(parts)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"构建 prompt 失败: {e}")
+    async with _infer_semaphore:
+        loop = asyncio.get_event_loop()
+        try:
+            text = await loop.run_in_executor(
+                None,
+                lambda: generator.generate_raw(
+                    prompt,
+                    max_new_tokens=max_tokens,
+                    temperature=temperature,
+                ),
+            )
+        except Exception as e:
+            logger.exception("generate_raw 失败")
+            raise HTTPException(status_code=500, detail=str(e))
+    return {
+        "id": "local",
+        "object": "chat.completion",
+        "choices": [
+            {
+                "index": 0,
+                "message": {"role": "assistant", "content": text or ""},
+                "finish_reason": "stop",
+            }
+        ],
+        "usage": None,
+    }
+
 
 @app.post("/template/generate")
 async def generate_from_template(
