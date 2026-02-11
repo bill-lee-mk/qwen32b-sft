@@ -121,9 +121,9 @@ def main():
 
     # 闭环自动化：生成 → 评估 → 若通过率 < 目标则 improve-examples → 重复直到达标或达最大轮数
     loop_parser = subparsers.add_parser("closed-loop", help="闭环：生成→评估→未达标则补示例/改prompt→重复")
-    loop_parser.add_argument("--provider", default="deepseek", help="生成 MCQ 使用的模型（deepseek / kimi）")
-    loop_parser.add_argument("--mcqs", default="evaluation_output/mcqs_240.json", help="MCQ 输出路径（默认会改为 evaluation_output/mcqs_240_<provider>.json）")
-    loop_parser.add_argument("--results", default="evaluation_output/results_240.json", help="评估结果路径（默认会改为 evaluation_output/results_240_<provider>.json）")
+    loop_parser.add_argument("--model", default="deepseek-chat", help="生成 MCQ 使用的具体模型名，如 deepseek-chat / kimi-latest / gpt-4o")
+    loop_parser.add_argument("--mcqs", default="evaluation_output/mcqs_240.json", help="MCQ 输出路径（默认会改为 evaluation_output/mcqs_240_<model>.json）")
+    loop_parser.add_argument("--results", default="evaluation_output/results_240.json", help="评估结果路径（默认会改为 evaluation_output/results_240_<model>.json）")
     loop_parser.add_argument("--examples", default="processed_training_data/examples.json", help="few-shot 示例路径（每轮 improve 会更新）")
     loop_parser.add_argument("--pass-rate-target", type=float, default=95.0, help="通过率目标（百分数，默认 95）")
     loop_parser.add_argument("--max-rounds", type=int, default=10, help="最大循环轮数")
@@ -509,14 +509,16 @@ def main():
         import subprocess
         project_root = os.path.dirname(os.path.abspath(__file__))
         # 默认路径中注入模型名，便于区分各模型生成/评测结果
+        model = getattr(args, "model", "deepseek-chat") or "deepseek-chat"
+        model_slug = model.replace(".", "_")
         default_mcqs = "evaluation_output/mcqs_240.json"
         default_results = "evaluation_output/results_240.json"
         if args.mcqs == default_mcqs:
-            mcqs_path = os.path.join(project_root, f"evaluation_output/mcqs_240_{args.provider}.json")
+            mcqs_path = os.path.join(project_root, f"evaluation_output/mcqs_240_{model_slug}.json")
         else:
             mcqs_path = os.path.join(project_root, args.mcqs) if not os.path.isabs(args.mcqs) else args.mcqs
         if args.results == default_results:
-            results_path = os.path.join(project_root, f"evaluation_output/results_240_{args.provider}.json")
+            results_path = os.path.join(project_root, f"evaluation_output/results_240_{model_slug}.json")
         else:
             results_path = os.path.join(project_root, args.results) if not os.path.isabs(args.results) else args.results
         examples_path = os.path.join(project_root, args.examples) if not os.path.isabs(args.examples) else args.examples
@@ -525,7 +527,7 @@ def main():
         for round_num in range(1, max_rounds + 1):
             print(f"\n========== 闭环 第 {round_num}/{max_rounds} 轮 ==========")
             # 1. 生成题目
-            gen_cmd = [sys.executable, os.path.join(project_root, "scripts", "generate_mcq.py"), "--provider", args.provider, "--all-combinations", "--output", mcqs_path]
+            gen_cmd = [sys.executable, os.path.join(project_root, "scripts", "generate_mcq.py"), "--model", model, "--all-combinations", "--output", mcqs_path]
             print(f"  [1/4] 生成: {' '.join(gen_cmd)}")
             r = subprocess.run(gen_cmd, cwd=project_root)
             if r.returncode != 0:
@@ -533,7 +535,7 @@ def main():
                 break
             # 2. 评估
             eval_cmd = [sys.executable, os.path.join(project_root, "main.py"), "evaluate", "--input", mcqs_path, "--output", results_path]
-            print(f"  [2/4] 评估: main.py evaluate --input .../mcqs_240_{args.provider}.json --output .../results_240_{args.provider}.json")
+            print(f"  [2/4] 评估: main.py evaluate --input .../mcqs_240_{model_slug}.json --output .../results_240_{model_slug}.json")
             r = subprocess.run(eval_cmd, cwd=project_root)
             if r.returncode != 0:
                 print(f"  评估失败 exit={r.returncode}")
@@ -560,14 +562,14 @@ def main():
                 break
             # 3. 增加失败组合示例
             imp_cmd = [sys.executable, os.path.join(project_root, "main.py"), "improve-examples", "--results", results_path, "--mcqs", mcqs_path, "--output", examples_path, "--raw-data-dir", args.raw_data_dir]
-            print(f"  [3/4] 补示例: main.py improve-examples --results .../results_240_{args.provider}.json --mcqs .../mcqs_240_{args.provider}.json --output {args.examples}")
+            print(f"  [3/4] 补示例: main.py improve-examples --results .../results_240_{model_slug}.json --mcqs .../mcqs_240_{model_slug}.json --output {args.examples}")
             r = subprocess.run(imp_cmd, cwd=project_root)
             if r.returncode != 0:
                 print(f"  improve-examples 失败 exit={r.returncode}")
             # 4. 从失败题反馈改进 prompt 规则（仅对有示例仍低分的组合加针对性规则；先补示例再改 prompt）
             prompt_rules_path = os.path.join(project_root, "processed_training_data", "prompt_rules.json")
             imp_prompt_cmd = [sys.executable, os.path.join(project_root, "scripts", "improve_prompt.py"), "--results", results_path, "--mcqs", mcqs_path, "--output", prompt_rules_path, "--examples", examples_path]
-            print(f"  [4/4] 改 prompt 规则: scripts/improve_prompt.py --results .../results_240_{args.provider}.json --mcqs .../mcqs_240_{args.provider}.json --examples {args.examples}")
+            print(f"  [4/4] 改 prompt 规则: scripts/improve_prompt.py --results .../results_240_{model_slug}.json --mcqs .../mcqs_240_{model_slug}.json --examples {args.examples}")
             subprocess.run(imp_prompt_cmd, cwd=project_root)
             if round_num == max_rounds:
                 print(f"\n  已达最大轮数 {max_rounds}，当前通过率 {pass_rate:.1f}%")

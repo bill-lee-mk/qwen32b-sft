@@ -9,15 +9,13 @@
   # 1. 先筛选示例
   python main.py select-examples -n 5
 
-  # 2. 生成 MCQ（单条）
-  python scripts/generate_mcq.py --provider gemini --output evaluation_output/mcqs.json
+  # 2. 生成 MCQ（单条，--model 指定具体模型，默认 deepseek-chat）
+  python scripts/generate_mcq.py --model deepseek-chat --output evaluation_output/mcqs.json
+  python scripts/generate_mcq.py --model kimi-latest --output evaluation_output/mcqs.json
 
-  # 3. 多样化批量生成（20 条，覆盖不同难度/标准，多线程）
-  python scripts/generate_mcq.py --provider gemini --diverse 20 --output evaluation_output/mcqs.json
-
-  # 4. 使用 Kimi (Moonshot) 生成（需配置 KIMI_API_KEY，新用户有免费额度）
-  python scripts/generate_mcq.py --provider kimi --output evaluation_output/mcqs.json
-  python scripts/generate_mcq.py --provider kimi --all-combinations --output evaluation_output/mcqs_240.json
+  # 3. 全组合生成（输出默认 evaluation_output/mcqs_240_<model>.json）
+  python scripts/generate_mcq.py --model deepseek-chat --all-combinations
+  python scripts/generate_mcq.py --model gemini-3-flash-preview --all-combinations --output evaluation_output/mcqs.json
 """
 import argparse
 import json
@@ -88,11 +86,27 @@ def call_deepseek(messages: list, api_key: str, model: str = "deepseek-chat") ->
 
 
 # Kimi (Moonshot) 官方 API：https://platform.moonshot.cn ，OpenAI 兼容，需配置 API Key；新用户有免费额度
-# 可选模型：kimi-latest（推荐）、moonshot-v1-8k、kimi-k2-0905-preview、kimi-k2-turbo-preview 等
-# 用量规则（以控制台为准）：并发数=3（同时请求数）、RPM=20（每分钟请求数）、TPM=500000（每分钟 token）、TPD=500000（每日 token）
-# 本仓库：Kimi 默认 --workers 3，不超过并发；若触发限频可加 --workers 2 或 1
 KIMI_API_BASE = "https://api.moonshot.cn/v1"
 KIMI_MAX_CONCURRENCY = 3  # 与平台「并发数: 3」一致
+
+
+def _model_to_provider(model: str) -> str:
+    """从模型名推断 API 提供商：deepseek / kimi / gemini / openai"""
+    m = (model or "").strip().lower()
+    if m.startswith("deepseek-") or m == "deepseek":
+        return "deepseek"
+    if m.startswith("kimi-") or m.startswith("moonshot-") or m == "kimi":
+        return "kimi"
+    if m.startswith("gemini-") or m == "gemini":
+        return "gemini"
+    return "openai"
+
+
+def _get_api_key_for_model(model: str) -> str | None:
+    """根据模型名返回对应环境变量中的 API Key"""
+    provider = _model_to_provider(model)
+    env_map = {"deepseek": "DEEPSEEK_API_KEY", "kimi": "KIMI_API_KEY", "gemini": "GEMINI_API_KEY", "openai": "OPENAI_API_KEY"}
+    return os.environ.get(env_map[provider])
 
 
 def call_kimi(messages: list, api_key: str, model: str = "kimi-latest") -> str:
@@ -237,38 +251,28 @@ def _generate_one(
 
 def main():
     parser = argparse.ArgumentParser(description="生成 MCQ（generate_mcq）")
-    parser.add_argument("--provider", choices=["gemini", "openai", "deepseek", "kimi"], required=True, help="API 提供商")
-    parser.add_argument("--api-key", default=None, help="API Key（环境变量: GEMINI_API_KEY / OPENAI_API_KEY / DEEPSEEK_API_KEY / KIMI_API_KEY）")
-    parser.add_argument("--model", default=None, help="模型名")
+    parser.add_argument("--model", default="deepseek-chat", help="具体模型名，如 deepseek-chat / deepseek-reasoner / kimi-latest / gemini-3-flash-preview / gpt-4o（据此前缀选 API）")
+    parser.add_argument("--api-key", default=None, help="API Key（未设时从环境变量按模型推断：DEEPSEEK_API_KEY / KIMI_API_KEY / GEMINI_API_KEY / OPENAI_API_KEY）")
     parser.add_argument("--examples", default=None, help="示例 JSON 路径，默认 processed_training_data/examples.json")
     parser.add_argument("--grade", default="3", help="年级")
     parser.add_argument("--standard", default="CCSS.ELA-LITERACY.L.3.1.E", help="标准 ID")
     parser.add_argument("--difficulty", default="medium", help="难度")
-    parser.add_argument("--output", default=None, help="输出 JSON 路径（--all-combinations 未指定时默认 evaluation_output/mcqs_240_<provider>.json）")
+    parser.add_argument("--output", default=None, help="输出 JSON 路径（--all-combinations 未指定时默认 evaluation_output/mcqs_240_<model>.json）")
     parser.add_argument("--batch", type=int, default=1, help="生成条数（同参数重复）")
     parser.add_argument("--diverse", type=int, default=None, help="多样化生成 N 条，覆盖不同难度/标准")
     parser.add_argument("--all-combinations", action="store_true", help="遍历生成全部 (standard,difficulty) 组合（如 240 条）")
-    parser.add_argument("--workers", type=int, default=None, help="--diverse 时的并行线程数（Gemini 默认 2，Kimi 默认 3 以匹配并发限制，其他 10）")
+    parser.add_argument("--workers", type=int, default=None, help="并行线程数（Gemini 默认 2，Kimi 默认 3，其他 10）")
     parser.add_argument("--input-dir", default="raw_data", help="--diverse 时分析 raw_data 的目录")
     parser.add_argument("--include-think-chain", action="store_true", help="是否要求输出 <think>")
     args = parser.parse_args()
 
-    # API Key 与默认模型
-    if args.provider == "gemini":
-        api_key = args.api_key or os.environ.get("GEMINI_API_KEY")
-        model = args.model or "gemini-3-flash-preview"
-    elif args.provider == "deepseek":
-        api_key = args.api_key or os.environ.get("DEEPSEEK_API_KEY")
-        model = args.model or "deepseek-chat"
-    elif args.provider == "kimi":
-        api_key = args.api_key or os.environ.get("KIMI_API_KEY")
-        model = args.model or "kimi-latest"
-    else:
-        api_key = args.api_key or os.environ.get("OPENAI_API_KEY")
-        model = args.model or "gpt-4o"
+    model = (args.model or "deepseek-chat").strip()
+    provider = _model_to_provider(model)
+    api_key = args.api_key or _get_api_key_for_model(model)
     if not api_key:
-        print("错误: 请提供 --api-key 或设置环境变量")
+        print("错误: 请提供 --api-key 或设置环境变量（按模型推断: deepseek-* -> DEEPSEEK_API_KEY, kimi-* -> KIMI_API_KEY, gemini-* -> GEMINI_API_KEY, 其他 -> OPENAI_API_KEY）")
         sys.exit(1)
+    print(f"使用模型: {model}")
 
     # 加载示例（默认 examples.json，兼容旧版 few_shot_examples.json）
     examples_path = args.examples or (PROJECT_ROOT / "processed_training_data" / "examples.json")
@@ -296,21 +300,22 @@ def main():
         n = len(plan)
         workers = args.workers
         if workers is None:
-            workers = 2 if args.provider == "gemini" else (KIMI_MAX_CONCURRENCY if args.provider == "kimi" else 10)
+            workers = 2 if provider == "gemini" else (KIMI_MAX_CONCURRENCY if provider == "kimi" else 10)
         workers = min(workers, n)
-        if args.provider == "kimi":
+        if provider == "kimi":
             workers = min(workers, KIMI_MAX_CONCURRENCY)  # 不超过平台并发数
         print(f"多样化生成 {n} 条，{workers} 线程并行，覆盖 {len(set(p[0] for p in plan))} 个标准、{len(set(p[1] for p in plan))} 个难度")
-        if args.provider == "gemini" and workers > 2:
+        if provider == "gemini" and workers > 2:
             print("  提示: Gemini 免费版约 5 次/分钟，建议 --workers 2；遇 429 会自动重试")
-        if args.provider == "kimi":
+        if provider == "kimi":
             print("  提示: Kimi 并发≤3、RPM=20；若遇限频可 --workers 2 或 1")
         if n >= 50 and len(examples) < 8:
             print("  建议: 可先运行 python main.py select-examples -n 8 以增加示例覆盖")
         print(f"  计划: {plan[:5]}..." if len(plan) > 5 else f"  计划: {plan}")
         # 未指定 --output 时，按模型名区分输出文件（便于对比不同模型生成结果）
         if args.all_combinations and args.output is None:
-            args.output = str(PROJECT_ROOT / "evaluation_output" / f"mcqs_240_{args.provider}.json")
+            model_slug = model.replace(".", "_")
+            args.output = str(PROJECT_ROOT / "evaluation_output" / f"mcqs_240_{model_slug}.json")
 
         # 与评估一致：按本题集最大「题号+(标准,难度)」长度固定 label 宽度
         label_width = max(
@@ -326,7 +331,7 @@ def main():
                     standard=s,
                     difficulty=d,
                     examples=examples,
-                    provider=args.provider,
+                    provider=provider,
                     api_key=api_key,
                     model=model,
                     grade=args.grade,
@@ -376,12 +381,12 @@ def main():
         results = []
         messages = [{"role": "system", "content": system}, {"role": "user", "content": user}]
         for i in range(args.batch):
-            if args.provider == "gemini":
+            if provider == "gemini":
                 full_prompt = f"{system}\n\n{user}"
                 raw = call_gemini(full_prompt, api_key, model)
-            elif args.provider == "deepseek":
+            elif provider == "deepseek":
                 raw = call_deepseek(messages, api_key, model)
-            elif args.provider == "kimi":
+            elif provider == "kimi":
                 raw = call_kimi(messages, api_key, model)
             else:
                 raw = call_openai(messages, api_key, model)
