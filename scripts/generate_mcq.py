@@ -22,6 +22,7 @@ import json
 import os
 import re
 import sys
+import threading
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
@@ -101,9 +102,15 @@ def call_deepseek(messages: list, api_key: str, model: str = "deepseek-chat") ->
     return content
 
 
-# Kimi (Moonshot) 官方 API：https://platform.moonshot.cn ，OpenAI 兼容，需配置 API Key；RPM 较低，默认 1 并发
+# Kimi (Moonshot) 官方 API：https://platform.moonshot.cn ，OpenAI 兼容，需配置 API Key；RPM 较低
 KIMI_API_BASE = "https://api.moonshot.cn/v1"
-KIMI_MAX_CONCURRENCY = 1
+KIMI_MAX_CONCURRENCY = 10
+# 两次请求最小间隔（秒）；5s 约 12/分钟，在稳与速度间折中
+KIMI_MIN_INTERVAL = 5.0
+# 429 后重试等待（秒），Kimi 配额重置较慢，需较长等待
+KIMI_429_WAIT_SECONDS = 120
+_kimi_rate_lock = threading.Lock()
+_kimi_last_call_time = 0.0
 
 
 def _is_local_model(model: str) -> bool:
@@ -145,8 +152,19 @@ def _get_api_key_for_model(model: str) -> str | None:
 
 
 def call_kimi(messages: list, api_key: str, model: str = "kimi-latest") -> str:
-    """调用 Kimi (Moonshot) API，OpenAI 兼容接口"""
-    return call_openai(messages, api_key, model, base_url=KIMI_API_BASE)
+    """调用 Kimi (Moonshot) API，OpenAI 兼容接口；内部限速，保证两次请求间隔 >= KIMI_MIN_INTERVAL"""
+    global _kimi_last_call_time
+    with _kimi_rate_lock:
+        now = time.time()
+        if _kimi_last_call_time == 0.0:
+            time.sleep(5)  # 首次请求前稍等，避免冷启动 429
+        wait = _kimi_last_call_time + KIMI_MIN_INTERVAL - now
+        if wait > 0:
+            time.sleep(wait)
+        try:
+            return call_openai(messages, api_key, model, base_url=KIMI_API_BASE)
+        finally:
+            _kimi_last_call_time = time.time()
 
 
 def _get_local_api_base() -> str:
@@ -354,7 +372,7 @@ def _generate_one(
             err_str = str(e)
             is_429 = "429" in err_str or "quota" in err_str.lower() or "rate" in err_str.lower()
             if is_429 and attempt < max_retries - 1:
-                wait_s = _parse_retry_seconds(err_str)
+                wait_s = KIMI_429_WAIT_SECONDS if provider == "kimi" else _parse_retry_seconds(err_str)
                 print(f"  [429] {standard} {difficulty}: 等待 {wait_s}s 后重试 ({attempt+1}/{max_retries})")
                 time.sleep(wait_s)
             else:
@@ -377,7 +395,7 @@ def main():
     parser.add_argument("--batch", type=int, default=1, help="生成条数（同参数重复）")
     parser.add_argument("--diverse", type=int, default=None, help="多样化生成 N 条，覆盖不同难度/标准")
     parser.add_argument("--all-combinations", action="store_true", help="遍历生成全部 (standard,difficulty) 组合（如 240 条）")
-    parser.add_argument("--workers", type=int, default=None, help="并行线程数（Gemini 2，Kimi 1，本地 8，DeepSeek/其他 API 10）")
+    parser.add_argument("--workers", type=int, default=None, help="并行线程数（Gemini 2，Kimi 10，本地 8，DeepSeek/其他 API 10）")
     parser.add_argument("--input-dir", default="raw_data", help="--diverse 时分析 raw_data 的目录")
     parser.add_argument("--include-think-chain", action="store_true", help="是否要求输出 <think>")
     args = parser.parse_args()
@@ -430,7 +448,7 @@ def main():
         if provider == "gemini" and workers > 2:
             print("  提示: Gemini 免费版约 5 次/分钟，建议 --workers 2；遇 429 会自动重试")
         if provider == "kimi":
-            print("  提示: Kimi RPM 较低，默认 1 并发；遇 429 会自动重试，可试 --workers 2 加速")
+            print("  提示: Kimi 已限速 5s/次、默认 10 并发，429 后等 2 分钟重试；若 429 可降低 --workers 或稍后再跑")
         if n >= 50 and len(examples) < 8:
             print("  建议: 可先运行 python main.py select-examples -n 8 以增加示例覆盖")
         print(f"  计划: {plan[:5]}..." if len(plan) > 5 else f"  计划: {plan}")

@@ -236,7 +236,7 @@ def main():
     loop_parser.add_argument("--pass-rate-target", type=float, default=95.0, help="通过率目标（百分数，默认 95）；设为 0 表示不设目标，跑满 --max-rounds 后取最终/最高通过率")
     loop_parser.add_argument("--max-rounds", type=int, default=10, help="最大循环轮数")
     loop_parser.add_argument("--raw-data-dir", default="raw_data", help="improve-examples 使用的 raw_data 目录")
-    loop_parser.add_argument("--workers", type=int, default=None, help="生成阶段并行数（DeepSeek/API 默认 10，本地 8，Kimi 1）")
+    loop_parser.add_argument("--workers", type=int, default=None, help="生成阶段并行数（DeepSeek/API 默认 10，本地 8，Kimi 10）")
     loop_parser.add_argument("--parallel", type=int, default=20, help="评估阶段 InceptBench 并行数（默认 20）")
 
     # 多模型闭环：对多个模型分别跑闭环，最后汇总各模型通过率并保存 JSON
