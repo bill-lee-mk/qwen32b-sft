@@ -3,6 +3,7 @@
 构建 prompt（build_prompt）
 
 将示例拼成给闭源模型的 prompt。
+支持动态规则：全局规则（所有题目）+ 针对性规则（按 standard 或 (standard, difficulty)）。
 """
 import json
 from pathlib import Path
@@ -10,7 +11,9 @@ from typing import Dict, List, Optional
 
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent
 _STANDARD_DESCRIPTIONS_PATH = _PROJECT_ROOT / "data" / "standard_descriptions.json"
+_PROMPT_RULES_PATH = _PROJECT_ROOT / "processed_training_data" / "prompt_rules.json"
 _standard_descriptions_cache: Optional[Dict[str, str]] = None
+_prompt_rules_cache: Optional[Dict] = None
 
 
 def load_standard_descriptions() -> Dict[str, str]:
@@ -29,6 +32,43 @@ def load_standard_descriptions() -> Dict[str, str]:
 def get_standard_description(standard: str) -> Optional[str]:
     """获取单个标准的描述"""
     return load_standard_descriptions().get(standard)
+
+
+def load_prompt_rules() -> Dict:
+    """
+    加载动态 prompt 规则（来自失败分析/闭环）。
+    结构: { "global_rules": [], "by_standard": {"std": []}, "by_standard_difficulty": {"std|diff": []} }
+    """
+    global _prompt_rules_cache
+    if _prompt_rules_cache is not None:
+        return _prompt_rules_cache
+    if _PROMPT_RULES_PATH.exists():
+        try:
+            with open(_PROMPT_RULES_PATH, "r", encoding="utf-8") as f:
+                _prompt_rules_cache = json.load(f)
+        except Exception:
+            _prompt_rules_cache = {}
+    else:
+        _prompt_rules_cache = {}
+    return _prompt_rules_cache
+
+
+def get_global_rules() -> List[str]:
+    """返回全局规则列表（适用于所有题目）"""
+    rules = load_prompt_rules()
+    return list(rules.get("global_rules") or [])
+
+
+def get_targeted_rules(standard: str, difficulty: str) -> List[str]:
+    """返回针对 (standard, difficulty) 的规则：by_standard[standard] + by_standard_difficulty['std|diff']"""
+    rules = load_prompt_rules()
+    out: List[str] = []
+    by_std = rules.get("by_standard") or {}
+    by_key = rules.get("by_standard_difficulty") or {}
+    out.extend(by_std.get(standard) or [])
+    key = f"{standard}|{difficulty}"
+    out.extend(by_key.get(key) or [])
+    return out
 
 MCQ_SCHEMA = """
 {
@@ -77,6 +117,12 @@ Rules:
         base += "\n\n17. You may optionally include <think>...</think> before the JSON, but the output MUST end with a complete JSON object."
     else:
         base += "\n\n17. Output ONLY the JSON object."
+    global_rules = get_global_rules()
+    if global_rules:
+        base += "\n\n--- Dynamic global rules (from failure analysis) ---\n"
+        for r in global_rules:
+            base += f"• {r}\n"
+        base += "--- END dynamic global rules ---"
     base += f"\n\nOutput schema:\n{MCQ_SCHEMA.strip()}"
     return base
 
@@ -112,11 +158,12 @@ def build_user_prompt(
     standard_description: Optional[str] = None,
     difficulty: str = "medium",
     subject: str = "ELA",
+    targeted_rules: Optional[List[str]] = None,
 ) -> str:
-    """构建 user prompt"""
+    """构建 user prompt。targeted_rules 为针对该 (standard, difficulty) 的额外提醒。"""
     desc = standard_description or ""
     desc_line = f"Description: {desc}\n" if desc else ""
-    return f"""Generate one MCQ for Grade {grade} {subject}.
+    text = f"""Generate one MCQ for Grade {grade} {subject}.
 
 Standard: {standard}
 {desc_line}Difficulty: {difficulty}
@@ -124,6 +171,12 @@ Standard: {standard}
 Return only the JSON object. The question MUST assess exactly the skill described above—not a related skill.
 
 {_USER_VERIFICATION_REMINDER}"""
+    if targeted_rules:
+        text += "\n\n--- Reminders for this standard/difficulty ---\n"
+        for r in targeted_rules:
+            text += f"• {r}\n"
+        text += "--- END reminders ---"
+    return text
 
 
 def build_full_prompt(
@@ -136,17 +189,19 @@ def build_full_prompt(
     include_think_chain: bool = False,
     use_standard_descriptions: bool = True,
 ) -> tuple:
-    """构建完整 prompt，返回 (system, user)"""
+    """构建完整 prompt，返回 (system, user)。会注入全局规则与针对该 (standard, difficulty) 的规则。"""
     desc = standard_description
     if desc is None and use_standard_descriptions:
         desc = get_standard_description(standard)
     system = build_system_prompt(include_think_chain=include_think_chain)
+    targeted = get_targeted_rules(standard, difficulty)
     user = build_user_prompt(
         grade=grade,
         standard=standard,
         standard_description=desc,
         difficulty=difficulty,
         subject=subject,
+        targeted_rules=targeted if targeted else None,
     )
     if examples:
         examples_text = build_examples_text(examples, include_think_chain=include_think_chain)

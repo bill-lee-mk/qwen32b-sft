@@ -118,6 +118,27 @@ def main():
     improve_parser.add_argument("--timeout", type=int, default=180, help="单题超时秒数")
     improve_parser.add_argument("--retry-delay", type=int, default=60, help="服务端错误时等待秒数后再重试")
     improve_parser.add_argument("--max-retries", type=int, default=3, help="服务端错误最大重试次数")
+
+    # 闭环自动化：生成 → 评估 → 若通过率 < 目标则 improve-examples → 重复直到达标或达最大轮数
+    loop_parser = subparsers.add_parser("closed-loop", help="闭环：生成→评估→未达标则补示例/改prompt→重复")
+    loop_parser.add_argument("--provider", default="deepseek", help="生成 MCQ 使用的模型（deepseek / kimi）")
+    loop_parser.add_argument("--mcqs", default="evaluation_output/mcqs_240.json", help="MCQ 输出路径")
+    loop_parser.add_argument("--results", default="evaluation_output/results_240.json", help="评估结果输出路径")
+    loop_parser.add_argument("--examples", default="processed_training_data/examples.json", help="few-shot 示例路径（每轮 improve 会更新）")
+    loop_parser.add_argument("--pass-rate-target", type=float, default=95.0, help="通过率目标（百分数，默认 95）")
+    loop_parser.add_argument("--max-rounds", type=int, default=10, help="最大循环轮数")
+    loop_parser.add_argument("--raw-data-dir", default="raw_data", help="improve-examples 使用的 raw_data 目录")
+
+    # 从失败组合改进 prompt 规则（全局 + 按 standard / (standard,difficulty)）
+    improve_prompt_parser = subparsers.add_parser("improve-prompt", help="从评估结果提取失败反馈，更新全局/针对性 prompt 规则")
+    improve_prompt_parser.add_argument("--results", required=True, help="评估结果 JSON")
+    improve_prompt_parser.add_argument("--mcqs", required=True, help="MCQ JSON")
+    improve_prompt_parser.add_argument("--output", default="processed_training_data/prompt_rules.json", help="prompt_rules 输出路径")
+    improve_prompt_parser.add_argument("--threshold", type=float, default=0.85, help="低于此分视为失败")
+    improve_prompt_parser.add_argument("--max-global", type=int, default=5, help="本轮最多新增全局规则条数")
+    improve_prompt_parser.add_argument("--max-per-standard", type=int, default=2, help="每个 standard 最多保留条数")
+    improve_prompt_parser.add_argument("--max-per-standard-difficulty", type=int, default=3, help="每个 (std,diff) 最多保留条数")
+    improve_prompt_parser.add_argument("--examples", default=None, help="examples.json 路径；提供则仅对有示例仍低分的组合加针对性规则")
     improve_parser.add_argument("--failed-output", default="processed_training_data/improve_examples_failed.json", help="服务端错误超重试的组合记录路径，空不写入")
     
     args = parser.parse_args()
@@ -272,6 +293,28 @@ def main():
             sys.exit(1)
         print(f"闭环完成: 失败组合 {report.get('failed_pairs', 0)} 个, 评分 {report.get('evaluated', 0)} 条, 保留 {report.get('kept', 0)} 条, examples 共 {report.get('examples_count', 0)} 条")
 
+    elif args.command == "improve-prompt":
+        from scripts.improve_prompt import run as improve_prompt_run
+        project_root = os.path.dirname(os.path.abspath(__file__))
+        results = args.results if os.path.isabs(args.results) else os.path.join(project_root, args.results)
+        mcqs = args.mcqs if os.path.isabs(args.mcqs) else os.path.join(project_root, args.mcqs)
+        out = getattr(args, "output", "processed_training_data/prompt_rules.json")
+        out = out if os.path.isabs(out) else os.path.join(project_root, out)
+        report = improve_prompt_run(
+            results_path=results,
+            mcqs_path=mcqs,
+            rules_output=out,
+            threshold=args.threshold,
+            max_global=getattr(args, "max_global", 5),
+            max_per_standard=getattr(args, "max_per_standard", 2),
+            max_per_standard_difficulty=getattr(args, "max_per_standard_difficulty", 3),
+            examples_path=getattr(args, "examples", None),
+        )
+        if report.get("updated"):
+            print(f"已更新 prompt 规则: 全局 {report.get('global_rules_count', 0)} 条, by_standard {report.get('by_standard_count', 0)} 个, by_standard_difficulty {report.get('by_standard_difficulty_count', 0)} 个")
+        else:
+            print(f"未更新: {report.get('reason', '')} (失败反馈数 {report.get('feedback_count', 0)})")
+
     elif args.command == "evaluate":
         from evaluation.inceptbench_client import InceptBenchEvaluator, to_inceptbench_payload
         
@@ -397,6 +440,57 @@ def main():
                     with open(args.output, 'w') as f:
                         json.dump(out_data, f, indent=2, ensure_ascii=False)
                     print(f"已保存: {args.output}")
+
+    elif args.command == "closed-loop":
+        import subprocess
+        project_root = os.path.dirname(os.path.abspath(__file__))
+        mcqs_path = os.path.join(project_root, args.mcqs) if not os.path.isabs(args.mcqs) else args.mcqs
+        results_path = os.path.join(project_root, args.results) if not os.path.isabs(args.results) else args.results
+        examples_path = os.path.join(project_root, args.examples) if not os.path.isabs(args.examples) else args.examples
+        target = args.pass_rate_target
+        max_rounds = args.max_rounds
+        for round_num in range(1, max_rounds + 1):
+            print(f"\n========== 闭环 第 {round_num}/{max_rounds} 轮 ==========")
+            # 1. 生成题目
+            gen_cmd = [sys.executable, os.path.join(project_root, "scripts", "generate_mcq.py"), "--provider", args.provider, "--all-combinations", "--output", mcqs_path]
+            print(f"  [1/4] 生成: {' '.join(gen_cmd)}")
+            r = subprocess.run(gen_cmd, cwd=project_root)
+            if r.returncode != 0:
+                print(f"  生成失败 exit={r.returncode}")
+                break
+            # 2. 评估
+            eval_cmd = [sys.executable, os.path.join(project_root, "main.py"), "evaluate", "--input", mcqs_path, "--output", results_path]
+            print(f"  [2/4] 评估: main.py evaluate --input {args.mcqs} --output {args.results}")
+            r = subprocess.run(eval_cmd, cwd=project_root)
+            if r.returncode != 0:
+                print(f"  评估失败 exit={r.returncode}")
+                break
+            with open(results_path, "r", encoding="utf-8") as f:
+                out_data = json.load(f)
+            scores = out_data.get("scores") or []
+            total = len(scores)
+            if not total:
+                print("  无有效分数，结束闭环")
+                break
+            pass_count = out_data.get("pass_count") or sum(1 for s in scores if float(s) >= 0.85)
+            pass_rate = 100.0 * pass_count / total
+            print(f"  通过率(>=0.85): {pass_count}/{total} ({pass_rate:.1f}%)")
+            if pass_rate >= target:
+                print(f"\n  已达目标通过率 {pass_rate:.1f}% >= {target}%，闭环结束")
+                break
+            # 3. 增加失败组合示例
+            imp_cmd = [sys.executable, os.path.join(project_root, "main.py"), "improve-examples", "--results", results_path, "--mcqs", mcqs_path, "--output", examples_path, "--raw-data-dir", args.raw_data_dir]
+            print(f"  [3/4] 补示例: main.py improve-examples --results {args.results} --mcqs {args.mcqs} --output {args.examples}")
+            r = subprocess.run(imp_cmd, cwd=project_root)
+            if r.returncode != 0:
+                print(f"  improve-examples 失败 exit={r.returncode}")
+            # 4. 从失败题反馈改进 prompt 规则（仅对有示例仍低分的组合加针对性规则；先补示例再改 prompt）
+            prompt_rules_path = os.path.join(project_root, "processed_training_data", "prompt_rules.json")
+            imp_prompt_cmd = [sys.executable, os.path.join(project_root, "scripts", "improve_prompt.py"), "--results", results_path, "--mcqs", mcqs_path, "--output", prompt_rules_path, "--examples", examples_path]
+            print(f"  [4/4] 改 prompt 规则: scripts/improve_prompt.py --results {args.results} --mcqs {args.mcqs} --examples {args.examples}")
+            subprocess.run(imp_prompt_cmd, cwd=project_root)
+            if round_num == max_rounds:
+                print(f"\n  已达最大轮数 {max_rounds}，当前通过率 {pass_rate:.1f}%")
     
     else:
         parser.print_help()

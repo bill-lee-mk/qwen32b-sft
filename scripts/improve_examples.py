@@ -16,6 +16,7 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
+from data_processing.build_prompt import build_user_prompt, get_standard_description
 from data_processing.select_examples import (
     load_jsonl,
     process_dpo_file,
@@ -62,6 +63,99 @@ def _score_from_result(r: dict) -> float | None:
         if s is not None:
             return float(s)
     return None
+
+
+def collect_batch_high_scorers(
+    results_path: str,
+    mcqs_path: str,
+    failed: set[tuple[str, str]],
+    threshold: float = 0.85,
+) -> dict[tuple[str, str], list[tuple[dict, float]]]:
+    """
+    从本批评估结果中，为每个失败组合找同 (standard,difficulty) 且 score>=threshold 的题目，
+    构造成 example 条目（user_prompt + mcq_json），无需再调 InceptBench。
+    返回 key -> [(example_dict, score), ...]，每个 key 至多 1 条。
+    """
+    with open(results_path, "r", encoding="utf-8") as f:
+        results = json.load(f)
+    with open(mcqs_path, "r", encoding="utf-8") as f:
+        mcqs = json.load(f)
+    scores = results.get("scores", [])
+    result_list = results.get("results") or []
+    items = mcqs if isinstance(mcqs, list) else [mcqs]
+    by_key: dict[tuple[str, str], list[tuple[dict, float]]] = defaultdict(list)
+    for i in range(len(items)):
+        m = items[i]
+        std = m.get("standard", "unknown")
+        diff = m.get("difficulty", "medium")
+        key = (std, diff)
+        if key not in failed:
+            continue
+        s = scores[i] if i < len(scores) else None
+        if s is None and i < len(result_list):
+            s = _score_from_result(result_list[i])
+        if s is None or not isinstance(s, (int, float)) or float(s) < threshold:
+            continue
+        desc = get_standard_description(std)
+        user_prompt = build_user_prompt(grade="3", standard=std, difficulty=diff, standard_description=desc, subject="ELA")
+        mcq_norm = normalize_for_inceptbench(m)
+        mcq_norm["grade"] = "3"
+        mcq_norm["standard"] = std
+        mcq_norm["subject"] = "ELA"
+        mcq_norm["difficulty"] = diff
+        example = {"user_prompt": user_prompt, "mcq_json": mcq_norm}
+        by_key[key].append((example, float(s)))
+    for key in by_key:
+        by_key[key].sort(key=lambda x: -x[1])
+        by_key[key] = by_key[key][:1]
+    return dict(by_key)
+
+
+def collect_batch_best_fallback(
+    results_path: str,
+    mcqs_path: str,
+    keys: set[tuple[str, str]],
+) -> dict[tuple[str, str], list[tuple[dict, float]]]:
+    """
+    当 raw_data 与本批均无 ≥0.85 候选时：从本批中取该 (standard,difficulty) 得分最高的题
+    构造成一条示例（即使分数 < 0.85），作为「构造示例」补入，避免该组合完全无示例。
+    返回 key -> [(example_dict, score), ...]，每个 key 至多 1 条。
+    """
+    with open(results_path, "r", encoding="utf-8") as f:
+        results = json.load(f)
+    with open(mcqs_path, "r", encoding="utf-8") as f:
+        mcqs = json.load(f)
+    scores = results.get("scores", [])
+    result_list = results.get("results") or []
+    items = mcqs if isinstance(mcqs, list) else [mcqs]
+    by_key: dict[tuple[str, str], list[tuple[dict, float]]] = defaultdict(list)
+    for i in range(len(items)):
+        m = items[i]
+        std = m.get("standard", "unknown")
+        diff = m.get("difficulty", "medium")
+        key = (std, diff)
+        if key not in keys:
+            continue
+        s = scores[i] if i < len(scores) else None
+        if s is None and i < len(result_list):
+            s = _score_from_result(result_list[i])
+        if s is None:
+            s = 0.0
+        else:
+            s = float(s)
+        desc = get_standard_description(std)
+        user_prompt = build_user_prompt(grade="3", standard=std, difficulty=diff, standard_description=desc, subject="ELA")
+        mcq_norm = normalize_for_inceptbench(m)
+        mcq_norm["grade"] = "3"
+        mcq_norm["standard"] = std
+        mcq_norm["subject"] = "ELA"
+        mcq_norm["difficulty"] = diff
+        example = {"user_prompt": user_prompt, "mcq_json": mcq_norm}
+        by_key[key].append((example, s))
+    for key in by_key:
+        by_key[key].sort(key=lambda x: -x[1])
+        by_key[key] = by_key[key][:1]
+    return dict(by_key)
 
 
 def extract_failed_standard_difficulty(
@@ -139,12 +233,22 @@ def run(
     by_key = load_raw_data_by_standard_difficulty(raw_data_dir)
     print(f"raw_data 中 (standard,difficulty) 组合: {len(by_key)} 个")
 
-    # 构建每组合的候选列表（提前停止：某组合一经达标即不再评估该组合其余候选）
+    # 本批高分 fallback：从 results+mcqs 中取同 (std,diff) 且 score>=threshold 的题作为示例，无需再评
+    batch_kept = collect_batch_high_scorers(results_path, mcqs_path, failed, threshold)
+    kept_by_key: dict[tuple[str, str], list[tuple[dict, float]]] = defaultdict(list)
+    for k, lst in batch_kept.items():
+        kept_by_key[k].extend(lst)
+    if kept_by_key:
+        print(f"本批高分补充示例: {len(kept_by_key)} 个组合已从本批题目中取高分题作为示例")
+
+    # 构建每组合的候选列表（仅对尚无示例的失败组合从 raw_data 取候选；提前停止：某组合一经达标即不再评估该组合其余候选）
     # max_candidates_per_pair=0 表示不限制
     max_cand = max_candidates_per_pair
     pending_by_key: dict[tuple[str, str], list[tuple[dict, dict]]] = {}
     for key in failed:
         if key[0] == "unknown":
+            continue
+        if key in kept_by_key:
             continue
         candidates = by_key.get(key, [])
         slice_end = len(candidates) if max_cand <= 0 else min(max_cand, len(candidates))
@@ -168,7 +272,6 @@ def run(
 
     evaluator = InceptBenchEvaluator(api_key=api_key, timeout=timeout)
     scored: list[tuple[tuple[str, str], dict, float]] = []
-    kept_by_key: dict[tuple[str, str], list[tuple[dict, float]]] = defaultdict(list)
 
     def _fmt_key(key):
         std_short = key[0].replace("CCSS.ELA-LITERACY.", "") if key[0] else "?"
@@ -343,7 +446,14 @@ def run(
     print(f"实际评估: {done_total[0]} 条（提前停止节约 {saved} 条）")
     no_pass = failed - set(kept_by_key.keys())
     if no_pass:
-        print(f"未找到达标候选的组合: {len(no_pass)} 个（保留原有示例或零示例）")
+        # 原始数据与本批均无 ≥threshold 候选时：用本批该组合最高分题构造一条示例（即使 < 0.85）
+        constructed = collect_batch_best_fallback(results_path, mcqs_path, no_pass)
+        for k, lst in constructed.items():
+            kept_by_key[k].extend(lst)
+        if constructed:
+            print(f"未找到达标候选的组合中，已用本批最高分构造示例: {len(constructed)} 个")
+        for k in no_pass - set(constructed.keys()):
+            print(f"  组合 {_fmt_key(k)} 本批无题目，无法构造示例")
 
     # 加载现有 examples，用新达标项替换失败组合的示例
     examples_path = Path(examples_output)
