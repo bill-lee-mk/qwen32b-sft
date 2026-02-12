@@ -73,9 +73,9 @@ def _run_closed_loop_one_model(project_root, model, args, use_model_specific_pat
     parallel = getattr(args, "parallel", 20)
     no_target = (target is None or target <= 0)  # 不设目标时跑满 max_rounds，取最终/最高通过率
     log_file = getattr(args, "log_file", None)
-    # 默认日志路径：evaluation_output/closed_loop_{model_slug}.log（与 mcqs 命名一致，不含轮次等运行信息）
+    # 默认日志路径：evaluation_output/log_237_{model_slug}.log（与 mcqs/token 命名一致）
     if log_file is None:
-        log_file = os.path.join(project_root, "evaluation_output", f"closed_loop_{model_slug}{run_suffix}.log")
+        log_file = os.path.join(project_root, "evaluation_output", f"log_237_{model_slug}{run_suffix}.log")
     elif log_file == "":
         log_file = None  # 显式传入空字符串则禁用
     _teed_stdout = None
@@ -394,7 +394,7 @@ def main():
     loop_parser.add_argument("--raw-data-dir", default="raw_data", help="improve-examples 使用的 raw_data 目录")
     loop_parser.add_argument("--workers", type=int, default=None, help="生成阶段并行数（DeepSeek/API 默认 10，本地 8，Kimi 10）")
     loop_parser.add_argument("--parallel", type=int, default=20, help="评估阶段 InceptBench 并行数（默认 20）")
-    loop_parser.add_argument("--log-file", default=None, help="运行日志路径；默认 evaluation_output/closed_loop_<model>.log，保存所有终端输出")
+    loop_parser.add_argument("--log-file", nargs="?", default=None, const=None, help="运行日志路径；不传或传 --log-file 无值时用默认 evaluation_output/log_237_<model>.log；传路径则用该路径")
     loop_parser.add_argument("--run-id", default=None, help="运行批次 ID；指定后 examples/prompt_rules/mcqs/results 均加此后缀，不同批次互不覆盖（如 --run-id exp1）")
 
     # 多模型闭环：对多个模型分别跑闭环，最后汇总各模型通过率并保存 JSON
@@ -409,7 +409,7 @@ def main():
     multi_parser.add_argument("--workers", type=int, default=None, help="生成阶段并行数")
     multi_parser.add_argument("--parallel", type=int, default=20, help="评估阶段并行数（默认 20）")
     multi_parser.add_argument("--summary-output", default=None, help="汇总 JSON 输出路径（默认 evaluation_output/closed_loop_multi_summary.json）")
-    multi_parser.add_argument("--log-file", default=None, help="运行日志路径；默认 evaluation_output/closed_loop_<model>.log，保存所有终端输出")
+    multi_parser.add_argument("--log-file", nargs="?", default=None, const=None, help="运行日志路径；不传或传 --log-file 无值时用默认 log_237_<model>.log")
     multi_parser.add_argument("--run-id", default=None, help="运行批次 ID；指定后各模型 examples/prompt_rules/mcqs/results 均加此后缀，不同批次互不覆盖")
 
     # 从失败组合改进 prompt 规则（全局 + 按 standard / (standard,difficulty)）

@@ -71,8 +71,8 @@ def _extract_kimi_429_message(err_str: str) -> str:
     return err_str
 
 
-def call_openai(messages: list, api_key: str, model: str = "gpt-4o", base_url: str | None = None) -> str:
-    """调用 OpenAI 兼容 API"""
+def call_openai(messages: list, api_key: str, model: str = "gpt-4o", base_url: str | None = None) -> tuple[str, dict | None]:
+    """调用 OpenAI 兼容 API，返回 (content, usage_dict)。Kimi 等 OpenAI 兼容接口均返回 usage。"""
     try:
         from openai import OpenAI
     except ImportError:
@@ -87,7 +87,20 @@ def call_openai(messages: list, api_key: str, model: str = "gpt-4o", base_url: s
         temperature=0.7,
         max_tokens=1024,
     )
-    return response.choices[0].message.content or ""
+    content = response.choices[0].message.content or ""
+    usage = None
+    if getattr(response, "usage", None):
+        u = response.usage
+        usage = {
+            "prompt_tokens": getattr(u, "prompt_tokens", None) or getattr(u, "input_tokens", 0),
+            "completion_tokens": getattr(u, "completion_tokens", None) or getattr(u, "output_tokens", 0),
+            "total_tokens": getattr(u, "total_tokens", None),
+        }
+        if hasattr(u, "prompt_cache_hit_tokens"):
+            usage["prompt_cache_hit_tokens"] = getattr(u, "prompt_cache_hit_tokens", 0) or 0
+        if hasattr(u, "prompt_cache_miss_tokens"):
+            usage["prompt_cache_miss_tokens"] = getattr(u, "prompt_cache_miss_tokens", 0) or 0
+    return content, usage
 
 
 def call_deepseek(messages: list, api_key: str, model: str = "deepseek-chat") -> tuple[str, dict | None]:
@@ -174,8 +187,8 @@ def _get_api_key_for_model(model: str) -> str | None:
     return os.environ.get(env_map[provider])
 
 
-def call_kimi(messages: list, api_key: str, model: str = "kimi-latest") -> str:
-    """调用 Kimi (Moonshot) API，OpenAI 兼容接口；内部限速，保证两次请求间隔 >= KIMI_MIN_INTERVAL"""
+def call_kimi(messages: list, api_key: str, model: str = "kimi-latest") -> tuple[str, dict | None]:
+    """调用 Kimi (Moonshot) API，OpenAI 兼容接口；内部限速，保证两次请求间隔 >= KIMI_MIN_INTERVAL。返回 (content, usage) 同 DeepSeek。"""
     global _kimi_last_call_time
     with _kimi_rate_lock:
         now = time.time()
@@ -395,11 +408,11 @@ def _generate_one(
             elif provider == "deepseek":
                 raw, usage = call_deepseek(messages, api_key, model)
             elif provider == "kimi":
-                raw = call_kimi(messages, api_key, model)
+                raw, usage = call_kimi(messages, api_key, model)
             elif provider == "local":
                 raw = call_local(messages, _get_local_api_base(), model)
             else:
-                raw = call_openai(messages, api_key, model)
+                raw, usage = call_openai(messages, api_key, model)
             mcq = parse_mcq(raw)
             elapsed = time.time() - start
             if mcq:
@@ -576,26 +589,32 @@ def main():
             print(f"[生成] [校验] 激进修复后通过: {validated_stats['repaired']} 题")
         if validated_stats.get("constructed"):
             print(f"[生成] [校验] 未通过则构造最小合法题: {validated_stats['constructed']} 题（保持组合与总数一致）")
-        # 记录 DeepSeek token 用量并估算费用（2025年2月：reasoner 输入4/1元/百万，输出16元/百万；chat 输入2/0.5元/百万，输出8元/百万）
-        if usage_agg["n_calls"] > 0 and provider == "deepseek":
+        # 记录 token 用量并估算费用（DeepSeek/Kimi/OpenAI 等 OpenAI 兼容接口均返回 usage）
+        if usage_agg["n_calls"] > 0 and provider in ("deepseek", "kimi", "openai"):
             hit = usage_agg["prompt_cache_hit_tokens"]
             miss = usage_agg["prompt_cache_miss_tokens"]
             out = usage_agg["completion_tokens"]
-            # chat 与 reasoner 定价不同
-            is_reasoner = "reasoner" in model.lower()
-            hit_yuan, miss_yuan = (0.5, 2.0) if not is_reasoner else (1.0, 4.0)
-            out_yuan = 16.0 if is_reasoner else 8.0
-            cost_in = (hit * hit_yuan + miss * miss_yuan) / 1e6
-            cost_out = out * out_yuan / 1e6
+            # 定价（元/百万 token）；Kimi 约 4/16，DeepSeek-chat 2/8、reasoner 4/16
+            if provider == "kimi":
+                hit_yuan, miss_yuan, out_yuan = 1.0, 4.0, 16.0  # 缓存1/未命中4，输出16
+            elif provider == "deepseek":
+                is_reasoner = "reasoner" in model.lower()
+                hit_yuan, miss_yuan = (0.5, 2.0) if not is_reasoner else (1.0, 4.0)
+                out_yuan = 16.0 if is_reasoner else 8.0
+            else:  # openai 等
+                hit_yuan, miss_yuan, out_yuan = 0, 0, 0  # 不估算，仅记录 token
+            cost_in = (hit * hit_yuan + miss * miss_yuan) / 1e6 if (hit_yuan or miss_yuan) else 0
+            cost_out = out * out_yuan / 1e6 if out_yuan else 0
             usage_record = {
                 "model": model,
+                "provider": provider,
                 "mcqs_path": args.output,
                 "n_calls": usage_agg["n_calls"],
                 "prompt_tokens": usage_agg["prompt_tokens"],
                 "completion_tokens": usage_agg["completion_tokens"],
                 "prompt_cache_hit_tokens": usage_agg["prompt_cache_hit_tokens"],
                 "prompt_cache_miss_tokens": usage_agg["prompt_cache_miss_tokens"],
-                "estimated_cost_cny": round(cost_in + cost_out, 4),
+                "estimated_cost_cny": round(cost_in + cost_out, 4) if (cost_in + cost_out) > 0 else None,
             }
             # 与 mcqs 输出命名一致：mcqs_237_deepseek-reasoner_round1.json -> token_237_deepseek-reasoner_round1.json
             if args.output:
@@ -608,7 +627,8 @@ def main():
             with open(usage_path, "w", encoding="utf-8") as f:
                 json.dump(usage_record, f, indent=2, ensure_ascii=False)
             total_tok = usage_agg["prompt_tokens"] + usage_agg["completion_tokens"]
-            print(f"[生成] [用量] 本批 {n} 题总 token: {total_tok:,}（输入 {usage_agg['prompt_tokens']:,}，缓存命中 {hit:,}；输出 {out:,}），估算 ¥{cost_in + cost_out:.2f}（已保存 {usage_path}）")
+            cost_str = f"，估算 ¥{cost_in + cost_out:.2f}" if (cost_in + cost_out) > 0 else ""
+            print(f"[生成] [用量] 本批 {n} 题总 token: {total_tok:,}（输入 {usage_agg['prompt_tokens']:,}，缓存命中 {hit:,}；输出 {out:,}）{cost_str}（已保存 {usage_path}）")
     else:
         # 单参数模式（原有逻辑）
         filtered = _filter_examples_for_standard_difficulty(examples, args.standard, args.difficulty)
@@ -629,11 +649,11 @@ def main():
             elif provider == "deepseek":
                 raw, _ = call_deepseek(messages, api_key, model)
             elif provider == "kimi":
-                raw = call_kimi(messages, api_key, model)
+                raw, _ = call_kimi(messages, api_key, model)
             elif provider == "local":
                 raw = call_local(messages, _get_local_api_base(), model)
             else:
-                raw = call_openai(messages, api_key, model)
+                raw, _ = call_openai(messages, api_key, model)
 
             mcq = parse_mcq(raw)
             if mcq:
