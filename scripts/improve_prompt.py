@@ -23,16 +23,18 @@ def _score_from_result(r: dict) -> float | None:
     for ev in (r.get("evaluations") or {}).values():
         inc = ev.get("inceptbench_new_evaluation") or {}
         s = (inc.get("overall") or {}).get("score")
+        if s is None:
+            s = (ev.get("overall") or {}).get("score")  # 第二套格式
         if s is not None:
             return float(s)
     return None
 
 
 def _get_overall(r: dict) -> dict:
-    """从单条 result 取 evaluations.*.inceptbench_new_evaluation.overall"""
+    """从单条 result 取 evaluations.*.overall（兼容主配置与第二套格式）"""
     for ev in (r.get("evaluations") or {}).values():
         inc = ev.get("inceptbench_new_evaluation") or {}
-        ov = inc.get("overall")
+        ov = inc.get("overall") or ev.get("overall")
         if ov:
             return ov
     return {}

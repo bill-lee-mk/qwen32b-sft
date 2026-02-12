@@ -62,6 +62,15 @@ def _parse_retry_seconds(err_msg: str) -> int:
     return 60
 
 
+def _extract_kimi_429_message(err_str: str) -> str:
+    """从 Kimi 429 错误中提取关键信息（如 TPD rate limit, current: X, limit: Y）"""
+    # 格式: ... request reached organization TPD rate limit, current: 1501520, limit: 1500000
+    m = re.search(r"request reached organization\s+(.+)", err_str)
+    if m:
+        return m.group(1).strip()
+    return err_str
+
+
 def call_openai(messages: list, api_key: str, model: str = "gpt-4o", base_url: str | None = None) -> str:
     """调用 OpenAI 兼容 API"""
     try:
@@ -105,8 +114,8 @@ def call_deepseek(messages: list, api_key: str, model: str = "deepseek-chat") ->
 # Kimi (Moonshot) 官方 API：https://platform.moonshot.cn ，OpenAI 兼容，需配置 API Key；RPM 较低
 KIMI_API_BASE = "https://api.moonshot.cn/v1"
 KIMI_MAX_CONCURRENCY = 10
-# 两次请求最小间隔（秒）；5s 约 12/分钟，在稳与速度间折中
-KIMI_MIN_INTERVAL = 5.0
+# 两次请求最小间隔（秒）；Free 等级约 3 RPM，需 ≥20s；付费后可设 KIMI_MIN_INTERVAL=5 提速
+KIMI_MIN_INTERVAL = float(os.environ.get("KIMI_MIN_INTERVAL", "20.0"))
 # 429 后重试等待（秒），Kimi 配额重置较慢，需较长等待
 KIMI_429_WAIT_SECONDS = 120
 _kimi_rate_lock = threading.Lock()
@@ -392,11 +401,13 @@ def _generate_one(
             is_429 = "429" in err_str or "quota" in err_str.lower() or "rate" in err_str.lower()
             if is_429 and attempt < max_retries - 1:
                 wait_s = KIMI_429_WAIT_SECONDS if provider == "kimi" else _parse_retry_seconds(err_str)
-                print(f"  [429] {standard} {difficulty}: 等待 {wait_s}s 后重试 ({attempt+1}/{max_retries})")
+                msg = _extract_kimi_429_message(err_str) if provider == "kimi" else err_str
+                print(f"  [429] {standard} {difficulty}: {msg}")
                 time.sleep(wait_s)
             else:
                 elapsed = time.time() - start
-                print(f"  [WARN] {standard} {difficulty}: {e}")
+                msg = _extract_kimi_429_message(err_str) if (provider == "kimi" and is_429) else err_str
+                print(f"  [WARN] {standard} {difficulty}: {msg}")
                 return (None, elapsed, err_str)
     elapsed = time.time() - start
     return (None, elapsed, None)
@@ -467,7 +478,7 @@ def main():
         if provider == "gemini" and workers > 2:
             print("  提示: Gemini 免费版约 5 次/分钟，建议 --workers 2；遇 429 会自动重试")
         if provider == "kimi":
-            print("  提示: Kimi 已限速 5s/次、默认 10 并发，429 后等 2 分钟重试；若 429 可降低 --workers 或稍后再跑")
+            print("  提示: Kimi Free 约 3 RPM、默认 20s/次，429 后等 2 分钟重试；付费可设 KIMI_MIN_INTERVAL=5 提速")
         if n >= 50 and len(examples) < 8:
             print("  建议: 可先运行 python main.py select-examples -n 8 以增加示例覆盖")
         print(f"  计划: {plan[:5]}..." if len(plan) > 5 else f"  计划: {plan}")

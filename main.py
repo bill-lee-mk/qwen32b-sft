@@ -315,7 +315,6 @@ def main():
     eval_parser = subparsers.add_parser("evaluate", help="评估模型")
     eval_parser.add_argument("--input", required=True, help="输入文件或目录")
     eval_parser.add_argument("--output", help="输出文件")
-    eval_parser.add_argument("--api-key", help="InceptBench token（默认从 INCEPTBENCH_API_KEY 环境变量读取）")
     eval_parser.add_argument("--debug", action="store_true", help="打印请求 payload，便于排查 500 错误")
     eval_parser.add_argument("--timeout", type=int, default=180, help="单题超时秒数（默认 180，约 2 分钟/题）")
     eval_parser.add_argument("--parallel", type=int, default=20, help="并行提交数（一次只能提交一题，默认 20 进程并行）")
@@ -556,8 +555,27 @@ def main():
 
     elif args.command == "evaluate":
         from evaluation.inceptbench_client import InceptBenchEvaluator, to_inceptbench_payload
-        
-        evaluator = InceptBenchEvaluator(api_key=args.api_key, timeout=getattr(args, "timeout", 180))
+
+        def _extract_error_reason(r):
+            """从评估结果中提取错误原因，支持多种 API 返回格式"""
+            reason = r.get("message") or r.get("status") or r.get("detail") or r.get("error")
+            if isinstance(reason, dict):
+                reason = reason.get("message") or reason.get("detail") or str(reason)[:200]
+            elif reason is not None:
+                reason = str(reason)[:300]
+            if not reason and r.get("errors"):
+                reason = str(r.get("errors"))[:200]
+            if not reason and r.get("evaluations"):
+                for ev in r.get("evaluations", {}).values():
+                    if ev.get("errors"):
+                        reason = str(ev.get("errors"))[:200]
+                        break
+            if not reason and r.get("response_body"):
+                rb = r.get("response_body", "")
+                reason = rb[:200] if len(rb) <= 200 else rb[:197] + "..."
+            return (reason or "").strip()
+
+        evaluator = InceptBenchEvaluator(timeout=getattr(args, "timeout", 180))
         
         # 评估输入文件或目录
         if os.path.isdir(args.input):
@@ -585,7 +603,7 @@ def main():
 
             if len(items) == 1:
                 # 单题：一次提交
-                evaluator = InceptBenchEvaluator(api_key=args.api_key, timeout=timeout)
+                evaluator = InceptBenchEvaluator(timeout=timeout)
                 if getattr(args, 'debug', False):
                     payload = to_inceptbench_payload(question_data)
                     print("=== 请求 payload（--debug）===")
@@ -606,7 +624,7 @@ def main():
                     for i, q in enumerate(items)
                 )
                 print(f"[评估] {n_total} 题，每次 1 题，{parallel} 并行，超时 {timeout}s/题")
-                evaluator = InceptBenchEvaluator(api_key=args.api_key, timeout=timeout)
+                evaluator = InceptBenchEvaluator(timeout=timeout)
                 results_by_idx = {}
                 done = 0
                 with ThreadPoolExecutor(max_workers=parallel) as ex:
@@ -623,6 +641,8 @@ def main():
                             if s is None and "evaluations" in r:
                                 ev = next(iter(r.get("evaluations", {}).values()), {})
                                 s = (ev.get("inceptbench_new_evaluation") or {}).get("overall", {}).get("score")
+                                if s is None:
+                                    s = (ev.get("overall") or {}).get("score")  # 第二套格式
                             done += 1
                             progress = f"{done:>3}/{n_total}"
                             label = f"题{i+1:>3} ({std}, {diff})".ljust(label_width)
@@ -633,16 +653,15 @@ def main():
                                     status += "  X"
                                 print(f"[评估] [{progress}] {label}: {status}")
                             else:
-                                err_reason = r.get("message") or r.get("status") or ""
-                                if r.get("errors"):
-                                    err_reason = err_reason or str(r.get("errors"))[:80]
-                                if not err_reason and "evaluations" in r:
-                                    for ev in (r.get("evaluations") or {}).values():
-                                        if ev.get("errors"):
-                                            err_reason = str(ev.get("errors"))[:80]
-                                            break
-                                status = "error (原因: " + (err_reason[:100] if err_reason else "未知") + ")"
+                                err_reason = _extract_error_reason(r)
+                                status = "error (原因: " + (err_reason[:150] if err_reason else "未知") + ")"
                                 print(f"[评估] [{progress}] {label}: {status}")
+                                if not err_reason:
+                                    # 无明确错误信息时打印原始响应摘要便于排查
+                                    snippet = json.dumps(r, ensure_ascii=False)[:400]
+                                    if len(snippet) >= 400:
+                                        snippet = snippet[:397] + "..."
+                                    print(f"      [原始响应] {snippet}")
                         except Exception as e:
                             results_by_idx[i] = {"overall_score": 0.0, "status": "error", "message": str(e)}
                             done += 1
@@ -662,18 +681,12 @@ def main():
                     if s is None and "evaluations" in r:
                         ev = next(iter(r.get("evaluations", {}).values()), {})
                         s = (ev.get("inceptbench_new_evaluation") or {}).get("overall", {}).get("score")
+                        if s is None:
+                            s = (ev.get("overall") or {}).get("score")  # 第二套格式
                     if isinstance(s, (int, float)):
                         scores[i] = float(s)
                     else:
-                        reason = r.get("message") or r.get("status") or ""
-                        if r.get("errors"):
-                            reason = reason or str(r.get("errors"))[:200]
-                        if not reason and "evaluations" in r:
-                            for ev in (r.get("evaluations") or {}).values():
-                                if ev.get("errors"):
-                                    reason = str(ev.get("errors"))[:200]
-                                    break
-                        reason = (reason or "未知").strip()
+                        reason = _extract_error_reason(r) or "未知"
                         # 判定：服务端问题（DB/500/超时等） vs 题目或请求问题
                         reason_lower = reason.lower()
                         if any(x in reason_lower for x in (

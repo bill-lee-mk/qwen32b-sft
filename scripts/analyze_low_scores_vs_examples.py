@@ -24,7 +24,7 @@ def extract_overall_score(result: dict) -> Optional[float]:
     evals = result.get("evaluations") or {}
     for ev in evals.values():
         inc = ev.get("inceptbench_new_evaluation") or {}
-        overall = inc.get("overall") or {}
+        overall = inc.get("overall") or ev.get("overall") or {}
         s = overall.get("score")
         if s is not None:
             return float(s)

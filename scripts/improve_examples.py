@@ -60,6 +60,8 @@ def _score_from_result(r: dict) -> float | None:
     for ev in (r.get("evaluations") or {}).values():
         inc = ev.get("inceptbench_new_evaluation") or {}
         s = (inc.get("overall") or {}).get("score")
+        if s is None:
+            s = (ev.get("overall") or {}).get("score")  # 第二套格式
         if s is not None:
             return float(s)
     return None
@@ -213,7 +215,6 @@ def run(
     max_candidates_per_pair: int = 0,
     parallel: int = 50,
     timeout: int = 180,
-    api_key: str | None = None,
     retry_delay: int = 60,
     max_retries: int = 3,
     failed_output: str | None = "processed_training_data/improve_examples_failed.json",
@@ -223,9 +224,9 @@ def run(
     服务端错误会记录并延迟重试，超过 max_retries 次后写入 failed_output 供后续处理。
     """
     import os
-    api_key = api_key or os.environ.get("INCEPTBENCH_API_KEY") or os.environ.get("INCEPTBENCH_TOKEN")
-    if not api_key:
-        return {"error": "未设置 INCEPTBENCH_API_KEY 或 INCEPTBENCH_TOKEN"}
+    tok = os.environ.get("INCEPTBENCH_API_KEY") or os.environ.get("INCEPTBENCH_TOKEN") or os.environ.get("EVALUATOR_TOKEN")
+    if not tok:
+        return {"error": "未设置 INCEPTBENCH_API_KEY 或 INCEPTBENCH_TOKEN 或 EVALUATOR_TOKEN"}
 
     failed = extract_failed_standard_difficulty(results_path, mcqs_path, threshold)
     print(f"失败 (standard,difficulty) 组合: {len(failed)} 个")
@@ -270,7 +271,7 @@ def run(
     pair_total_count = {k: len(v) for k, v in pending_by_key.items()}  # 每组合总候选数
     print(f"待评分候选（含提前停止节约）: 最多 {total_candidates} 条，实际按需评估")
 
-    evaluator = InceptBenchEvaluator(api_key=api_key, timeout=timeout)
+    evaluator = InceptBenchEvaluator(timeout=timeout)
     scored: list[tuple[tuple[str, str], dict, float]] = []
 
     def _fmt_key(key):
@@ -282,6 +283,8 @@ def run(
         if s is None and "evaluations" in r:
             ev = next(iter(r.get("evaluations", {}).values()), {})
             s = (ev.get("inceptbench_new_evaluation") or {}).get("overall", {}).get("score")
+            if s is None:
+                s = (ev.get("overall") or {}).get("score")  # 第二套格式
         return float(s) if isinstance(s, (int, float)) else None
 
     def _fmt_api_response(r) -> str:
@@ -298,13 +301,14 @@ def run(
         if "evaluations" in r:
             for k, v in list(r["evaluations"].items())[:1]:
                 inc = (v or {}).get("inceptbench_new_evaluation") or {}
-                ov = inc.get("overall") or {}
+                ov = inc.get("overall") or (v or {}).get("overall") or {}  # 第二套格式
                 if ov:
                     score = ov.get("score")
                     reason = (ov.get("internal_reasoning") or ov.get("reasoning") or "")[:80]
                     parts.append(f"score={score}" + (f" reason={reason}..." if reason else ""))
-                if inc.get("overall_rating"):
-                    parts.append(f"rating={inc.get('overall_rating')}")
+                rating = inc.get("overall_rating") or (v or {}).get("overall_rating")
+                if rating:
+                    parts.append(f"rating={rating}")
         if "response_body" in r and r.get("response_body"):
             parts.append(f"body={str(r.get('response_body'))[:80]}...")
         return " | API: " + " ".join(str(p) for p in parts) if parts else ""
