@@ -6,6 +6,7 @@
 支持动态规则：全局规则（所有题目）+ 针对性规则（按 standard 或 (standard, difficulty)）。
 """
 import json
+import os
 from pathlib import Path
 from typing import Dict, List, Optional
 
@@ -13,7 +14,8 @@ _PROJECT_ROOT = Path(__file__).resolve().parent.parent
 _STANDARD_DESCRIPTIONS_PATH = _PROJECT_ROOT / "data" / "standard_descriptions.json"
 _PROMPT_RULES_PATH = _PROJECT_ROOT / "processed_training_data" / "prompt_rules.json"
 _standard_descriptions_cache: Optional[Dict[str, str]] = None
-_prompt_rules_cache: Optional[Dict] = None
+# 按路径缓存，支持 PROMPT_RULES_PATH 环境变量（多模型闭环时每模型独立 prompt_rules）
+_prompt_rules_cache: Dict[str, Dict] = {}
 
 
 def load_standard_descriptions() -> Dict[str, str]:
@@ -38,19 +40,23 @@ def load_prompt_rules() -> Dict:
     """
     加载动态 prompt 规则（来自失败分析/闭环）。
     结构: { "global_rules": [], "by_standard": {"std": []}, "by_standard_difficulty": {"std|diff": []} }
+    若设置环境变量 PROMPT_RULES_PATH，则从该路径读取（用于多模型闭环时每模型独立规则，避免互相覆盖）。
     """
     global _prompt_rules_cache
-    if _prompt_rules_cache is not None:
-        return _prompt_rules_cache
-    if _PROMPT_RULES_PATH.exists():
+    path = Path(os.environ.get("PROMPT_RULES_PATH", str(_PROMPT_RULES_PATH))).resolve()
+    key = str(path)
+    if key in _prompt_rules_cache:
+        return _prompt_rules_cache[key]
+    if path.exists():
         try:
-            with open(_PROMPT_RULES_PATH, "r", encoding="utf-8") as f:
-                _prompt_rules_cache = json.load(f)
+            with open(path, "r", encoding="utf-8") as f:
+                data = json.load(f)
         except Exception:
-            _prompt_rules_cache = {}
+            data = {}
     else:
-        _prompt_rules_cache = {}
-    return _prompt_rules_cache
+        data = {}
+    _prompt_rules_cache[key] = data
+    return data
 
 
 def get_global_rules() -> List[str]:

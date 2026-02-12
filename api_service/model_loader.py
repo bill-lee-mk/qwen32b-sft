@@ -123,6 +123,16 @@ class MCQGenerator:
             "<|im_start|>assistant\n"
         )
 
+    def get_gpu_memory_info(self) -> str:
+        """返回当前模型所在 GPU 的显存占用，便于验证是否在推理。"""
+        import torch
+        if not torch.cuda.is_available():
+            return "cpu"
+        dev = next(self.model.parameters()).device
+        idx = dev.index if hasattr(dev, "index") else 0
+        alloc_gb = torch.cuda.memory_allocated(idx) / (1024**3)
+        return f"cuda:{idx} {alloc_gb:.1f}GB"
+
     def generate_raw(
         self,
         prompt: str,
@@ -134,6 +144,7 @@ class MCQGenerator:
         import torch
         if not self.model_loaded:
             raise RuntimeError("模型未加载")
+        gpu_info = self.get_gpu_memory_info()
         inputs = self.tokenizer(prompt, return_tensors="pt").to(self.model.device)
         with torch.no_grad():
             outputs = self.model.generate(

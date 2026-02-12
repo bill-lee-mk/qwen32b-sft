@@ -209,6 +209,11 @@ async def openai_chat_completions(request: Request):
             prompt = "".join(parts)
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"构建 prompt 失败: {e}")
+    prompt_len = len(prompt)
+    approx_tokens = prompt_len // 2
+    gpu_info = generator.get_gpu_memory_info()
+    logger.info(f"[推理] 开始  prompt 约 {approx_tokens} token, max_new_tokens={max_tokens}, {gpu_info}")
+    t0 = datetime.now()
     async with _infer_semaphore:
         loop = asyncio.get_event_loop()
         try:
@@ -223,6 +228,8 @@ async def openai_chat_completions(request: Request):
         except Exception as e:
             logger.exception("generate_raw 失败")
             raise HTTPException(status_code=500, detail=str(e))
+    elapsed = (datetime.now() - t0).total_seconds()
+    logger.info(f"[推理] 完成  耗时 {elapsed:.1f}s  生成长度 {len(text or '')} 字符, {generator.get_gpu_memory_info()}")
     return {
         "id": "local",
         "object": "chat.completion",

@@ -9,6 +9,13 @@
 
 docs/
 !docs/.gitignore
+!docs/*.md
+
+# evaluation_output: 仅保留最佳结果（*_best_*.json），忽略 round 文件等
+evaluation_output/*
+!evaluation_output/
+!evaluation_output/.gitignore
+!evaluation_output/*_best_*.json
 
 # 忽略数据文件，保留目录与 .gitignore
 processed_training_data/*

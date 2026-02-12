@@ -13,7 +13,7 @@
   python scripts/generate_mcq.py --model deepseek-chat --output evaluation_output/mcqs.json
   python scripts/generate_mcq.py --model kimi-latest --output evaluation_output/mcqs.json
 
-  # 3. 全组合生成（输出默认 evaluation_output/mcqs_240_<model>.json）
+  # 3. 全组合生成（输出默认 evaluation_output/mcqs_237_<model>.json，79 标准×3 难度=237 题）
   python scripts/generate_mcq.py --model deepseek-chat --all-combinations
   python scripts/generate_mcq.py --model gemini-3-flash-preview --all-combinations --output evaluation_output/mcqs.json
 """
@@ -167,36 +167,56 @@ def call_kimi(messages: list, api_key: str, model: str = "kimi-latest") -> str:
             _kimi_last_call_time = time.time()
 
 
+def _local_api_bases() -> list[str]:
+    """解析 LOCAL_API_BASE：逗号分隔多个地址时做轮询，提升多卡利用率。"""
+    raw = os.environ.get("LOCAL_API_BASE", "http://127.0.0.1:8000").strip()
+    parts = [p.strip().rstrip("/") for p in raw.split(",") if p.strip()]
+    if not parts:
+        parts = ["http://127.0.0.1:8000"]
+    return [f"{p}/v1" if not p.endswith("/v1") else p for p in parts]
+
+
+_local_api_bases_cache: list[str] | None = None
+_local_api_round_robin_index = 0
+_local_api_round_robin_lock = threading.Lock()
+
+
 def _get_local_api_base() -> str:
-    """本地模型 API 根地址，默认 http://127.0.0.1:8000"""
-    base = os.environ.get("LOCAL_API_BASE", "http://127.0.0.1:8000").strip().rstrip("/")
-    return f"{base}/v1" if not base.endswith("/v1") else base
+    """本地模型 API 根地址；多地址时轮询，便于 8 实例 8 卡打满。"""
+    global _local_api_bases_cache, _local_api_round_robin_index
+    if _local_api_bases_cache is None:
+        _local_api_bases_cache = _local_api_bases()
+    bases = _local_api_bases_cache
+    with _local_api_round_robin_lock:
+        idx = _local_api_round_robin_index % len(bases)
+        _local_api_round_robin_index += 1
+        return bases[idx]
 
 
 def _check_local_api_reachable() -> None:
-    """本地模型：在开始批量生成前检查 serve-api 是否可达，避免大量 Connection refused"""
-    base = _get_local_api_base()
-    health_url = base.rstrip("/").replace("/v1", "") + "/health"
-    try:
-        import urllib.request
-        req = urllib.request.Request(health_url)
-        with urllib.request.urlopen(req, timeout=5) as _:
-            pass
-    except Exception as e:
-        raise RuntimeError(
-            f"本地 API 不可达: {health_url}\n"
-            f"错误: {e}\n"
-            "请先在本机启动: python main.py serve-api --model <模型路径>\n"
-            "若闭环在远程执行，请设置: export LOCAL_API_BASE=http://<服务器IP>:8000"
-        ) from e
+    """本地模型：在开始批量生成前检查 serve-api 是否可达；多地址时检查全部。"""
+    bases = _local_api_bases()
+    import urllib.request
+    for base in bases:
+        health_url = base.rstrip("/").replace("/v1", "") + "/health"
+        try:
+            req = urllib.request.Request(health_url)
+            with urllib.request.urlopen(req, timeout=5) as _:
+                pass
+        except Exception as e:
+            raise RuntimeError(
+                f"本地 API 不可达: {health_url}\n"
+                f"错误: {e}\n"
+                "请先启动 serve-api。多卡时可起 8 个实例并设 LOCAL_API_BASE=http://127.0.0.1:8000,8001,...,8007"
+            ) from e
 
 
-# 本地模型单条超时（秒）；32B 单条可能 5–10 分钟，默认 15 分钟，可用环境变量 LOCAL_API_TIMEOUT 覆盖
+# 本地模型单条超时（秒）；32B 长 prompt 单条可能 15–30 分钟，默认 30 分钟，可用环境变量 LOCAL_API_TIMEOUT 覆盖
 def _local_api_timeout() -> float:
     try:
-        return float(os.environ.get("LOCAL_API_TIMEOUT", "900").strip())
+        return float(os.environ.get("LOCAL_API_TIMEOUT", "1800").strip())
     except ValueError:
-        return 900.0
+        return 1800.0
 
 
 # 本地生成 MCQ 的 max_tokens；单题 JSON 通常 500–2000 token，4096 足够且加快单条返回
@@ -228,8 +248,7 @@ def call_local(messages: list, base_url: str, model: str = "local") -> str:
             ) from e
         if "timeout" in err.lower() or "timed out" in err.lower():
             raise RuntimeError(
-                f"本地 API 请求超时（单条限 {int(_local_api_timeout())}s）：{err}\n"
-                "可设置环境变量 LOCAL_API_TIMEOUT=1200 延长超时，或降低 --workers"
+                f"本地 API 请求超时（单条限 {int(_local_api_timeout())}s）。可设置 LOCAL_API_TIMEOUT=3600 延长或降低 --workers"
             ) from e
         raise
     return (response.choices[0].message.content or "").strip()
@@ -391,10 +410,10 @@ def main():
     parser.add_argument("--grade", default="3", help="年级")
     parser.add_argument("--standard", default="CCSS.ELA-LITERACY.L.3.1.E", help="标准 ID")
     parser.add_argument("--difficulty", default="medium", help="难度")
-    parser.add_argument("--output", default=None, help="输出 JSON 路径（--all-combinations 未指定时默认 evaluation_output/mcqs_240_<model>.json）")
+    parser.add_argument("--output", default=None, help="输出 JSON 路径（--all-combinations 未指定时默认 evaluation_output/mcqs_237_<model>.json）")
     parser.add_argument("--batch", type=int, default=1, help="生成条数（同参数重复）")
     parser.add_argument("--diverse", type=int, default=None, help="多样化生成 N 条，覆盖不同难度/标准")
-    parser.add_argument("--all-combinations", action="store_true", help="遍历生成全部 (standard,difficulty) 组合（如 240 条）")
+    parser.add_argument("--all-combinations", action="store_true", help="遍历生成全部 (standard,difficulty) 组合（79 标准×3 难度=237 题）")
     parser.add_argument("--workers", type=int, default=None, help="并行线程数（Gemini 2，Kimi 10，本地 8，DeepSeek/其他 API 10）")
     parser.add_argument("--input-dir", default="raw_data", help="--diverse 时分析 raw_data 的目录")
     parser.add_argument("--include-think-chain", action="store_true", help="是否要求输出 <think>")
@@ -454,11 +473,16 @@ def main():
         print(f"  计划: {plan[:5]}..." if len(plan) > 5 else f"  计划: {plan}")
         if provider == "local":
             _check_local_api_reachable()
-            print("  提示: 本地串行推理，首条约 1–3 分钟，后续按队列依次返回；8 卡机默认 --workers 8 保持队列")
+            bases = _local_api_bases()
+            if len(bases) > 1:
+                print(f"  提示: 本地多实例轮询（{len(bases)} 个地址），8 卡可打满；首条可能 1–3 分钟")
+            else:
+                print("  提示: 本地串行推理，首条约 1–3 分钟，后续按队列依次返回；8 卡机默认 --workers 8 保持队列")
+                print("  若 10+ 分钟无一条输出，请看 serve-api 终端是否出现 [推理] 开始/完成 日志；首条 32B 长 prompt 可能需 10–15 分钟")
         # 未指定 --output 时，按模型名区分输出文件（便于对比不同模型生成结果）
         if args.all_combinations and args.output is None:
             model_slug = model.replace(".", "_").replace("/", "_")
-            args.output = str(PROJECT_ROOT / "evaluation_output" / f"mcqs_240_{model_slug}.json")
+            args.output = str(PROJECT_ROOT / "evaluation_output" / f"mcqs_237_{model_slug}.json")
 
         # 与评估一致：按本题集最大「题号+(标准,难度)」长度固定 label 宽度；耗时列固定宽度对齐
         label_width = max(
@@ -496,7 +520,8 @@ def main():
                         done += 1
                         print(f"[生成] [{done:>3}/{n}] {label}  {elapsed_s}")
                     elif err_msg:
-                        print(f"[生成] 异常: {label}  {elapsed_s}  {err_msg[:50]}，将修复或构造")
+                        short = "请求超时" if "timeout" in err_msg.lower() or "timed out" in err_msg.lower() else err_msg[:28]
+                        print(f"[生成] 异常: {label}  {elapsed_s}  {short}，将修复或构造")
                     else:
                         print(f"[生成] 失败: {label}  {elapsed_s}，将修复或构造")
                 except Exception as e:

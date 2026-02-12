@@ -32,8 +32,8 @@ def extract_overall_score(result: dict) -> Optional[float]:
 
 
 def main():
-    results_path = PROJECT_ROOT / "evaluation_output/results_240.json"
-    mcqs_path = PROJECT_ROOT / "evaluation_output/mcqs_240.json"
+    results_path = PROJECT_ROOT / "evaluation_output/results_237.json"
+    mcqs_path = PROJECT_ROOT / "evaluation_output/mcqs_237.json"
     examples_path = PROJECT_ROOT / "processed_training_data/examples.json"
 
     with open(results_path, "r", encoding="utf-8") as f:

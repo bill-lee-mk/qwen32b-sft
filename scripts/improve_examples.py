@@ -4,7 +4,7 @@
 闭环：从评估结果中识别失败题 → 在 raw_data 中找同 (standard,difficulty) → InceptBench 评分 → 保留 ≥0.85 作 few-shot → 更新 examples.json
 
 用法:
-  python main.py improve-examples --results evaluation_output/results_240.json --mcqs evaluation_output/mcqs_240.json --output processed_training_data/examples.json
+  python main.py improve-examples --results evaluation_output/results_237.json --mcqs evaluation_output/mcqs_237.json --output processed_training_data/examples.json
 """
 import json
 import sys
