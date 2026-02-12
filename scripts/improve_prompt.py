@@ -77,7 +77,7 @@ def extract_failure_feedback(
     return out
 
 
-# 关键词 → 全局规则文案（当失败反馈中出现该主题时，加入这条全局规则）
+# 关键词 → 全局规则文案（当失败反馈中出现该主题时，加入这条全局规则，适用所有题目）
 _GLOBAL_THEME_RULES = [
     (["distractor", "non-word", "implausible", "plausible"], "Use only plausible, real-word distractors; avoid non-words or invented forms."),
     (["option", "duplicate", "identical", "same text"], "Ensure all four options A/B/C/D have different text; no duplicate options."),
@@ -86,7 +86,30 @@ _GLOBAL_THEME_RULES = [
     (["image", "picture", "stimulus"], "Do not refer to an image or picture in the stem unless you provide image_url."),
     (["tense", "time cue", "yesterday", "present tense"], "Keep tense and time cues consistent between stem and options."),
     (["blank", "stem", "option", "grammatical"], "If the stem has a blank, each option must be a phrase that fits the blank grammatically; avoid full clauses as options for a single blank."),
+    # 低分题反馈扩展：字典/guide words、术语定义、事实准确性、同伴反馈
+    (["guide word", "falls between", "between the guide"], "For dictionary/guide-word tasks (L.3.2.G): ensure only one option falls between the guide words; adjust guide words or options so exactly one choice fits."),
+    (["aloud", "out loud", "audibly", "speaking loudly"], "For fluency terms (e.g. RF.3.4.C): use accurate definitions: 'aloud' means 'out loud' or 'audibly,' not 'speaking loudly'."),
+    (["false claim", "false statement", "inaccurate", "photosynthesis", "factually correct"], "Ensure all passage content is factually accurate; avoid false or misleading claims in stems or passages."),
+    (["peer feedback", "reflect", "actual issue", "actual error", "draft"], "For peer feedback/editing items: ensure the feedback describes an actual error present in the draft; avoid describing errors that don't exist."),
+    (["run-on", "fragment", "nonexistent", "doesn't exist", "presume a nonexistent"], "For editing tasks: ensure the draft text actually contains the error students are asked to fix; or rephrase the question to not presume a nonexistent error."),
 ]
+
+# 标准级规则（当该标准出现低分时，自动注入到 by_standard，仅对该标准生效）
+# 格式：standard_id -> [rule1, rule2, ...]，规则在 aggregate_rules 中按标准注入
+_STANDARD_SPECIFIC_RULES: dict[str, list[str]] = {
+    "CCSS.ELA-LITERACY.L.3.2.G": [
+        "For dictionary guide-word tasks: ensure only one option falls between the guide words; if multiple options fit, revise guide words or replace options.",
+    ],
+    "CCSS.ELA-LITERACY.RF.3.4.C": [
+        "Define 'aloud' correctly as 'out loud' or 'audibly,' not 'speaking loudly.' Ensure answer_explanation uses accurate terminology.",
+    ],
+    "CCSS.ELA-LITERACY.RI.3.10": [
+        "Ensure passage content is factually accurate; avoid false claims (e.g., about photosynthesis: plants make their own food, not 'create').",
+    ],
+    "CCSS.ELA-LITERACY.W.3.5": [
+        "For peer feedback items: ensure the feedback reflects an actual error in the draft; or ensure the draft contains the error (run-on, fragment) the question asks to fix.",
+    ],
+}
 
 
 def _normalize_snippet(t: str, max_len: int = 200) -> str:
@@ -133,11 +156,15 @@ def aggregate_rules(
     by_standard: dict[str, list[str]] = defaultdict(list)
     by_standard_difficulty: dict[str, list[str]] = defaultdict(list)
 
-    # 收集所有失败片段用于全局主题检测；针对性规则仅对 only_targeted_keys 内的 (std,diff) 加入
+    # 收集所有失败片段用于全局主题检测
+    # by_standard: 始终加入所有失败标准的反馈（最大化利用低分建议）
+    # by_standard_difficulty: 仅当 only_targeted_keys 为 None 或 (std,diff) 在 examples 中时加入
     all_snippets: list[str] = []
+    failed_standards: set[str] = set()
     for std, diff, sug, reason in feedback_list:
         if std == "unknown":
             continue
+        failed_standards.add(std)
         if sug:
             snip = _normalize_snippet(sug, 180)
         elif reason:
@@ -146,11 +173,13 @@ def aggregate_rules(
             continue
         all_snippets.append(snip)
         key = f"{std}|{diff}"
+        # by_standard: 始终加入（不论是否有 examples）
+        if snip not in by_standard[std]:
+            by_standard[std].append(snip)
+        # by_standard_difficulty: 仅对已有示例的组合加入（避免无示例时规则过于泛化）
         if only_targeted_keys is None or (std, diff) in only_targeted_keys:
             if snip not in by_standard_difficulty[key]:
                 by_standard_difficulty[key].append(snip)
-            if snip not in by_standard[std]:
-                by_standard[std].append(snip)
 
     # 全局规则：按主题匹配
     snip_lower = " ".join(all_snippets).lower()
@@ -160,7 +189,13 @@ def aggregate_rules(
             if len(global_rules) >= max_global:
                 break
 
-    # 截断
+    # 标准级规则：按失败标准注入（置于列表前部，优先保留）
+    for std in failed_standards:
+        for rule in _STANDARD_SPECIFIC_RULES.get(std, []):
+            if rule not in by_standard[std]:
+                by_standard[std].insert(0, rule)
+
+    # 截断（by_standard 已放宽，max_per_standard 建议≥4 以容纳标准规则+反馈）
     for k in list(by_standard.keys()):
         by_standard[k] = by_standard[k][:max_per_standard]
     for k in list(by_standard_difficulty.keys()):
@@ -174,7 +209,7 @@ def merge_into_prompt_rules(
     new_by_standard: dict[str, list[str]],
     new_by_standard_difficulty: dict[str, list[str]],
     rules_path: str | Path,
-    max_global_total: int = 10,
+    max_global_total: int = 15,
     max_per_key_total: int = 5,
 ) -> dict:
     """与现有 prompt_rules.json 合并，去重并限制条数，写回。返回合并后的完整结构。"""
@@ -224,8 +259,8 @@ def run(
     mcqs_path: str,
     rules_output: str = "processed_training_data/prompt_rules.json",
     threshold: float = 0.85,
-    max_global: int = 5,
-    max_per_standard: int = 2,
+    max_global: int = 8,
+    max_per_standard: int = 4,
     max_per_standard_difficulty: int = 3,
     examples_path: str | Path | None = None,
 ) -> dict:
@@ -266,8 +301,8 @@ def main():
     p.add_argument("--mcqs", required=True, help="MCQ JSON")
     p.add_argument("--output", default="processed_training_data/prompt_rules.json", help="prompt_rules 输出路径")
     p.add_argument("--threshold", type=float, default=0.85, help="低于此分视为失败")
-    p.add_argument("--max-global", type=int, default=5, help="本轮最多新增全局规则条数")
-    p.add_argument("--max-per-standard", type=int, default=2, help="每个 standard 最多保留条数")
+    p.add_argument("--max-global", type=int, default=8, help="本轮最多新增全局规则条数")
+    p.add_argument("--max-per-standard", type=int, default=4, help="每个 standard 最多保留条数（含标准级规则+反馈）")
     p.add_argument("--max-per-standard-difficulty", type=int, default=3, help="每个 (std,diff) 最多保留条数")
     p.add_argument("--examples", default=None, help="examples.json 路径；提供则仅对有示例仍低分的组合加针对性规则")
     args = p.parse_args()

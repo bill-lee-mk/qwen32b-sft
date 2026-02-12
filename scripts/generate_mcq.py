@@ -90,8 +90,9 @@ def call_openai(messages: list, api_key: str, model: str = "gpt-4o", base_url: s
     return response.choices[0].message.content or ""
 
 
-def call_deepseek(messages: list, api_key: str, model: str = "deepseek-chat") -> str:
-    """调用 DeepSeek API。reasoner 模型会返回 reasoning_content + content，取 content 作为最终答案用于解析 MCQ。"""
+def call_deepseek(messages: list, api_key: str, model: str = "deepseek-chat") -> tuple[str, dict | None]:
+    """调用 DeepSeek API。reasoner 模型会返回 reasoning_content + content，取 content 作为最终答案用于解析 MCQ。
+    返回 (content, usage_dict)。usage_dict 含 prompt_tokens, completion_tokens, prompt_cache_hit_tokens, prompt_cache_miss_tokens。"""
     try:
         from openai import OpenAI
     except ImportError:
@@ -108,7 +109,20 @@ def call_deepseek(messages: list, api_key: str, model: str = "deepseek-chat") ->
     # deepseek-reasoner 的最终答案在 content；若为空则尝试 reasoning_content（部分版本或流式可能不同）
     if not content and getattr(msg, "reasoning_content", None):
         content = (msg.reasoning_content or "").strip()
-    return content
+    usage = None
+    if getattr(response, "usage", None):
+        u = response.usage
+        usage = {
+            "prompt_tokens": getattr(u, "prompt_tokens", None) or getattr(u, "input_tokens", 0),
+            "completion_tokens": getattr(u, "completion_tokens", None) or getattr(u, "output_tokens", 0),
+            "total_tokens": getattr(u, "total_tokens", None),
+        }
+        # DeepSeek 缓存字段（命中 0.1 元/百万，未命中 1 元/百万）
+        if hasattr(u, "prompt_cache_hit_tokens"):
+            usage["prompt_cache_hit_tokens"] = getattr(u, "prompt_cache_hit_tokens", 0) or 0
+        if hasattr(u, "prompt_cache_miss_tokens"):
+            usage["prompt_cache_miss_tokens"] = getattr(u, "prompt_cache_miss_tokens", 0) or 0
+    return content, usage
 
 
 # Kimi (Moonshot) 官方 API：https://platform.moonshot.cn ，OpenAI 兼容，需配置 API Key；RPM 较低
@@ -361,8 +375,8 @@ def _generate_one(
     grade: str = "3",
     index: int = 0,
     max_retries: int = 3,
-) -> tuple[dict | None, float, str | None]:
-    """生成单条 MCQ，供多线程调用。遇 429 自动重试。返回 (mcq_or_none, 耗时秒, 异常信息_or_None)。"""
+) -> tuple[dict | None, float, str | None, dict | None]:
+    """生成单条 MCQ，供多线程调用。遇 429 自动重试。返回 (mcq_or_none, 耗时秒, 异常信息_or_None, usage_dict_or_None)。"""
     start = time.time()
     filtered = _filter_examples_for_standard_difficulty(examples, standard, difficulty)
     system, user = build_full_prompt(
@@ -375,10 +389,11 @@ def _generate_one(
     messages = [{"role": "system", "content": system}, {"role": "user", "content": user}]
     for attempt in range(max_retries):
         try:
+            usage = None
             if provider == "gemini":
                 raw = call_gemini(f"{system}\n\n{user}", api_key, model)
             elif provider == "deepseek":
-                raw = call_deepseek(messages, api_key, model)
+                raw, usage = call_deepseek(messages, api_key, model)
             elif provider == "kimi":
                 raw = call_kimi(messages, api_key, model)
             elif provider == "local":
@@ -394,8 +409,8 @@ def _generate_one(
                 out["subject"] = "ELA"
                 out["difficulty"] = difficulty
                 out["id"] = f"diverse_{index:03d}"  # 统一 ID 避免冲突
-                return (out, elapsed, None)
-            return (None, elapsed, None)
+                return (out, elapsed, None, usage)
+            return (None, elapsed, None, usage)
         except Exception as e:
             err_str = str(e)
             is_429 = "429" in err_str or "quota" in err_str.lower() or "rate" in err_str.lower()
@@ -408,9 +423,9 @@ def _generate_one(
                 elapsed = time.time() - start
                 msg = _extract_kimi_429_message(err_str) if (provider == "kimi" and is_429) else err_str
                 print(f"  [WARN] {standard} {difficulty}: {msg}")
-                return (None, elapsed, err_str)
+                return (None, elapsed, err_str, None)
     elapsed = time.time() - start
-    return (None, elapsed, None)
+    return (None, elapsed, None, None)
 
 
 def main():
@@ -503,6 +518,7 @@ def main():
         time_width = 8  # 耗时列宽度，如 "  12.3s"、" 120.5s"
         # 按组合下标存储，保证题目总数与 (standard, difficulty) 组合一致；未生成或校验不通过则修复或构造，不丢弃
         results_by_index = [None] * n
+        usage_agg = {"prompt_tokens": 0, "completion_tokens": 0, "prompt_cache_hit_tokens": 0, "prompt_cache_miss_tokens": 0, "n_calls": 0}
         with ThreadPoolExecutor(max_workers=workers) as ex:
             futures = {
                 ex.submit(
@@ -522,19 +538,29 @@ def main():
             for fut in as_completed(futures):
                 i, s, d = futures[fut]
                 try:
-                    mcq, elapsed, err_msg = fut.result()
+                    mcq, elapsed, err_msg, usage = fut.result()
+                    if usage:
+                        usage_agg["n_calls"] += 1
+                        usage_agg["prompt_tokens"] += usage.get("prompt_tokens", 0) or 0
+                        usage_agg["completion_tokens"] += usage.get("completion_tokens", 0) or 0
+                        usage_agg["prompt_cache_hit_tokens"] += usage.get("prompt_cache_hit_tokens", 0) or 0
+                        usage_agg["prompt_cache_miss_tokens"] += usage.get("prompt_cache_miss_tokens", 0) or 0
                     elapsed_s = f"{elapsed:.1f}s".rjust(time_width)
                     std_short = (s or "").replace("CCSS.ELA-LITERACY.", "")
                     label = f"题{i+1:>3} ({std_short}, {d})".ljust(label_width)
+                    tok = ""
+                    if usage:
+                        pt = (usage.get("prompt_tokens") or 0) + (usage.get("completion_tokens") or 0)
+                        tok = f"  {pt}token"
                     if mcq:
                         results_by_index[i] = mcq
                         done += 1
-                        print(f"[生成] [{done:>3}/{n}] {label}  {elapsed_s}")
+                        print(f"[生成] [{done:>3}/{n}] {label}  {elapsed_s}{tok}")
                     elif err_msg:
                         short = "请求超时" if "timeout" in err_msg.lower() or "timed out" in err_msg.lower() else err_msg[:28]
-                        print(f"[生成] 异常: {label}  {elapsed_s}  {short}，将修复或构造")
+                        print(f"[生成] 异常: {label}  {elapsed_s}{tok}  {short}，将修复或构造")
                     else:
-                        print(f"[生成] 失败: {label}  {elapsed_s}，将修复或构造")
+                        print(f"[生成] 失败: {label}  {elapsed_s}{tok}，将修复或构造")
                 except Exception as e:
                     std_short = (s or "").replace("CCSS.ELA-LITERACY.", "")
                     label = f"题{i+1:>3} ({std_short}, {d})".ljust(label_width)
@@ -550,6 +576,39 @@ def main():
             print(f"[生成] [校验] 激进修复后通过: {validated_stats['repaired']} 题")
         if validated_stats.get("constructed"):
             print(f"[生成] [校验] 未通过则构造最小合法题: {validated_stats['constructed']} 题（保持组合与总数一致）")
+        # 记录 DeepSeek token 用量并估算费用（2025年2月：reasoner 输入4/1元/百万，输出16元/百万；chat 输入2/0.5元/百万，输出8元/百万）
+        if usage_agg["n_calls"] > 0 and provider == "deepseek":
+            hit = usage_agg["prompt_cache_hit_tokens"]
+            miss = usage_agg["prompt_cache_miss_tokens"]
+            out = usage_agg["completion_tokens"]
+            # chat 与 reasoner 定价不同
+            is_reasoner = "reasoner" in model.lower()
+            hit_yuan, miss_yuan = (0.5, 2.0) if not is_reasoner else (1.0, 4.0)
+            out_yuan = 16.0 if is_reasoner else 8.0
+            cost_in = (hit * hit_yuan + miss * miss_yuan) / 1e6
+            cost_out = out * out_yuan / 1e6
+            usage_record = {
+                "model": model,
+                "mcqs_path": args.output,
+                "n_calls": usage_agg["n_calls"],
+                "prompt_tokens": usage_agg["prompt_tokens"],
+                "completion_tokens": usage_agg["completion_tokens"],
+                "prompt_cache_hit_tokens": usage_agg["prompt_cache_hit_tokens"],
+                "prompt_cache_miss_tokens": usage_agg["prompt_cache_miss_tokens"],
+                "estimated_cost_cny": round(cost_in + cost_out, 4),
+            }
+            # 与 mcqs 输出命名一致：mcqs_237_deepseek-reasoner_round1.json -> token_237_deepseek-reasoner_round1.json
+            if args.output:
+                stem = Path(args.output).stem
+                token_stem = stem.replace("mcqs_", "token_", 1) if stem.startswith("mcqs_") else f"token_{stem}"
+                usage_path = Path(args.output).parent / f"{token_stem}.json"
+            else:
+                usage_path = PROJECT_ROOT / "evaluation_output" / "token_usage.json"
+            usage_path.parent.mkdir(parents=True, exist_ok=True)
+            with open(usage_path, "w", encoding="utf-8") as f:
+                json.dump(usage_record, f, indent=2, ensure_ascii=False)
+            total_tok = usage_agg["prompt_tokens"] + usage_agg["completion_tokens"]
+            print(f"[生成] [用量] 本批 {n} 题总 token: {total_tok:,}（输入 {usage_agg['prompt_tokens']:,}，缓存命中 {hit:,}；输出 {out:,}），估算 ¥{cost_in + cost_out:.2f}（已保存 {usage_path}）")
     else:
         # 单参数模式（原有逻辑）
         filtered = _filter_examples_for_standard_difficulty(examples, args.standard, args.difficulty)
@@ -568,7 +627,7 @@ def main():
                 full_prompt = f"{system}\n\n{user}"
                 raw = call_gemini(full_prompt, api_key, model)
             elif provider == "deepseek":
-                raw = call_deepseek(messages, api_key, model)
+                raw, _ = call_deepseek(messages, api_key, model)
             elif provider == "kimi":
                 raw = call_kimi(messages, api_key, model)
             elif provider == "local":

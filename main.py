@@ -73,14 +73,41 @@ def _run_closed_loop_one_model(project_root, model, args, use_model_specific_pat
     parallel = getattr(args, "parallel", 20)
     no_target = (target is None or target <= 0)  # 不设目标时跑满 max_rounds，取最终/最高通过率
     log_file = getattr(args, "log_file", None)
+    # 默认日志路径：evaluation_output/closed_loop_{model_slug}.log（与 mcqs 命名一致，不含轮次等运行信息）
+    if log_file is None:
+        log_file = os.path.join(project_root, "evaluation_output", f"closed_loop_{model_slug}{run_suffix}.log")
+    elif log_file == "":
+        log_file = None  # 显式传入空字符串则禁用
+    _teed_stdout = None
+    _teed_stderr = None
+    if log_file:
+        os.makedirs(os.path.dirname(log_file) or ".", exist_ok=True)
+        # Tee：将 stdout/stderr 同时输出到终端和日志文件，子进程（生成/评估）输出也会被捕获
+        class _Tee:
+            def __init__(self, stream, fpath):
+                self._stream = stream
+                self._file = open(fpath, "a", encoding="utf-8")
+            def write(self, data):
+                try:
+                    self._file.write(data)
+                    self._file.flush()
+                except Exception:
+                    pass
+                self._stream.write(data)
+            def flush(self):
+                try:
+                    self._file.flush()
+                except Exception:
+                    pass
+                self._stream.flush()
+            def __getattr__(self, name):
+                return getattr(self._stream, name)  # 如 isatty
+        _teed_stdout = _Tee(sys.__stdout__, log_file)
+        _teed_stderr = _Tee(sys.__stderr__, log_file)
+        sys.stdout = _teed_stdout
+        sys.stderr = _teed_stderr
     def _log(msg):
         print(msg)
-        if log_file:
-            try:
-                with open(log_file, "a", encoding="utf-8") as f:
-                    f.write(msg + "\n")
-            except Exception:
-                pass
     result = {
         "model": model,
         "model_slug": model_slug,
@@ -135,103 +162,121 @@ def _run_closed_loop_one_model(project_root, model, args, use_model_specific_pat
         _log("=" * 60)
 
     try:
-        for round_num in range(1, max_rounds + 1):
-            mcqs_path = f"{base_mcqs}_round{round_num}.json"
-            results_path = f"{base_results}_round{round_num}.json"
-            result["round_reached"] = round_num
-            if round_num == 1 and no_target:
-                _log(f"\n  (未设通过率目标，将跑满 {max_rounds} 轮，取最终/历史最高通过率)")
-            _log(f"\n========== [{model}] 闭环 第 {round_num}/{max_rounds} 轮 ==========")
-            gen_cmd = [sys.executable, os.path.join(project_root, "scripts", "generate_mcq.py"), "--model", model, "--all-combinations", "--output", mcqs_path, "--examples", examples_path]
-            if getattr(args, "workers", None) is not None:
-                gen_cmd.extend(["--workers", str(args.workers)])
-            _log(f"  [1/4] 生成: {' '.join(gen_cmd)}")
-            gen_env = None
-            if use_model_specific_paths:
-                gen_env = {**os.environ, "PROMPT_RULES_PATH": prompt_rules_path}
-            r = subprocess.run(gen_cmd, cwd=project_root, env=gen_env)
-            if r.returncode != 0:
-                result["error"] = f"生成失败 exit={r.returncode}"
-                _log(f"  生成失败 exit={r.returncode}")
-                return result
-            eval_cmd = [sys.executable, os.path.join(project_root, "main.py"), "evaluate", "--input", mcqs_path, "--output", results_path, "--parallel", str(parallel)]
-            _log(f"  [2/4] 评估: ... --parallel {parallel}")
-            r = subprocess.run(eval_cmd, cwd=project_root)
-            if r.returncode != 0:
-                result["error"] = f"评估失败 exit={r.returncode}"
-                _log(f"  评估失败 exit={r.returncode}")
-                return result
-            try:
-                with open(results_path, "r", encoding="utf-8") as f:
-                    out_data = json.load(f)
-            except Exception as e:
-                result["error"] = str(e)
-                return result
-            scores = out_data.get("scores") or []
-            n_valid = out_data.get("valid_score_count")
-            if n_valid is None:
-                n_valid = sum(1 for s in scores if s is not None and isinstance(s, (int, float)))
-            if not n_valid:
-                result["final_pass_rate"] = 0.0
-                result["pass_count"] = 0
-                result["n_valid"] = 0
-                result["n_submitted"] = out_data.get("total") or len(scores)
-                result["error"] = "无有效分数"
-                _log("  无有效分数，结束闭环")
-                return result
-            pass_count = out_data.get("pass_count") or sum(1 for s in scores if s is not None and float(s) >= 0.85)
-            pass_rate = 100.0 * pass_count / n_valid
-            n_submitted = out_data.get("total") or out_data.get("total_submitted") or len(scores)
-            result["final_pass_rate"] = round(pass_rate, 2)
-            result["pass_count"] = pass_count
-            result["n_valid"] = n_valid
-            result["n_submitted"] = n_submitted
-            if pass_rate > best_pass_rate_seen:
-                best_pass_rate_seen = pass_rate
-                best_round_seen = round_num
-                rate_str = str(round(pass_rate, 1)).replace(".", "_")
-                new_mcqs_best = f"{base_mcqs}_best_{rate_str}.json"
-                new_results_best = f"{base_results}_best_{rate_str}.json"
-                for old in glob.glob(f"{base_mcqs}_best_*.json"):
-                    if old != new_mcqs_best and os.path.exists(old):
-                        os.remove(old)
-                for old in glob.glob(f"{base_results}_best_*.json"):
-                    if old != new_results_best and os.path.exists(old):
-                        os.remove(old)
-                for old_path in [f"{base_mcqs}_best.json", f"{base_results}_best.json"]:
-                    if os.path.exists(old_path):
-                        os.remove(old_path)
-                shutil.copy2(mcqs_path, new_mcqs_best)
-                shutil.copy2(results_path, new_results_best)
-                current_best_mcqs_path = new_mcqs_best
-                current_best_results_path = new_results_best
-                _log(f"  已保存最佳: {os.path.relpath(new_mcqs_best, project_root)}")
-            result["best_pass_rate"] = round(best_pass_rate_seen, 2)
-            result["best_round"] = best_round_seen
-            n_error = n_submitted - n_valid
-            if n_error:
-                _log(f"  无分数题: {n_error} 题")
-            _log(f"  通过率(>=0.85): {pass_count}/{n_valid} ({pass_rate:.1f}%)（总提交 {n_submitted}）" + (f"  历史最高: {best_pass_rate_seen:.1f}% @ 第{best_round_seen}轮" if best_round_seen != round_num else ""))
-            _write_progress(round_num, round(pass_rate, 2), best_round_seen, round(best_pass_rate_seen, 2), mcqs_path, results_path)
-            # 仅当明确设了目标（target>0）且达标时才提前结束；target<=0 时跑满 max_rounds
-            if target > 0 and pass_rate >= target:
-                result["target_reached"] = True
-                _log(f"\n  已达目标通过率 {pass_rate:.1f}% >= {target}%，闭环结束")
-                _print_summary()
-                return result
-            imp_cmd = [sys.executable, os.path.join(project_root, "main.py"), "improve-examples", "--results", results_path, "--mcqs", mcqs_path, "--output", examples_path, "--raw-data-dir", args.raw_data_dir, "--parallel", str(parallel)]
-            _log(f"  [3/4] 补示例: ... --parallel {parallel}")
-            subprocess.run(imp_cmd, cwd=project_root)
-            imp_prompt_cmd = [sys.executable, os.path.join(project_root, "scripts", "improve_prompt.py"), "--results", results_path, "--mcqs", mcqs_path, "--output", prompt_rules_path, "--examples", examples_path]
-            _log(f"  [4/4] 改 prompt 规则")
-            subprocess.run(imp_prompt_cmd, cwd=project_root)
-            if round_num == max_rounds:
-                _log(f"\n  已达最大轮数 {max_rounds}，最终通过率 {pass_rate:.1f}%，历史最高 {best_pass_rate_seen:.1f}% @ 第{best_round_seen}轮")
-                _print_summary()
-    except KeyboardInterrupt:
-        _log("\n[用户中断] 已打印汇总，最佳题目与结果见上方。")
-        _print_summary()
-        raise
+        try:
+            for round_num in range(1, max_rounds + 1):
+                mcqs_path = f"{base_mcqs}_round{round_num}.json"
+                results_path = f"{base_results}_round{round_num}.json"
+                result["round_reached"] = round_num
+                if round_num == 1 and no_target:
+                    _log(f"\n  (未设通过率目标，将跑满 {max_rounds} 轮，取最终/历史最高通过率)")
+                _log(f"\n========== [{model}] 闭环 第 {round_num}/{max_rounds} 轮 ==========")
+                gen_cmd = [sys.executable, os.path.join(project_root, "scripts", "generate_mcq.py"), "--model", model, "--all-combinations", "--output", mcqs_path, "--examples", examples_path]
+                if getattr(args, "workers", None) is not None:
+                    gen_cmd.extend(["--workers", str(args.workers)])
+                _log(f"  [1/4] 生成: {' '.join(gen_cmd)}")
+                gen_env = None
+                if use_model_specific_paths:
+                    gen_env = {**os.environ, "PROMPT_RULES_PATH": prompt_rules_path}
+                r = subprocess.run(gen_cmd, cwd=project_root, env=gen_env)
+                if r.returncode != 0:
+                    result["error"] = f"生成失败 exit={r.returncode}"
+                    _log(f"  生成失败 exit={r.returncode}")
+                    return result
+                eval_cmd = [sys.executable, os.path.join(project_root, "main.py"), "evaluate", "--input", mcqs_path, "--output", results_path, "--parallel", str(parallel)]
+                _log(f"  [2/4] 评估: ... --parallel {parallel}")
+                r = subprocess.run(eval_cmd, cwd=project_root)
+                if r.returncode != 0:
+                    result["error"] = f"评估失败 exit={r.returncode}"
+                    _log(f"  评估失败 exit={r.returncode}")
+                    return result
+                try:
+                    with open(results_path, "r", encoding="utf-8") as f:
+                        out_data = json.load(f)
+                except Exception as e:
+                    result["error"] = str(e)
+                    return result
+                scores = out_data.get("scores") or []
+                n_valid = out_data.get("valid_score_count")
+                if n_valid is None:
+                    n_valid = sum(1 for s in scores if s is not None and isinstance(s, (int, float)))
+                if not n_valid:
+                    result["final_pass_rate"] = 0.0
+                    result["pass_count"] = 0
+                    result["n_valid"] = 0
+                    result["n_submitted"] = out_data.get("total") or len(scores)
+                    result["error"] = "无有效分数"
+                    _log("  无有效分数，结束闭环")
+                    return result
+                pass_count = out_data.get("pass_count") or sum(1 for s in scores if s is not None and float(s) >= 0.85)
+                pass_rate = 100.0 * pass_count / n_valid
+                n_submitted = out_data.get("total") or out_data.get("total_submitted") or len(scores)
+                result["final_pass_rate"] = round(pass_rate, 2)
+                result["pass_count"] = pass_count
+                result["n_valid"] = n_valid
+                result["n_submitted"] = n_submitted
+                if pass_rate > best_pass_rate_seen:
+                    best_pass_rate_seen = pass_rate
+                    best_round_seen = round_num
+                    rate_str = str(round(pass_rate, 1)).replace(".", "_")
+                    new_mcqs_best = f"{base_mcqs}_best_{rate_str}.json"
+                    new_results_best = f"{base_results}_best_{rate_str}.json"
+                    for old in glob.glob(f"{base_mcqs}_best_*.json"):
+                        if old != new_mcqs_best and os.path.exists(old):
+                            os.remove(old)
+                    for old in glob.glob(f"{base_results}_best_*.json"):
+                        if old != new_results_best and os.path.exists(old):
+                            os.remove(old)
+                    for old_path in [f"{base_mcqs}_best.json", f"{base_results}_best.json"]:
+                        if os.path.exists(old_path):
+                            os.remove(old_path)
+                    shutil.copy2(mcqs_path, new_mcqs_best)
+                    shutil.copy2(results_path, new_results_best)
+                    current_best_mcqs_path = new_mcqs_best
+                    current_best_results_path = new_results_best
+                    _log(f"  已保存最佳: {os.path.relpath(new_mcqs_best, project_root)}")
+                result["best_pass_rate"] = round(best_pass_rate_seen, 2)
+                result["best_round"] = best_round_seen
+                n_error = n_submitted - n_valid
+                if n_error:
+                    _log(f"  无分数题: {n_error} 题")
+                _log(f"  通过率(>=0.85): {pass_count}/{n_valid} ({pass_rate:.1f}%)（总提交 {n_submitted}）" + (f"  历史最高: {best_pass_rate_seen:.1f}% @ 第{best_round_seen}轮" if best_round_seen != round_num else ""))
+                _write_progress(round_num, round(pass_rate, 2), best_round_seen, round(best_pass_rate_seen, 2), mcqs_path, results_path)
+                # 仅当明确设了目标（target>0）且达标时才提前结束；target<=0 时跑满 max_rounds
+                if target > 0 and pass_rate >= target:
+                    result["target_reached"] = True
+                    _log(f"\n  已达目标通过率 {pass_rate:.1f}% >= {target}%，闭环结束")
+                    _print_summary()
+                    return result
+                imp_cmd = [sys.executable, os.path.join(project_root, "main.py"), "improve-examples", "--results", results_path, "--mcqs", mcqs_path, "--output", examples_path, "--raw-data-dir", args.raw_data_dir, "--parallel", str(parallel)]
+                _log(f"  [3/4] 补示例: ... --parallel {parallel}")
+                subprocess.run(imp_cmd, cwd=project_root)
+                imp_prompt_cmd = [sys.executable, os.path.join(project_root, "scripts", "improve_prompt.py"), "--results", results_path, "--mcqs", mcqs_path, "--output", prompt_rules_path, "--examples", examples_path]
+                _log(f"  [4/4] 改 prompt 规则")
+                subprocess.run(imp_prompt_cmd, cwd=project_root)
+                if round_num == max_rounds:
+                    _log(f"\n  已达最大轮数 {max_rounds}，最终通过率 {pass_rate:.1f}%，历史最高 {best_pass_rate_seen:.1f}% @ 第{best_round_seen}轮")
+                    _print_summary()
+        except KeyboardInterrupt:
+            _log("\n[用户中断] 已打印汇总，最佳题目与结果见上方。")
+            _print_summary()
+            raise
+    finally:
+        if log_file:
+            _log(f"日志已保存: {os.path.relpath(log_file, project_root)}")
+        if _teed_stdout is not None:
+            sys.stdout = sys.__stdout__
+            if hasattr(_teed_stdout, "_file"):
+                try:
+                    _teed_stdout._file.close()
+                except Exception:
+                    pass
+        if _teed_stderr is not None:
+            sys.stderr = sys.__stderr__
+            if hasattr(_teed_stderr, "_file"):
+                try:
+                    _teed_stderr._file.close()
+                except Exception:
+                    pass
     return result
 
 
@@ -349,7 +394,7 @@ def main():
     loop_parser.add_argument("--raw-data-dir", default="raw_data", help="improve-examples 使用的 raw_data 目录")
     loop_parser.add_argument("--workers", type=int, default=None, help="生成阶段并行数（DeepSeek/API 默认 10，本地 8，Kimi 10）")
     loop_parser.add_argument("--parallel", type=int, default=20, help="评估阶段 InceptBench 并行数（默认 20）")
-    loop_parser.add_argument("--log-file", default=None, help="将运行日志同时写入该文件（便于中途停止后查看完整输出）")
+    loop_parser.add_argument("--log-file", default=None, help="运行日志路径；默认 evaluation_output/closed_loop_<model>.log，保存所有终端输出")
     loop_parser.add_argument("--run-id", default=None, help="运行批次 ID；指定后 examples/prompt_rules/mcqs/results 均加此后缀，不同批次互不覆盖（如 --run-id exp1）")
 
     # 多模型闭环：对多个模型分别跑闭环，最后汇总各模型通过率并保存 JSON
@@ -364,7 +409,7 @@ def main():
     multi_parser.add_argument("--workers", type=int, default=None, help="生成阶段并行数")
     multi_parser.add_argument("--parallel", type=int, default=20, help="评估阶段并行数（默认 20）")
     multi_parser.add_argument("--summary-output", default=None, help="汇总 JSON 输出路径（默认 evaluation_output/closed_loop_multi_summary.json）")
-    multi_parser.add_argument("--log-file", default=None, help="将运行日志同时写入该文件（便于中途停止后查看完整输出）")
+    multi_parser.add_argument("--log-file", default=None, help="运行日志路径；默认 evaluation_output/closed_loop_<model>.log，保存所有终端输出")
     multi_parser.add_argument("--run-id", default=None, help="运行批次 ID；指定后各模型 examples/prompt_rules/mcqs/results 均加此后缀，不同批次互不覆盖")
 
     # 从失败组合改进 prompt 规则（全局 + 按 standard / (standard,difficulty)）
