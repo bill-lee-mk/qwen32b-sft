@@ -15,6 +15,7 @@ import os
 import shutil
 import subprocess
 import sys
+import time
 from datetime import datetime
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -72,40 +73,27 @@ def _run_closed_loop_one_model(project_root, model, args, use_model_specific_pat
     max_rounds = getattr(args, "max_rounds", 10)
     parallel = getattr(args, "parallel", 20)
     no_target = (target is None or target <= 0)  # 不设目标时跑满 max_rounds，取最终/最高通过率
-    log_file = getattr(args, "log_file", None)
-    # 默认日志路径：evaluation_output/log_237_{model_slug}.log（与 mcqs/token 命名一致）
-    if log_file is None:
-        log_file = os.path.join(project_root, "evaluation_output", f"log_237_{model_slug}{run_suffix}.log")
-    elif log_file == "":
-        log_file = None  # 显式传入空字符串则禁用
-    _teed_stdout = None
-    _teed_stderr = None
-    if log_file:
-        os.makedirs(os.path.dirname(log_file) or ".", exist_ok=True)
-        # Tee：将 stdout/stderr 同时输出到终端和日志文件，子进程（生成/评估）输出也会被捕获
-        class _Tee:
-            def __init__(self, stream, fpath):
-                self._stream = stream
-                self._file = open(fpath, "a", encoding="utf-8")
-            def write(self, data):
-                try:
-                    self._file.write(data)
-                    self._file.flush()
-                except Exception:
-                    pass
-                self._stream.write(data)
-            def flush(self):
-                try:
-                    self._file.flush()
-                except Exception:
-                    pass
-                self._stream.flush()
-            def __getattr__(self, name):
-                return getattr(self._stream, name)  # 如 isatty
-        _teed_stdout = _Tee(sys.__stdout__, log_file)
-        _teed_stderr = _Tee(sys.__stderr__, log_file)
-        sys.stdout = _teed_stdout
-        sys.stderr = _teed_stderr
+    # 日志路径：--log-file 指定或默认 evaluation_output/log_237_{model}.json
+    log_file_arg = getattr(args, "log_file", None)
+    default_log_base = os.path.join(project_root, "evaluation_output", f"log_237_{model_slug}{run_suffix}")
+    if log_file_arg and log_file_arg != "":
+        log_base = log_file_arg[:-4] if log_file_arg.endswith(".log") else (log_file_arg[:-5] if log_file_arg.endswith(".json") else log_file_arg)
+    else:
+        log_base = default_log_base
+    log_json_path = log_base + ".json"
+
+    def _run_with_log_stream(cmd, cwd, env=None):
+        """运行子进程并实时将 stdout/stderr 流式输出到当前终端"""
+        proc = subprocess.Popen(
+            cmd, cwd=cwd, env=env,
+            stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+            text=True, bufsize=1,
+        )
+        for line in iter(proc.stdout.readline, ""):
+            sys.stdout.write(line)
+            sys.stdout.flush()
+        return proc.wait()
+
     def _log(msg):
         print(msg)
     result = {
@@ -123,6 +111,8 @@ def _run_closed_loop_one_model(project_root, model, args, use_model_specific_pat
     }
     best_pass_rate_seen = -1.0
     best_round_seen = 0
+    rounds_data = []  # 供综合 JSON 日志使用
+    total_start = time.time()
 
     def _write_progress(rnd, pr, br, bpr, m_path, r_path):
         best_m = current_best_mcqs_path
@@ -170,30 +160,58 @@ def _run_closed_loop_one_model(project_root, model, args, use_model_specific_pat
                 if round_num == 1 and no_target:
                     _log(f"\n  (未设通过率目标，将跑满 {max_rounds} 轮，取最终/历史最高通过率)")
                 _log(f"\n========== [{model}] 闭环 第 {round_num}/{max_rounds} 轮 ==========")
+                round_start = time.time()
                 gen_cmd = [sys.executable, os.path.join(project_root, "scripts", "generate_mcq.py"), "--model", model, "--all-combinations", "--output", mcqs_path, "--examples", examples_path]
                 if getattr(args, "workers", None) is not None:
                     gen_cmd.extend(["--workers", str(args.workers)])
                 _log(f"  [1/4] 生成: {' '.join(gen_cmd)}")
-                gen_env = None
-                if use_model_specific_paths:
-                    gen_env = {**os.environ, "PROMPT_RULES_PATH": prompt_rules_path}
-                r = subprocess.run(gen_cmd, cwd=project_root, env=gen_env)
-                if r.returncode != 0:
-                    result["error"] = f"生成失败 exit={r.returncode}"
-                    _log(f"  生成失败 exit={r.returncode}")
+                gen_env = {**os.environ, "PROMPT_RULES_PATH": prompt_rules_path} if use_model_specific_paths else {**os.environ}
+                r = _run_with_log_stream(gen_cmd, project_root, gen_env)
+                if r != 0:
+                    result["error"] = f"生成失败 exit={r}"
+                    _log(f"  生成失败 exit={r}")
+                    for p in [mcqs_path]:
+                        if os.path.exists(p):
+                            try:
+                                os.remove(p)
+                            except Exception:
+                                pass
                     return result
+                # 读取生成阶段的 usage 与 generation 明细（路径由 generate_mcq 按 --output 推导写入）
+                usage_output_path = mcqs_path.replace("mcqs_", "log_", 1).replace(".json", "_usage.json")
+                gen_usage = {}
+                generation_list = []
+                try:
+                    if os.path.exists(usage_output_path):
+                        with open(usage_output_path, "r", encoding="utf-8") as f:
+                            gen_usage = json.load(f)
+                        generation_list = gen_usage.get("generation", [])
+                except Exception:
+                    pass
                 eval_cmd = [sys.executable, os.path.join(project_root, "main.py"), "evaluate", "--input", mcqs_path, "--output", results_path, "--parallel", str(parallel)]
                 _log(f"  [2/4] 评估: ... --parallel {parallel}")
-                r = subprocess.run(eval_cmd, cwd=project_root)
-                if r.returncode != 0:
-                    result["error"] = f"评估失败 exit={r.returncode}"
-                    _log(f"  评估失败 exit={r.returncode}")
+                r = _run_with_log_stream(eval_cmd, project_root)
+                if r != 0:
+                    result["error"] = f"评估失败 exit={r}"
+                    _log(f"  评估失败 exit={r}")
+                    for p in [mcqs_path, results_path]:
+                        if os.path.exists(p):
+                            try:
+                                os.remove(p)
+                            except Exception:
+                                pass
                     return result
                 try:
                     with open(results_path, "r", encoding="utf-8") as f:
                         out_data = json.load(f)
                 except Exception as e:
                     result["error"] = str(e)
+                    for p in [mcqs_path, results_path]:
+                        if os.path.exists(p):
+                            try:
+                                os.remove(p)
+                            except Exception:
+                                pass
                     return result
                 scores = out_data.get("scores") or []
                 n_valid = out_data.get("valid_score_count")
@@ -206,6 +224,12 @@ def _run_closed_loop_one_model(project_root, model, args, use_model_specific_pat
                     result["n_submitted"] = out_data.get("total") or len(scores)
                     result["error"] = "无有效分数"
                     _log("  无有效分数，结束闭环")
+                    for p in [mcqs_path, results_path]:
+                        if os.path.exists(p):
+                            try:
+                                os.remove(p)
+                            except Exception:
+                                pass
                     return result
                 pass_count = out_data.get("pass_count") or sum(1 for s in scores if s is not None and float(s) >= 0.85)
                 pass_rate = 100.0 * pass_count / n_valid
@@ -241,18 +265,59 @@ def _run_closed_loop_one_model(project_root, model, args, use_model_specific_pat
                     _log(f"  无分数题: {n_error} 题")
                 _log(f"  通过率(>=0.85): {pass_count}/{n_valid} ({pass_rate:.1f}%)（总提交 {n_submitted}）" + (f"  历史最高: {best_pass_rate_seen:.1f}% @ 第{best_round_seen}轮" if best_round_seen != round_num else ""))
                 _write_progress(round_num, round(pass_rate, 2), best_round_seen, round(best_pass_rate_seen, 2), mcqs_path, results_path)
+                # 收集本轮数据供综合 JSON 日志
+                token_obj = gen_usage.get("usage_agg", {})
+                if not token_obj and gen_usage.get("usage_agg"):
+                    token_obj = gen_usage["usage_agg"]
+                total_tokens = (token_obj.get("prompt_tokens", 0) or 0) + (token_obj.get("completion_tokens", 0) or 0)
+                avg_tokens = round(total_tokens / n_valid, 1) if n_valid and total_tokens else 0
+                evaluation_list = out_data.get("evaluation_details", [])
+                round_elapsed_s = round(time.time() - round_start, 1)
+                round_entry = {
+                    "round": round_num,
+                    "summary": {
+                        "pass_rate": round(pass_rate, 2),
+                        "pass_count": pass_count,
+                        "n_valid": n_valid,
+                        "round_elapsed_s": round_elapsed_s,
+                        "token": {
+                            "prompt_tokens": token_obj.get("prompt_tokens", 0),
+                            "completion_tokens": token_obj.get("completion_tokens", 0),
+                            "prompt_cache_hit_tokens": token_obj.get("prompt_cache_hit_tokens", 0),
+                            "prompt_cache_miss_tokens": token_obj.get("prompt_cache_miss_tokens", 0),
+                            "estimated_cost_cny": token_obj.get("estimated_cost_cny", 0),
+                        },
+                        "average_tokens_per_question": avg_tokens,
+                    },
+                    "generation": generation_list,
+                    "evaluation": evaluation_list,
+                }
+                rounds_data.append(round_entry)
                 # 仅当明确设了目标（target>0）且达标时才提前结束；target<=0 时跑满 max_rounds
                 if target > 0 and pass_rate >= target:
                     result["target_reached"] = True
                     _log(f"\n  已达目标通过率 {pass_rate:.1f}% >= {target}%，闭环结束")
+                    for p in [mcqs_path, results_path]:
+                        if os.path.exists(p):
+                            try:
+                                os.remove(p)
+                            except Exception:
+                                pass
                     _print_summary()
                     return result
                 imp_cmd = [sys.executable, os.path.join(project_root, "main.py"), "improve-examples", "--results", results_path, "--mcqs", mcqs_path, "--output", examples_path, "--raw-data-dir", args.raw_data_dir, "--parallel", str(parallel)]
                 _log(f"  [3/4] 补示例: ... --parallel {parallel}")
-                subprocess.run(imp_cmd, cwd=project_root)
+                _run_with_log_stream(imp_cmd, project_root)
                 imp_prompt_cmd = [sys.executable, os.path.join(project_root, "scripts", "improve_prompt.py"), "--results", results_path, "--mcqs", mcqs_path, "--output", prompt_rules_path, "--examples", examples_path]
                 _log(f"  [4/4] 改 prompt 规则")
-                subprocess.run(imp_prompt_cmd, cwd=project_root)
+                _run_with_log_stream(imp_prompt_cmd, project_root)
+                # 删除中间暂存文件，仅保留最佳题目与结果
+                for p in [mcqs_path, results_path]:
+                    if os.path.exists(p):
+                        try:
+                            os.remove(p)
+                        except Exception:
+                            pass
                 if round_num == max_rounds:
                     _log(f"\n  已达最大轮数 {max_rounds}，最终通过率 {pass_rate:.1f}%，历史最高 {best_pass_rate_seen:.1f}% @ 第{best_round_seen}轮")
                     _print_summary()
@@ -261,22 +326,38 @@ def _run_closed_loop_one_model(project_root, model, args, use_model_specific_pat
             _print_summary()
             raise
     finally:
-        if log_file:
-            _log(f"日志已保存: {os.path.relpath(log_file, project_root)}")
-        if _teed_stdout is not None:
-            sys.stdout = sys.__stdout__
-            if hasattr(_teed_stdout, "_file"):
-                try:
-                    _teed_stdout._file.close()
-                except Exception:
-                    pass
-        if _teed_stderr is not None:
-            sys.stderr = sys.__stderr__
-            if hasattr(_teed_stderr, "_file"):
-                try:
-                    _teed_stderr._file.close()
-                except Exception:
-                    pass
+        # 写入综合 JSON 日志
+        if rounds_data:
+            avg_pass = sum(r["summary"]["pass_rate"] for r in rounds_data) / len(rounds_data)
+            total_elapsed_s = round(time.time() - total_start, 1)
+            best_m = os.path.relpath(current_best_mcqs_path, project_root) if current_best_mcqs_path and use_default_paths else (current_best_mcqs_path or "")
+            best_r = os.path.relpath(current_best_results_path, project_root) if current_best_results_path and use_default_paths else (current_best_results_path or "")
+            log_payload = {
+                "summary": {
+                    "model": model,
+                    "round_reached": result.get("round_reached", 0),
+                    "average_pass_rate": round(avg_pass, 2),
+                    "best_pass_rate": result.get("best_pass_rate"),
+                    "best_round": result.get("best_round"),
+                    "best_mcqs_path": best_m,
+                    "best_results_path": best_r,
+                    "total_elapsed_s": total_elapsed_s,
+                },
+                "rounds": rounds_data,
+            }
+            os.makedirs(os.path.dirname(log_json_path) or ".", exist_ok=True)
+            with open(log_json_path, "w", encoding="utf-8") as f:
+                json.dump(log_payload, f, ensure_ascii=False, indent=2)
+            _log(f"综合日志已保存: {os.path.relpath(log_json_path, project_root)}")
+            # 清理每轮 usage 临时文件（已合并到综合日志）
+            for rnd in range(1, result.get("round_reached", 0) + 1):
+                mcqs_rnd = f"{base_mcqs}_round{rnd}.json"
+                up = mcqs_rnd.replace("mcqs_", "log_", 1).replace(".json", "_usage.json")
+                if os.path.exists(up):
+                    try:
+                        os.remove(up)
+                    except Exception:
+                        pass
     return result
 
 
@@ -394,7 +475,7 @@ def main():
     loop_parser.add_argument("--raw-data-dir", default="raw_data", help="improve-examples 使用的 raw_data 目录")
     loop_parser.add_argument("--workers", type=int, default=None, help="生成阶段并行数（DeepSeek/API 默认 10，本地 8，Kimi 10）")
     loop_parser.add_argument("--parallel", type=int, default=20, help="评估阶段 InceptBench 并行数（默认 20）")
-    loop_parser.add_argument("--log-file", nargs="?", default=None, const=None, help="运行日志路径；不传或传 --log-file 无值时用默认 evaluation_output/log_237_<model>.log；传路径则用该路径")
+    loop_parser.add_argument("--log-file", nargs="?", default=None, const=None, help="综合 JSON 日志路径；不传时用默认 evaluation_output/log_237_<model>.json；传路径则用该路径")
     loop_parser.add_argument("--run-id", default=None, help="运行批次 ID；指定后 examples/prompt_rules/mcqs/results 均加此后缀，不同批次互不覆盖（如 --run-id exp1）")
 
     # 多模型闭环：对多个模型分别跑闭环，最后汇总各模型通过率并保存 JSON
@@ -409,7 +490,7 @@ def main():
     multi_parser.add_argument("--workers", type=int, default=None, help="生成阶段并行数")
     multi_parser.add_argument("--parallel", type=int, default=20, help="评估阶段并行数（默认 20）")
     multi_parser.add_argument("--summary-output", default=None, help="汇总 JSON 输出路径（默认 evaluation_output/closed_loop_multi_summary.json）")
-    multi_parser.add_argument("--log-file", nargs="?", default=None, const=None, help="运行日志路径；不传或传 --log-file 无值时用默认 log_237_<model>.log")
+    multi_parser.add_argument("--log-file", nargs="?", default=None, const=None, help="综合 JSON 日志路径；不传时用默认 log_237_<model>.json")
     multi_parser.add_argument("--run-id", default=None, help="运行批次 ID；指定后各模型 examples/prompt_rules/mcqs/results 均加此后缀，不同批次互不覆盖")
 
     # 从失败组合改进 prompt 规则（全局 + 按 standard / (standard,difficulty)）
@@ -670,18 +751,27 @@ def main():
                 )
                 print(f"[评估] {n_total} 题，每次 1 题，{parallel} 并行，超时 {timeout}s/题")
                 evaluator = InceptBenchEvaluator(timeout=timeout)
+
+                def _eval_one(idx_item):
+                    idx, item = idx_item
+                    t0 = time.time()
+                    r = evaluator.evaluate_mcq(item)
+                    return idx, r, time.time() - t0
+
                 results_by_idx = {}
+                elapsed_by_idx = {}  # 供 evaluation_details 使用
                 done = 0
                 with ThreadPoolExecutor(max_workers=parallel) as ex:
-                    futures = {ex.submit(evaluator.evaluate_mcq, q): i for i, q in enumerate(items)}
+                    futures = {ex.submit(_eval_one, (i, q)): i for i, q in enumerate(items)}
                     for fut in as_completed(futures):
                         i = futures[fut]
                         q = items[i]
                         std = (q.get("standard") or "").replace("CCSS.ELA-LITERACY.", "")
                         diff = q.get("difficulty") or "medium"
                         try:
-                            r = fut.result()
-                            results_by_idx[i] = r
+                            i_actual, r, elapsed = fut.result()
+                            results_by_idx[i_actual] = r
+                            elapsed_by_idx[i_actual] = elapsed
                             s = r.get("overall_score")
                             if s is None and "evaluations" in r:
                                 ev = next(iter(r.get("evaluations", {}).values()), {})
@@ -690,17 +780,18 @@ def main():
                                     s = (ev.get("overall") or {}).get("score")  # 第二套格式
                             done += 1
                             progress = f"{done:>3}/{n_total}"
-                            label = f"题{i+1:>3} ({std}, {diff})".ljust(label_width)
+                            label = f"题{i_actual+1:>3} ({std}, {diff})".ljust(label_width)
+                            dur_str = f"  {elapsed:.1f}s"
                             if isinstance(s, (int, float)):
                                 sf = float(s)
                                 status = f"score={sf:.2f}"
                                 if sf < 0.85:
                                     status += "  X"
-                                print(f"[评估] [{progress}] {label}: {status}")
+                                print(f"[评估] [{progress}] {label}: {status}{dur_str}")
                             else:
                                 err_reason = _extract_error_reason(r)
                                 status = "error (原因: " + (err_reason[:150] if err_reason else "未知") + ")"
-                                print(f"[评估] [{progress}] {label}: {status}")
+                                print(f"[评估] [{progress}] {label}: {status}{dur_str}")
                                 if not err_reason:
                                     # 无明确错误信息时打印原始响应摘要便于排查
                                     snippet = json.dumps(r, ensure_ascii=False)[:400]
@@ -709,10 +800,11 @@ def main():
                                     print(f"      [原始响应] {snippet}")
                         except Exception as e:
                             results_by_idx[i] = {"overall_score": 0.0, "status": "error", "message": str(e)}
+                            elapsed_by_idx[i] = 0.0
                             done += 1
                             progress = f"{done:>3}/{n_total}"
                             label = f"题{i+1:>3} ({std}, {diff})".ljust(label_width)
-                            print(f"[评估] [{progress}] {label}: error (原因: {e})")
+                            print(f"[评估] [{progress}] {label}: error (原因: {e})  —")
 
                 # 总评估数 = 提交的题目数；有效题目数 = 拿到数值分数的题目数；无分数题 = 总评估数 - 有效题目数
                 # scores 与 items 按下标对齐，无分数题为 None，便于下游 improve-examples 等按 index 取分
@@ -776,6 +868,20 @@ def main():
                     print("\n[评估] 无有效分数")
 
                 if args.output:
+                    evaluation_details = []
+                    for i in range(len(items)):
+                        q = items[i]
+                        std_short = (q.get("standard") or "").replace("CCSS.ELA-LITERACY.", "")
+                        diff = q.get("difficulty") or "medium"
+                        s = scores[i]
+                        elapsed = elapsed_by_idx.get(i, 0)
+                        evaluation_details.append({
+                            "index": i + 1,
+                            "standard": std_short,
+                            "difficulty": diff,
+                            "score": round(s, 2) if s is not None else None,
+                            "elapsed_s": round(elapsed, 1),
+                        })
                     out_data = {
                         "total": n_submitted,
                         "total_submitted": n_submitted,
@@ -783,6 +889,7 @@ def main():
                         "error_count": n_error,
                         "scores": scores,
                         "results": [results_by_idx.get(i) for i in range(len(items))],
+                        "evaluation_details": evaluation_details,
                     }
                     if error_details:
                         out_data["error_details"] = error_details

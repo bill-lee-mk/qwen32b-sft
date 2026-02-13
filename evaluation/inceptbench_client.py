@@ -6,8 +6,7 @@ API 说明：
 - URL: POST https://inceptbench.api.inceptlabs.ai/2.3.0/evaluate 或 api.inceptbench.com/evaluate
 - 认证: Authorization: Bearer <token>（需 Bearer token，非 query 的 api_key）
 - 主配置: INCEPTBENCH_API_KEY 或 INCEPTBENCH_TOKEN；第二套: EVALUATOR_TOKEN（URL 固定）
-- 多 key 降级: 主配置为 INCEPTBENCH_*；设置 EVALUATOR_URL + EVALUATOR_TOKEN 作第二套，
-  EVALUATOR_TOKEN 作第二套，主配置失败时自动切换
+- 多 key 降级: 主配置为 INCEPTBENCH_*；EVALUATOR_TOKEN 作第二套（URL 固定 api.inceptbench.com），主配置失败时自动切换
 """
 import os
 import json
@@ -36,7 +35,7 @@ def _get_evaluator_endpoints() -> List[Tuple[str, str]]:
     if p1:
         pairs.append(p1)
 
-    # 第二套（主配置失败时降级）
+    # 第二套（主配置失败时降级，如 429 配额超限等）
     tok2 = os.environ.get("EVALUATOR_TOKEN")
     p2 = _pair(_EVALUATOR_FALLBACK_URL, tok2)
     if p2 and p2 not in pairs:
@@ -230,6 +229,17 @@ def _do_evaluate(
         score = _extract_overall_score(result)
         if score is not None and "overall_score" not in result:
             result["overall_score"] = round(score, 2)
+        # 200 但存在 failed_items（如 429 配额超限）：视为错误，触发切换备用端点
+        failed_items = result.get("failed_items") or []
+        if failed_items:
+            first_err = failed_items[0]
+            msg = first_err.get("error", str(first_err))[:500] if isinstance(first_err, dict) else str(first_err)[:500]
+            return {
+                "overall_score": 0.0,
+                "status": "error",
+                "message": msg,
+                "response_body": json.dumps(result, ensure_ascii=False)[:1000],
+            }
         # 200 但无分数：可能是 API 返回了 detail/error 等错误格式
         if score is None and (result.get("detail") or result.get("error")):
             msg = result.get("detail") or result.get("error")
@@ -312,7 +322,7 @@ class InceptBenchEvaluator:
     ) -> Dict[str, Any]:
         """
         评估 MCQ（支持单个或批量）。
-        当主配置返回错误时，自动尝试第二套 EVALUATOR_URL / EVALUATOR_TOKEN。
+        当主配置返回错误时，自动尝试第二套 EVALUATOR_TOKEN（URL 固定）。
 
         输入: 我们的 MCQ 格式，单个 dict 或 dict 列表
         输出: API 返回的评估结果
@@ -332,7 +342,8 @@ class InceptBenchEvaluator:
             if result.get("status") == "error":
                 last_err = result
                 if idx < len(self.endpoints) - 1:
-                    continue  # 尝试下一套
+                    # 无缝切换至备用端点
+                    continue
                 return last_err
             return result
 

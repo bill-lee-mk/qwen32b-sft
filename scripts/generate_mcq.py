@@ -71,7 +71,7 @@ def _extract_kimi_429_message(err_str: str) -> str:
     return err_str
 
 
-def call_openai(messages: list, api_key: str, model: str = "gpt-4o", base_url: str | None = None) -> tuple[str, dict | None]:
+def call_openai(messages: list, api_key: str, model: str = "gpt-4o", base_url: str | None = None, temperature: float = 0.7, max_tokens: int = 1024) -> tuple[str, dict | None]:
     """调用 OpenAI 兼容 API，返回 (content, usage_dict)。Kimi 等 OpenAI 兼容接口均返回 usage。"""
     try:
         from openai import OpenAI
@@ -84,8 +84,8 @@ def call_openai(messages: list, api_key: str, model: str = "gpt-4o", base_url: s
     response = client.chat.completions.create(
         model=model,
         messages=messages,
-        temperature=0.7,
-        max_tokens=1024,
+        temperature=temperature,
+        max_tokens=max_tokens,
     )
     content = response.choices[0].message.content or ""
     usage = None
@@ -105,17 +105,19 @@ def call_openai(messages: list, api_key: str, model: str = "gpt-4o", base_url: s
 
 def call_deepseek(messages: list, api_key: str, model: str = "deepseek-chat") -> tuple[str, dict | None]:
     """调用 DeepSeek API。reasoner 模型会返回 reasoning_content + content，取 content 作为最终答案用于解析 MCQ。
-    返回 (content, usage_dict)。usage_dict 含 prompt_tokens, completion_tokens, prompt_cache_hit_tokens, prompt_cache_miss_tokens。"""
+    返回 (content, usage_dict)。usage_dict 含 prompt_tokens, completion_tokens, prompt_cache_hit_tokens, prompt_cache_miss_tokens。
+    参数由 _get_generation_params(deepseek) 控制。"""
     try:
         from openai import OpenAI
     except ImportError:
         raise ImportError("请安装: pip install openai")
+    params = _get_generation_params("deepseek", model)
     client = OpenAI(api_key=api_key, base_url="https://api.deepseek.com")
     response = client.chat.completions.create(
         model=model,
         messages=messages,
-        temperature=0.7,
-        max_tokens=8192,
+        temperature=params["temperature"],
+        max_tokens=params["max_tokens"],
     )
     msg = response.choices[0].message
     content = (getattr(msg, "content", None) or "").strip()
@@ -138,15 +140,17 @@ def call_deepseek(messages: list, api_key: str, model: str = "deepseek-chat") ->
     return content, usage
 
 
-# Kimi (Moonshot) 官方 API：https://platform.moonshot.cn ，OpenAI 兼容，需配置 API Key；RPM 较低
+# Kimi (Moonshot) 官方 API：https://platform.moonshot.cn ，OpenAI 兼容，需配置 API Key
 KIMI_API_BASE = "https://api.moonshot.cn/v1"
-KIMI_MAX_CONCURRENCY = 10
-# 两次请求最小间隔（秒）；Free 等级约 3 RPM，需 ≥20s；付费后可设 KIMI_MIN_INTERVAL=5 提速
-KIMI_MIN_INTERVAL = float(os.environ.get("KIMI_MIN_INTERVAL", "20.0"))
+KIMI_MAX_CONCURRENCY = 50  # Tier1 并发 50
+# Tier1：RPM 200 → 间隔 0.3s，并发 50
+KIMI_MIN_INTERVAL = 0.3
+KIMI_MAX_CONCURRENT = 50
 # 429 后重试等待（秒），Kimi 配额重置较慢，需较长等待
 KIMI_429_WAIT_SECONDS = 120
 _kimi_rate_lock = threading.Lock()
 _kimi_last_call_time = 0.0
+_kimi_sem = threading.Semaphore(max(1, KIMI_MAX_CONCURRENT))
 
 
 def _is_local_model(model: str) -> bool:
@@ -178,6 +182,25 @@ def _model_to_provider(model: str) -> str:
     return "openai"
 
 
+def _get_generation_params(provider: str, model: str) -> dict:
+    """
+    按 provider 和 model 返回生成参数，避免混淆。
+    - DeepSeek: temperature=0.7, max_tokens=8192
+    - Kimi: k2 系列仅支持 temperature=1，其余 0.7；max_tokens=8192
+    - Local: temperature=0.7, max_tokens=4096
+    - OpenAI/Gemini: temperature=0.7, max_tokens=1024
+    """
+    m = (model or "").strip().lower()
+    if provider == "deepseek":
+        return {"temperature": 0.7, "max_tokens": 8192}
+    if provider == "kimi":
+        temp = 1.0 if "k2" in m else 0.7  # kimi-k2.5 等仅支持 temperature=1
+        return {"temperature": temp, "max_tokens": 8192}
+    if provider == "local":
+        return {"temperature": 0.7, "max_tokens": 4096}
+    return {"temperature": 0.7, "max_tokens": 1024}
+
+
 def _get_api_key_for_model(model: str) -> str | None:
     """根据模型名返回对应环境变量中的 API Key；本地模型返回 dummy。"""
     provider = _model_to_provider(model)
@@ -188,19 +211,19 @@ def _get_api_key_for_model(model: str) -> str | None:
 
 
 def call_kimi(messages: list, api_key: str, model: str = "kimi-latest") -> tuple[str, dict | None]:
-    """调用 Kimi (Moonshot) API，OpenAI 兼容接口；内部限速，保证两次请求间隔 >= KIMI_MIN_INTERVAL。返回 (content, usage) 同 DeepSeek。"""
+    """调用 Kimi (Moonshot) API，OpenAI 兼容接口。限速：KIMI_MIN_INTERVAL 控制间隔，KIMI_MAX_CONCURRENT 控制并发。返回 (content, usage) 同 DeepSeek。"""
     global _kimi_last_call_time
-    with _kimi_rate_lock:
-        now = time.time()
-        if _kimi_last_call_time == 0.0:
-            time.sleep(5)  # 首次请求前稍等，避免冷启动 429
-        wait = _kimi_last_call_time + KIMI_MIN_INTERVAL - now
-        if wait > 0:
-            time.sleep(wait)
-        try:
-            return call_openai(messages, api_key, model, base_url=KIMI_API_BASE)
-        finally:
+    with _kimi_sem:
+        with _kimi_rate_lock:
+            now = time.time()
+            if _kimi_last_call_time == 0.0:
+                time.sleep(5)  # 首次请求前稍等，避免冷启动 429
+            wait = _kimi_last_call_time + KIMI_MIN_INTERVAL - now
+            if wait > 0:
+                time.sleep(wait)
             _kimi_last_call_time = time.time()
+        params = _get_generation_params("kimi", model)
+        return call_openai(messages, api_key, model, base_url=KIMI_API_BASE, temperature=params["temperature"], max_tokens=params["max_tokens"])
 
 
 def _local_api_bases() -> list[str]:
@@ -255,23 +278,21 @@ def _local_api_timeout() -> float:
         return 1800.0
 
 
-# 本地生成 MCQ 的 max_tokens；单题 JSON 通常 500–2000 token，4096 足够且加快单条返回
-LOCAL_API_MAX_TOKENS = 4096
-
-
 def call_local(messages: list, base_url: str, model: str = "local") -> str:
-    """调用本地 serve-api 的 OpenAI 兼容 /v1/chat/completions（需先启动 python main.py serve-api --model <path>）"""
+    """调用本地 serve-api 的 OpenAI 兼容 /v1/chat/completions（需先启动 python main.py serve-api --model <path>）。
+    参数由 _get_generation_params(local) 控制。"""
     try:
         from openai import OpenAI
     except ImportError:
         raise ImportError("请安装: pip install openai")
+    params = _get_generation_params("local", model)
     client = OpenAI(api_key="dummy", base_url=base_url)
     try:
         response = client.chat.completions.create(
             model=model,
             messages=messages,
-            temperature=0.7,
-            max_tokens=LOCAL_API_MAX_TOKENS,
+            temperature=params["temperature"],
+            max_tokens=params["max_tokens"],
             timeout=_local_api_timeout(),
         )
     except Exception as e:
@@ -290,16 +311,78 @@ def call_local(messages: list, base_url: str, model: str = "local") -> str:
     return (response.choices[0].message.content or "").strip()
 
 
+def _normalize_parsed_mcq(obj: dict) -> dict | None:
+    """将解析出的对象规范化为 MCQ 格式，兼容 kimi-k2.5 等模型的多种输出格式。"""
+    if not isinstance(obj, dict):
+        return None
+    # 补全必填字段默认值
+    if "type" not in obj:
+        obj["type"] = "mcq"
+    if "id" not in obj and "question" in obj:
+        obj["id"] = "parsed"
+    # 兼容 answer_options 为 list 格式：[{key:"A", text:"..."}, ...]
+    opts = obj.get("answer_options")
+    if isinstance(opts, list):
+        d = {}
+        for o in opts:
+            k = str(o.get("key", o.get("letter", ""))).upper().strip()[:1]
+            t = o.get("text", o.get("content", o.get("value", "")))
+            if k in "ABCD":
+                d[k] = str(t)
+        if set(d.keys()) == {"A", "B", "C", "D"}:
+            obj = {**obj, "answer_options": d}
+    # 兼容 answer 别名
+    if "answer" not in obj and "correct_answer" in obj:
+        obj["answer"] = obj.pop("correct_answer", "")
+    # 兼容 options 别名
+    if "answer_options" not in obj and "options" in obj:
+        o = obj["options"]
+        if isinstance(o, dict) and set(str(k).upper()[:1] for k in o) >= {"A", "B", "C", "D"}:
+            obj["answer_options"] = {k: str(v) for k, v in o.items()}
+    return obj
+
+
 def parse_mcq(text: str) -> dict | None:
-    """从模型回复中解析 MCQ JSON。支持 <think>...</think> 包裹时先去掉再取 JSON。"""
+    """从模型回复中解析 MCQ JSON。支持 <think>、```json 等包裹，兼容多种输出格式。"""
     if not (text or "").strip():
         return None
     s = text.strip()
-    # 去掉 deepseek-reasoner 等可能输出的 <think>...</think> 包裹，避免取到其中的无效内容
+    # 去掉 <think>...</think> 包裹
     if s.startswith("<think>") and "</think>" in s:
         idx = s.index("</think>") + 7
         s = s[idx:].strip()
+    # 去掉 ```json ... ``` 或 ``` ... ``` 包裹
+    for marker in ("```json", "```"):
+        if marker in s:
+            parts = s.split(marker, 2)
+            if len(parts) >= 2:
+                s = parts[1].strip()
+                if s.endswith("```"):
+                    s = s[:-3].strip()
+                break
     obj = extract_json_from_text(s)
+    # 若首次失败，尝试从 ```json 块内提取（可能有多段文本）
+    if not obj and "```" in s:
+        for part in s.split("```"):
+            if "{" in part:
+                obj = extract_json_from_text(part)
+                if obj:
+                    break
+    # 若仍失败，尝试修复截断的 JSON（如 Kimi 输出被 max_tokens 截断）
+    if not obj and "{" in s:
+        start = s.find("{")
+        base = s[start:].rstrip()
+        for suffix in ('"}', '}'):
+            try:
+                repaired = base + suffix
+                obj = json.loads(repaired)
+                if obj:
+                    break
+            except json.JSONDecodeError:
+                continue
+    if not obj:
+        return None
+    obj = _normalize_parsed_mcq(obj)
     if not obj:
         return None
     ok, _ = is_valid_mcq(obj)
@@ -412,7 +495,8 @@ def _generate_one(
             elif provider == "local":
                 raw = call_local(messages, _get_local_api_base(), model)
             else:
-                raw, usage = call_openai(messages, api_key, model)
+                p = _get_generation_params(provider, model)
+                raw, usage = call_openai(messages, api_key, model, temperature=p["temperature"], max_tokens=p["max_tokens"])
             mcq = parse_mcq(raw)
             elapsed = time.time() - start
             if mcq:
@@ -423,6 +507,12 @@ def _generate_one(
                 out["difficulty"] = difficulty
                 out["id"] = f"diverse_{index:03d}"  # 统一 ID 避免冲突
                 return (out, elapsed, None, usage)
+            if provider == "kimi" and raw:
+                debug_path = PROJECT_ROOT / "evaluation_output" / "debug_kimi_raw.txt"
+                debug_path.parent.mkdir(parents=True, exist_ok=True)
+                with open(debug_path, "w", encoding="utf-8") as f:
+                    f.write(raw)
+                print(f"  [解析失败] 已保存完整输出到 {debug_path}", flush=True)
             return (None, elapsed, None, usage)
         except Exception as e:
             err_str = str(e)
@@ -430,12 +520,12 @@ def _generate_one(
             if is_429 and attempt < max_retries - 1:
                 wait_s = KIMI_429_WAIT_SECONDS if provider == "kimi" else _parse_retry_seconds(err_str)
                 msg = _extract_kimi_429_message(err_str) if provider == "kimi" else err_str
-                print(f"  [429] {standard} {difficulty}: {msg}")
+                print(f"  [429] {standard} {difficulty}: {msg}", flush=True)
                 time.sleep(wait_s)
             else:
                 elapsed = time.time() - start
                 msg = _extract_kimi_429_message(err_str) if (provider == "kimi" and is_429) else err_str
-                print(f"  [WARN] {standard} {difficulty}: {msg}")
+                print(f"  [WARN] {standard} {difficulty}: {msg}", flush=True)
                 return (None, elapsed, err_str, None)
     elapsed = time.time() - start
     return (None, elapsed, None, None)
@@ -453,7 +543,7 @@ def main():
     parser.add_argument("--batch", type=int, default=1, help="生成条数（同参数重复）")
     parser.add_argument("--diverse", type=int, default=None, help="多样化生成 N 条，覆盖不同难度/标准")
     parser.add_argument("--all-combinations", action="store_true", help="遍历生成全部 (standard,difficulty) 组合（79 标准×3 难度=237 题）")
-    parser.add_argument("--workers", type=int, default=None, help="并行线程数（Gemini 2，Kimi 10，本地 8，DeepSeek/其他 API 10）")
+    parser.add_argument("--workers", type=int, default=None, help="并行线程数（Gemini 2，Kimi 50，本地 8，DeepSeek-reasoner 6，DeepSeek-chat/其他 10）")
     parser.add_argument("--input-dir", default="raw_data", help="--diverse 时分析 raw_data 的目录")
     parser.add_argument("--include-think-chain", action="store_true", help="是否要求输出 <think>")
     args = parser.parse_args()
@@ -495,8 +585,11 @@ def main():
         n = len(plan)
         workers = args.workers
         if workers is None:
-            # 生成并发默认：Gemini 2，Kimi 1，本地 8（8 卡机保持队列；单进程 serve-api 仅用 1–2 卡），DeepSeek/其他 API 10
-            workers = 2 if provider == "gemini" else (KIMI_MAX_CONCURRENCY if provider == "kimi" else (8 if provider == "local" else 10))
+            # 生成并发默认：Gemini 2，Kimi 50，本地 8，DeepSeek-reasoner 6（单条慢，适度并发），DeepSeek-chat/其他 API 10
+            if provider == "deepseek" and "reasoner" in (model or "").lower():
+                workers = 6
+            else:
+                workers = 2 if provider == "gemini" else (KIMI_MAX_CONCURRENCY if provider == "kimi" else (8 if provider == "local" else 10))
         workers = min(workers, n)
         if provider == "kimi":
             workers = min(workers, KIMI_MAX_CONCURRENCY)  # 不超过平台并发数
@@ -506,7 +599,9 @@ def main():
         if provider == "gemini" and workers > 2:
             print("  提示: Gemini 免费版约 5 次/分钟，建议 --workers 2；遇 429 会自动重试")
         if provider == "kimi":
-            print("  提示: Kimi Free 约 3 RPM、默认 20s/次，429 后等 2 分钟重试；付费可设 KIMI_MIN_INTERVAL=5 提速")
+            print(f"  提示: Kimi {KIMI_MAX_CONCURRENT} 并发、间隔 {KIMI_MIN_INTERVAL}s；429 后等 2 分钟重试")
+        if provider == "deepseek" and "reasoner" in (model or "").lower():
+            print("  提示: DeepSeek-reasoner 单条较慢，默认 6 并发；可 --workers 5 更稳或 --workers 8 提速")
         if n >= 50 and len(examples) < 8:
             print("  建议: 可先运行 python main.py select-examples -n 8 以增加示例覆盖")
         print(f"  计划: {plan[:5]}..." if len(plan) > 5 else f"  计划: {plan}")
@@ -531,6 +626,7 @@ def main():
         time_width = 8  # 耗时列宽度，如 "  12.3s"、" 120.5s"
         # 按组合下标存储，保证题目总数与 (standard, difficulty) 组合一致；未生成或校验不通过则修复或构造，不丢弃
         results_by_index = [None] * n
+        generation_details = [None] * n  # 供 usage 文件写入（闭环综合日志使用）
         usage_agg = {"prompt_tokens": 0, "completion_tokens": 0, "prompt_cache_hit_tokens": 0, "prompt_cache_miss_tokens": 0, "n_calls": 0}
         with ThreadPoolExecutor(max_workers=workers) as ex:
             futures = {
@@ -558,8 +654,10 @@ def main():
                         usage_agg["completion_tokens"] += usage.get("completion_tokens", 0) or 0
                         usage_agg["prompt_cache_hit_tokens"] += usage.get("prompt_cache_hit_tokens", 0) or 0
                         usage_agg["prompt_cache_miss_tokens"] += usage.get("prompt_cache_miss_tokens", 0) or 0
-                    elapsed_s = f"{elapsed:.1f}s".rjust(time_width)
                     std_short = (s or "").replace("CCSS.ELA-LITERACY.", "")
+                    tokens = (usage.get("prompt_tokens", 0) or 0) + (usage.get("completion_tokens", 0) or 0) if usage else 0
+                    generation_details[i] = {"index": i + 1, "standard": std_short, "difficulty": d, "tokens": tokens, "elapsed_s": round(elapsed, 1)}
+                    elapsed_s = f"{elapsed:.1f}s".rjust(time_width)
                     label = f"题{i+1:>3} ({std_short}, {d})".ljust(label_width)
                     tok = ""
                     if usage:
@@ -568,16 +666,16 @@ def main():
                     if mcq:
                         results_by_index[i] = mcq
                         done += 1
-                        print(f"[生成] [{done:>3}/{n}] {label}  {elapsed_s}{tok}")
+                        print(f"[生成] [{done:>3}/{n}] {label}  {elapsed_s}{tok}", flush=True)
                     elif err_msg:
                         short = "请求超时" if "timeout" in err_msg.lower() or "timed out" in err_msg.lower() else err_msg[:28]
-                        print(f"[生成] 异常: {label}  {elapsed_s}{tok}  {short}，将修复或构造")
+                        print(f"[生成] 异常: {label}  {elapsed_s}{tok}  {short}，将修复或构造", flush=True)
                     else:
-                        print(f"[生成] 失败: {label}  {elapsed_s}{tok}，将修复或构造")
+                        print(f"[生成] 失败: {label}  {elapsed_s}{tok}，将修复或构造", flush=True)
                 except Exception as e:
                     std_short = (s or "").replace("CCSS.ELA-LITERACY.", "")
                     label = f"题{i+1:>3} ({std_short}, {d})".ljust(label_width)
-                    print(f"[生成] 异常: {label}  {'—':>{time_width}}  {str(e)[:40]}…，将修复或构造")
+                    print(f"[生成] 异常: {label}  {'—':>{time_width}}  {str(e)[:40]}…，将修复或构造", flush=True)
 
         # 校验不通过则修复或构造，保证输出题目数 = n、组合与 plan 一致
         results, validated_stats = _validate_and_repair_keep_all(
@@ -605,30 +703,39 @@ def main():
                 hit_yuan, miss_yuan, out_yuan = 0, 0, 0  # 不估算，仅记录 token
             cost_in = (hit * hit_yuan + miss * miss_yuan) / 1e6 if (hit_yuan or miss_yuan) else 0
             cost_out = out * out_yuan / 1e6 if out_yuan else 0
-            usage_record = {
-                "model": model,
-                "provider": provider,
-                "mcqs_path": args.output,
-                "n_calls": usage_agg["n_calls"],
+            total_tok = usage_agg["prompt_tokens"] + usage_agg["completion_tokens"]
+            cost_str = f"，估算 ¥{cost_in + cost_out:.2f}" if (cost_in + cost_out) > 0 else ""
+            print(f"[生成] [用量] 本批 {n} 题总 token: {total_tok:,}（输入 {usage_agg['prompt_tokens']:,}，缓存命中 {hit:,}；输出 {out:,}）{cost_str}")
+        # 由 --output 路径推导 usage 路径（mcqs_xxx.json -> log_xxx_usage.json），写入 evaluation_output 供闭环综合日志使用
+        usage_out = str(args.output).replace("mcqs_", "log_", 1).replace(".json", "_usage.json") if args.output else None
+        if usage_out:
+            est_cost = 0.0
+            if usage_agg["n_calls"] > 0 and provider in ("deepseek", "kimi", "openai"):
+                hit = usage_agg["prompt_cache_hit_tokens"]
+                miss = usage_agg["prompt_cache_miss_tokens"]
+                out = usage_agg["completion_tokens"]
+                if provider == "kimi":
+                    hit_yuan, miss_yuan, out_yuan = 1.0, 4.0, 16.0
+                elif provider == "deepseek":
+                    is_reasoner = "reasoner" in model.lower()
+                    hit_yuan, miss_yuan = (0.5, 2.0) if not is_reasoner else (1.0, 4.0)
+                    out_yuan = 16.0 if is_reasoner else 8.0
+                else:
+                    hit_yuan, miss_yuan, out_yuan = 0, 0, 0
+                est_cost = (hit * hit_yuan + miss * miss_yuan) / 1e6 + out * out_yuan / 1e6
+            token_out = {
                 "prompt_tokens": usage_agg["prompt_tokens"],
                 "completion_tokens": usage_agg["completion_tokens"],
                 "prompt_cache_hit_tokens": usage_agg["prompt_cache_hit_tokens"],
                 "prompt_cache_miss_tokens": usage_agg["prompt_cache_miss_tokens"],
-                "estimated_cost_cny": round(cost_in + cost_out, 4) if (cost_in + cost_out) > 0 else None,
+                "estimated_cost_cny": round(est_cost, 3),
             }
-            # 与 mcqs 输出命名一致：mcqs_237_deepseek-reasoner_round1.json -> token_237_deepseek-reasoner_round1.json
-            if args.output:
-                stem = Path(args.output).stem
-                token_stem = stem.replace("mcqs_", "token_", 1) if stem.startswith("mcqs_") else f"token_{stem}"
-                usage_path = Path(args.output).parent / f"{token_stem}.json"
-            else:
-                usage_path = PROJECT_ROOT / "evaluation_output" / "token_usage.json"
-            usage_path.parent.mkdir(parents=True, exist_ok=True)
-            with open(usage_path, "w", encoding="utf-8") as f:
-                json.dump(usage_record, f, indent=2, ensure_ascii=False)
-            total_tok = usage_agg["prompt_tokens"] + usage_agg["completion_tokens"]
-            cost_str = f"，估算 ¥{cost_in + cost_out:.2f}" if (cost_in + cost_out) > 0 else ""
-            print(f"[生成] [用量] 本批 {n} 题总 token: {total_tok:,}（输入 {usage_agg['prompt_tokens']:,}，缓存命中 {hit:,}；输出 {out:,}）{cost_str}（已保存 {usage_path}）")
+            generation = [g for g in generation_details if g is not None]
+            usage_data = {"usage_agg": token_out, "generation": generation}
+            out_usage = Path(usage_out)
+            out_usage.parent.mkdir(parents=True, exist_ok=True)
+            with open(out_usage, "w", encoding="utf-8") as f:
+                json.dump(usage_data, f, ensure_ascii=False, indent=2)
     else:
         # 单参数模式（原有逻辑）
         filtered = _filter_examples_for_standard_difficulty(examples, args.standard, args.difficulty)
@@ -653,7 +760,8 @@ def main():
             elif provider == "local":
                 raw = call_local(messages, _get_local_api_base(), model)
             else:
-                raw, _ = call_openai(messages, api_key, model)
+                p = _get_generation_params(provider, model)
+                raw, _ = call_openai(messages, api_key, model, temperature=p["temperature"], max_tokens=p["max_tokens"])
 
             mcq = parse_mcq(raw)
             if mcq:
@@ -662,10 +770,16 @@ def main():
                 normalized["standard"] = args.standard
                 normalized["subject"] = "ELA"
                 results.append(normalized)
-                print(f"生成 {i+1}/{args.batch}: {normalized.get('id', 'unknown')}")
+                print(f"生成 {i+1}/{args.batch}: {normalized.get('id', 'unknown')}", flush=True)
             else:
-                print(f"生成 {i+1}/{args.batch}: 解析失败")
-                print(f"  raw: {raw[:200]}...")
+                print(f"生成 {i+1}/{args.batch}: 解析失败", flush=True)
+                print(f"  raw: {raw[:200]}...", flush=True)
+                if provider == "kimi" and raw:
+                    debug_path = PROJECT_ROOT / "evaluation_output" / "debug_kimi_raw.txt"
+                    debug_path.parent.mkdir(parents=True, exist_ok=True)
+                    with open(debug_path, "w", encoding="utf-8") as f:
+                        f.write(raw)
+                    print(f"  已保存完整输出到 {debug_path} 便于排查", flush=True)
 
         # 单条/批量模式：校验并自动修复，只保留通过校验的题目
         results, validated_stats = _validate_and_keep_passing(results)
