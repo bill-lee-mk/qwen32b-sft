@@ -229,10 +229,10 @@ def run(
         return {"error": "未设置 INCEPTBENCH_API_KEY 或 INCEPTBENCH_TOKEN 或 EVALUATOR_TOKEN"}
 
     failed = extract_failed_standard_difficulty(results_path, mcqs_path, threshold)
-    print(f"失败 (standard,difficulty) 组合: {len(failed)} 个")
+    print(f"失败 (standard,difficulty) 组合: {len(failed)} 个", flush=True)
 
     by_key = load_raw_data_by_standard_difficulty(raw_data_dir)
-    print(f"raw_data 中 (standard,difficulty) 组合: {len(by_key)} 个")
+    print(f"raw_data 中 (standard,difficulty) 组合: {len(by_key)} 个", flush=True)
 
     # 本批高分 fallback：从 results+mcqs 中取同 (std,diff) 且 score>=threshold 的题作为示例，无需再评
     batch_kept = collect_batch_high_scorers(results_path, mcqs_path, failed, threshold)
@@ -240,7 +240,7 @@ def run(
     for k, lst in batch_kept.items():
         kept_by_key[k].extend(lst)
     if kept_by_key:
-        print(f"本批高分补充示例: {len(kept_by_key)} 个组合已从本批题目中取高分题作为示例")
+        print(f"本批高分补充示例: {len(kept_by_key)} 个组合已从本批题目中取高分题作为示例", flush=True)
 
     # 构建每组合的候选列表（仅对尚无示例的失败组合从 raw_data 取候选；提前停止：某组合一经达标即不再评估该组合其余候选）
     # max_candidates_per_pair=0 表示不限制
@@ -269,7 +269,7 @@ def run(
 
     total_candidates = sum(len(v) for v in pending_by_key.values())
     pair_total_count = {k: len(v) for k, v in pending_by_key.items()}  # 每组合总候选数
-    print(f"待评分候选（含提前停止节约）: 最多 {total_candidates} 条，实际按需评估")
+    print(f"待评分候选（含提前停止节约）: 最多 {total_candidates} 条，实际按需评估", flush=True)
 
     evaluator = InceptBenchEvaluator(timeout=timeout)
     scored: list[tuple[tuple[str, str], dict, float]] = []
@@ -355,9 +355,9 @@ def run(
                     del pending_by_key[key]
                 server_error_keys.clear()
                 retry_count = 0
-                print(f"\n  已达最大重试次数 {max_retries}，{len(failed_records)} 个组合写入失败记录")
+                print(f"\n  已达最大重试次数 {max_retries}，{len(failed_records)} 个组合写入失败记录", flush=True)
                 continue
-            print(f"\n  等待 {retry_delay}s 后重试服务端错误组合（第 {retry_count}/{max_retries} 次）...")
+            print(f"\n  等待 {retry_delay}s 后重试服务端错误组合（第 {retry_count}/{max_retries} 次）...", flush=True)
             time.sleep(retry_delay)
             server_error_keys.clear()
             continue
@@ -366,7 +366,7 @@ def run(
             break
 
         n_round = len(this_round)
-        print(f"\n  第 {round_num[0]} 轮: {n_round} 个组合各评 1 条 [{parallel} 并行]")
+        print(f"\n  第 {round_num[0]} 轮: {n_round} 个组合各评 1 条 [{parallel} 并行]", flush=True)
 
         def _eval(item):
             key, c, norm = item
@@ -406,7 +406,7 @@ def run(
                     ord_str = f" 该组合第{ord_num}/{total_k}" if total_k else ""
                     stop_str = " → 达标，跳过剩余" if s is not None and s >= threshold else ""
                     api_suffix = _fmt_api_response(r) if (s is None or (isinstance(s, (int, float)) and float(s) == 0)) else ""
-                    print(f"  [{d}] {status} {_fmt_key(key)}{ord_str}{stop_str} 耗时 {elapsed:.1f}s{api_suffix}")
+                    print(f"  [{d}] {status} {_fmt_key(key)}{ord_str}{stop_str} 耗时 {elapsed:.1f}s{api_suffix}", flush=True)
         else:
             with ThreadPoolExecutor(max_workers=parallel) as ex:
                 futures = {ex.submit(_eval, x): x for x in this_round}
@@ -437,7 +437,7 @@ def run(
                         ord_str = f" 该组合第{ord_num}/{total_k}" if total_k else ""
                         stop_str = " → 达标，跳过剩余" if s is not None and s >= threshold else ""
                         api_suffix = _fmt_api_response(r) if (s is None or (isinstance(s, (int, float)) and float(s) == 0)) else ""
-                        print(f"  [{d}] {status} {_fmt_key(key)}{ord_str}{stop_str} 耗时 {elapsed:.1f}s{api_suffix}")
+                        print(f"  [{d}] {status} {_fmt_key(key)}{ord_str}{stop_str} 耗时 {elapsed:.1f}s{api_suffix}", flush=True)
 
     # 每个 (standard,difficulty) 保留 1-2 条，按分数排序后截断
     for key in kept_by_key:
@@ -446,8 +446,8 @@ def run(
 
     kept_count = sum(len(v) for v in kept_by_key.values())
     saved = total_candidates - done_total[0]
-    print(f"\n达标 (≥{threshold}) 的示例: {kept_count} 条")
-    print(f"实际评估: {done_total[0]} 条（提前停止节约 {saved} 条）")
+    print(f"\n达标 (≥{threshold}) 的示例: {kept_count} 条", flush=True)
+    print(f"实际评估: {done_total[0]} 条（提前停止节约 {saved} 条）", flush=True)
     no_pass = failed - set(kept_by_key.keys())
     if no_pass:
         # 原始数据与本批均无 ≥threshold 候选时：用本批该组合最高分题构造一条示例（即使 < 0.85）
@@ -455,9 +455,9 @@ def run(
         for k, lst in constructed.items():
             kept_by_key[k].extend(lst)
         if constructed:
-            print(f"未找到达标候选的组合中，已用本批最高分构造示例: {len(constructed)} 个")
+            print(f"未找到达标候选的组合中，已用本批最高分构造示例: {len(constructed)} 个", flush=True)
         for k in no_pass - set(constructed.keys()):
-            print(f"  组合 {_fmt_key(k)} 本批无题目，无法构造示例")
+            print(f"  组合 {_fmt_key(k)} 本批无题目，无法构造示例", flush=True)
 
     # 加载现有 examples，用新达标项替换失败组合的示例
     examples_path = Path(examples_output)
@@ -491,7 +491,7 @@ def run(
     examples_path.parent.mkdir(parents=True, exist_ok=True)
     with open(examples_path, "w", encoding="utf-8") as f:
         json.dump(unique, f, ensure_ascii=False, indent=2)
-    print(f"已更新 examples: {examples_path} ({len(unique)} 条)")
+    print(f"已更新 examples: {examples_path} ({len(unique)} 条)", flush=True)
 
     if failed_records and failed_output:
         failed_path = Path(failed_output)
@@ -500,7 +500,7 @@ def run(
         failed_path.parent.mkdir(parents=True, exist_ok=True)
         with open(failed_path, "w", encoding="utf-8") as f:
             json.dump(failed_records, f, ensure_ascii=False, indent=2)
-        print(f"服务端错误超重试的组合已写入: {failed_path} ({len(failed_records)} 个，可稍后重跑本命令重试)")
+        print(f"服务端错误超重试的组合已写入: {failed_path} ({len(failed_records)} 个，可稍后重跑本命令重试)", flush=True)
 
     return {
         "failed_pairs": len(failed),

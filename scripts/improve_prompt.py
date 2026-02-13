@@ -316,11 +316,11 @@ def main():
         max_per_standard_difficulty=args.max_per_standard_difficulty,
         examples_path=args.examples,
     )
-    print(json.dumps(report, indent=2, ensure_ascii=False))
+    print(json.dumps(report, indent=2, ensure_ascii=False), flush=True)
     if report.get("updated"):
         print(f"已更新 prompt 规则: 全局 {report.get('global_rules_count', 0)} 条, "
               f"by_standard {report.get('by_standard_count', 0)} 个, "
-              f"by_standard_difficulty {report.get('by_standard_difficulty_count', 0)} 个")
+              f"by_standard_difficulty {report.get('by_standard_difficulty_count', 0)} 个", flush=True)
     return 0 if report.get("updated") or report.get("reason") == "no_failures" else 1
 
 

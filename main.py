@@ -62,10 +62,10 @@ def _run_closed_loop_one_model(project_root, model, args, use_model_specific_pat
         _default_rules = os.path.join(project_root, "processed_training_data", "prompt_rules.json")
         if not os.path.exists(examples_path) and os.path.exists(_default_examples):
             shutil.copy2(_default_examples, examples_path)
-            print(f"  已为模型 {model} 复制初始示例: {examples_path}")
+            print(f"  已为模型 {model} 复制初始示例: {examples_path}", flush=True)
         if not os.path.exists(prompt_rules_path) and os.path.exists(_default_rules):
             shutil.copy2(_default_rules, prompt_rules_path)
-            print(f"  已为模型 {model} 复制初始 prompt 规则: {prompt_rules_path}")
+            print(f"  已为模型 {model} 复制初始 prompt 规则: {prompt_rules_path}", flush=True)
     else:
         examples_path = os.path.join(project_root, args.examples) if not os.path.isabs(args.examples) else args.examples
         prompt_rules_path = os.path.join(project_root, "processed_training_data", "prompt_rules.json")
@@ -95,7 +95,7 @@ def _run_closed_loop_one_model(project_root, model, args, use_model_specific_pat
         return proc.wait()
 
     def _log(msg):
-        print(msg)
+        print(msg, flush=True)
     result = {
         "model": model,
         "model_slug": model_slug,
@@ -749,7 +749,7 @@ def main():
                     len(f"题{i+1:>3} ({(q.get('standard') or '').replace('CCSS.ELA-LITERACY.', '')}, {q.get('difficulty') or 'medium'})")
                     for i, q in enumerate(items)
                 )
-                print(f"[评估] {n_total} 题，每次 1 题，{parallel} 并行，超时 {timeout}s/题")
+                print(f"[评估] {n_total} 题，每次 1 题，{parallel} 并行，超时 {timeout}s/题", flush=True)
                 evaluator = InceptBenchEvaluator(timeout=timeout)
 
                 def _eval_one(idx_item):
@@ -787,24 +787,24 @@ def main():
                                 status = f"score={sf:.2f}"
                                 if sf < 0.85:
                                     status += "  X"
-                                print(f"[评估] [{progress}] {label}: {status}{dur_str}")
+                                print(f"[评估] [{progress}] {label}: {status}{dur_str}", flush=True)
                             else:
                                 err_reason = _extract_error_reason(r)
                                 status = "error (原因: " + (err_reason[:150] if err_reason else "未知") + ")"
-                                print(f"[评估] [{progress}] {label}: {status}{dur_str}")
+                                print(f"[评估] [{progress}] {label}: {status}{dur_str}", flush=True)
                                 if not err_reason:
                                     # 无明确错误信息时打印原始响应摘要便于排查
                                     snippet = json.dumps(r, ensure_ascii=False)[:400]
                                     if len(snippet) >= 400:
                                         snippet = snippet[:397] + "..."
-                                    print(f"      [原始响应] {snippet}")
+                                    print(f"      [原始响应] {snippet}", flush=True)
                         except Exception as e:
                             results_by_idx[i] = {"overall_score": 0.0, "status": "error", "message": str(e)}
                             elapsed_by_idx[i] = 0.0
                             done += 1
                             progress = f"{done:>3}/{n_total}"
                             label = f"题{i+1:>3} ({std}, {diff})".ljust(label_width)
-                            print(f"[评估] [{progress}] {label}: error (原因: {e})  —")
+                            print(f"[评估] [{progress}] {label}: error (原因: {e})  —", flush=True)
 
                 # 总评估数 = 提交的题目数；有效题目数 = 拿到数值分数的题目数；无分数题 = 总评估数 - 有效题目数
                 # scores 与 items 按下标对齐，无分数题为 None，便于下游 improve-examples 等按 index 取分
@@ -849,23 +849,23 @@ def main():
                     valid_scores = [s for s in scores if s is not None]
                     avg = sum(valid_scores) / len(valid_scores)
                     passed = sum(1 for s in scores if s is not None and s >= 0.85)
-                    print(f"\n[评估] === 汇总 ===")
-                    print(f"[评估] 总评估数: {n_submitted}（提交给评分服务的题目数）")
-                    print(f"[评估] 有效分数数: {n_valid}（拿到数值分数的题目数）")
+                    print(f"\n[评估] === 汇总 ===", flush=True)
+                    print(f"[评估] 总评估数: {n_submitted}（提交给评分服务的题目数）", flush=True)
+                    print(f"[评估] 有效分数数: {n_valid}（拿到数值分数的题目数）", flush=True)
                     if n_error:
-                        print(f"[评估] 无分数: {n_error} 题（见下方明细，需区分服务端问题与题目问题）")
-                    print(f"[评估] 通过率(>=0.85，按有效题目): {passed}/{n_valid} ({100*passed/n_valid:.1f}%)")
+                        print(f"[评估] 无分数: {n_error} 题（见下方明细，需区分服务端问题与题目问题）", flush=True)
+                    print(f"[评估] 通过率(>=0.85，按有效题目): {passed}/{n_valid} ({100*passed/n_valid:.1f}%)", flush=True)
                     if n_submitted > n_valid:
-                        print(f"[评估] 若将无分数题按不通过计: {passed}/{n_submitted} ({100*passed/n_submitted:.1f}%)")
-                    print(f"[评估] 平均分: {avg:.2f}")
+                        print(f"[评估] 若将无分数题按不通过计: {passed}/{n_submitted} ({100*passed/n_submitted:.1f}%)", flush=True)
+                    print(f"[评估] 平均分: {avg:.2f}", flush=True)
                     if error_details:
-                        print(f"\n[评估] 无分数题目明细（建议先排查「服务端」再重试或联系评分方）:")
+                        print(f"\n[评估] 无分数题目明细（建议先排查「服务端」再重试或联系评分方）:", flush=True)
                         for e in error_details:
                             std_short = (e.get("standard") or "").replace("CCSS.ELA-LITERACY.", "")
                             kind = "服务端" if e.get("classification") == "service" else "题目/请求"
-                            print(f"[评估]   题{e['index']+1:>3} ({std_short}, {e.get('difficulty','')}): {e.get('reason','')[:80]}... 判定: {kind}")
+                            print(f"[评估]   题{e['index']+1:>3} ({std_short}, {e.get('difficulty','')}): {e.get('reason','')[:80]}... 判定: {kind}", flush=True)
                 else:
-                    print("\n[评估] 无有效分数")
+                    print("\n[评估] 无有效分数", flush=True)
 
                 if args.output:
                     evaluation_details = []
@@ -900,14 +900,14 @@ def main():
                         out_data["pass_rate_if_errors_as_fail"] = round(100 * out_data["pass_count"] / n_submitted, 1)
                     with open(args.output, 'w') as f:
                         json.dump(out_data, f, indent=2, ensure_ascii=False)
-                    print(f"[评估] 已保存: {args.output}")
+                    print(f"[评估] 已保存: {args.output}", flush=True)
                     if error_details:
                         err_path = args.output.replace(".json", "_errors.json")
                         if err_path == args.output:
                             err_path = os.path.join(os.path.dirname(args.output), "evaluation_errors.json")
                         with open(err_path, 'w') as f:
                             json.dump({"total_submitted": n_submitted, "error_count": n_error, "error_details": error_details}, f, indent=2, ensure_ascii=False)
-                        print(f"[评估] 无分数题明细已保存: {err_path}（可据此排查服务端 vs 题目问题）")
+                        print(f"[评估] 无分数题明细已保存: {err_path}（可据此排查服务端 vs 题目问题）", flush=True)
 
     elif args.command == "closed-loop":
         project_root = os.path.dirname(os.path.abspath(__file__))
