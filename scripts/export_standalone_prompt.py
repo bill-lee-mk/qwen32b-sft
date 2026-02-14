@@ -31,7 +31,7 @@ def main():
     if args.prompt_rules:
         os.environ["PROMPT_RULES_PATH"] = str(Path(args.prompt_rules).resolve())
 
-    examples_path = args.examples or (PROJECT_ROOT / "processed_training_data" / "examples.json")
+    examples_path = Path(args.examples) if args.examples else (PROJECT_ROOT / "processed_training_data" / "examples.json")
     examples = []
     if examples_path.exists():
         with open(examples_path, "r", encoding="utf-8") as f:
