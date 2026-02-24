@@ -86,6 +86,7 @@ def _run_closed_loop_one_model(project_root, model, args, use_model_specific_pat
         examples_path = os.path.join(project_root, args.examples) if not os.path.isabs(args.examples) else args.examples
         prompt_rules_path = os.path.join(project_root, "processed_training_data", "prompt_rules.json")
     target = getattr(args, "pass_rate_target", 95.0)
+    pilot_batch = getattr(args, "pilot_batch", None)
     max_rounds = getattr(args, "max_rounds", 10)
     parallel = getattr(args, "parallel", 20)
     no_target = (target is None or target <= 0)  # 不设目标时跑满 max_rounds，取最终/最高通过率
@@ -175,12 +176,18 @@ def _run_closed_loop_one_model(project_root, model, args, use_model_specific_pat
                 result["round_reached"] = round_num
                 if round_num == 1 and no_target:
                     _log(f"\n  (未设通过率目标，将跑满 {max_rounds} 轮，取最终/历史最高通过率)")
-                _log(f"\n========== [{model}] 闭环 第 {round_num}/{max_rounds} 轮 ==========")
+                if round_num == 1 and pilot_batch:
+                    _log(f"\n  (试水模式：每轮 {pilot_batch} 题，{max_rounds} 轮后全量生成)")
+                if pilot_batch:
+                    _log(f"\n========== [{model}] 试水 第 {round_num}/{max_rounds} 轮 ==========")
+                else:
+                    _log(f"\n========== [{model}] 闭环 第 {round_num}/{max_rounds} 轮 ==========")
                 round_start = time.time()
                 grade = getattr(args, "grade", "3")
                 subject = getattr(args, "subject", "ELA")
+                gen_mode = ["--diverse", str(pilot_batch)] if pilot_batch else ["--all-combinations"]
                 gen_cmd = [sys.executable, os.path.join(project_root, "scripts", "generate_mcq.py"),
-                           "--model", model, "--all-combinations", "--output", mcqs_path,
+                           "--model", model, *gen_mode, "--output", mcqs_path,
                            "--examples", examples_path, "--grade", grade, "--subject", subject]
                 if getattr(args, "workers", None) is not None:
                     gen_cmd.extend(["--workers", str(args.workers)])
@@ -313,18 +320,27 @@ def _run_closed_loop_one_model(project_root, model, args, use_model_specific_pat
                     "evaluation": evaluation_list,
                 }
                 rounds_data.append(round_entry)
-                # 仅当明确设了目标（target>0）且达标时才提前结束；target<=0 时跑满 max_rounds
                 if target > 0 and pass_rate >= target:
-                    result["target_reached"] = True
-                    _log(f"\n  已达目标通过率 {pass_rate:.1f}% >= {target}%，闭环结束")
-                    for p in [mcqs_path, results_path]:
-                        if os.path.exists(p):
-                            try:
-                                os.remove(p)
-                            except Exception:
-                                pass
-                    _print_summary()
-                    return result
+                    if pilot_batch:
+                        _log(f"\n  试水达标 {pass_rate:.1f}% >= {target}%，跳转全量生成")
+                        for p in [mcqs_path, results_path]:
+                            if os.path.exists(p):
+                                try:
+                                    os.remove(p)
+                                except Exception:
+                                    pass
+                        break
+                    else:
+                        result["target_reached"] = True
+                        _log(f"\n  已达目标通过率 {pass_rate:.1f}% >= {target}%，闭环结束")
+                        for p in [mcqs_path, results_path]:
+                            if os.path.exists(p):
+                                try:
+                                    os.remove(p)
+                                except Exception:
+                                    pass
+                        _print_summary()
+                        return result
                 imp_cmd = [sys.executable, os.path.join(project_root, "main.py"), "improve-examples", "--results", results_path, "--mcqs", mcqs_path, "--output", examples_path, "--raw-data-dir", args.raw_data_dir, "--parallel", str(parallel)]
                 _log(f"  [3/4] 补示例: ... --parallel {parallel}")
                 _run_with_log_stream(imp_cmd, project_root)
@@ -339,8 +355,136 @@ def _run_closed_loop_one_model(project_root, model, args, use_model_specific_pat
                         except Exception:
                             pass
                 if round_num == max_rounds:
-                    _log(f"\n  已达最大轮数 {max_rounds}，最终通过率 {pass_rate:.1f}%，历史最高 {best_pass_rate_seen:.1f}% @ 第{best_round_seen}轮")
+                    if pilot_batch:
+                        _log(f"\n  试水 {max_rounds} 轮完成，历史最高 {best_pass_rate_seen:.1f}%，进入全量生成")
+                    else:
+                        _log(f"\n  已达最大轮数 {max_rounds}，最终通过率 {pass_rate:.1f}%，历史最高 {best_pass_rate_seen:.1f}% @ 第{best_round_seen}轮")
+                        _print_summary()
+            # ── Phase 2: 全量生成（仅 pilot 模式） ──
+            if pilot_batch:
+                pilot_rounds_done = result["round_reached"]
+                full_round_num = pilot_rounds_done + 1
+                result["round_reached"] = full_round_num
+                round_start = time.time()
+                mcqs_path = f"{base_mcqs}_full.json"
+                results_path = f"{base_results}_full.json"
+                grade = getattr(args, "grade", "3")
+                subject = getattr(args, "subject", "ELA")
+                _log(f"\n========== [{model}] 全量生成（基于 {pilot_rounds_done} 轮试水积累的范例） ==========")
+                gen_cmd = [sys.executable, os.path.join(project_root, "scripts", "generate_mcq.py"),
+                           "--model", model, "--all-combinations", "--output", mcqs_path,
+                           "--examples", examples_path, "--grade", grade, "--subject", subject]
+                if getattr(args, "workers", None) is not None:
+                    gen_cmd.extend(["--workers", str(args.workers)])
+                _log(f"  [1/2] 生成: {' '.join(gen_cmd)}")
+                gen_env = {**os.environ, "PROMPT_RULES_PATH": prompt_rules_path} if use_model_specific_paths else {**os.environ}
+                r = _run_with_log_stream(gen_cmd, project_root, gen_env)
+                if r != 0:
+                    result["error"] = f"全量生成失败 exit={r}"
+                    _log(f"  全量生成失败 exit={r}")
                     _print_summary()
+                else:
+                    usage_output_path = mcqs_path.replace("mcqs_", "log_", 1).replace(".json", "_usage.json")
+                    gen_usage = {}
+                    generation_list = []
+                    try:
+                        if os.path.exists(usage_output_path):
+                            with open(usage_output_path, "r", encoding="utf-8") as f:
+                                gen_usage = json.load(f)
+                            generation_list = gen_usage.get("generation", [])
+                    except Exception:
+                        pass
+                    eval_cmd = [sys.executable, os.path.join(project_root, "main.py"), "evaluate",
+                                "--input", mcqs_path, "--output", results_path, "--parallel", str(parallel)]
+                    _log(f"  [2/2] 评估: ... --parallel {parallel}")
+                    r = _run_with_log_stream(eval_cmd, project_root)
+                    if r != 0:
+                        result["error"] = f"全量评估失败 exit={r}"
+                        _log(f"  全量评估失败 exit={r}")
+                        _print_summary()
+                    else:
+                        try:
+                            with open(results_path, "r", encoding="utf-8") as f:
+                                out_data = json.load(f)
+                        except Exception as e:
+                            result["error"] = str(e)
+                            _print_summary()
+                            return result
+                        scores = out_data.get("scores") or []
+                        n_valid = out_data.get("valid_score_count")
+                        if n_valid is None:
+                            n_valid = sum(1 for s in scores if s is not None and isinstance(s, (int, float)))
+                        if n_valid:
+                            pass_count = out_data.get("pass_count") or sum(1 for s in scores if s is not None and float(s) >= 0.85)
+                            pass_rate = 100.0 * pass_count / n_valid
+                            n_submitted = out_data.get("total") or len(scores)
+                            result["final_pass_rate"] = round(pass_rate, 2)
+                            result["pass_count"] = pass_count
+                            result["n_valid"] = n_valid
+                            result["n_submitted"] = n_submitted
+                            if pass_rate > best_pass_rate_seen:
+                                best_pass_rate_seen = pass_rate
+                                best_round_seen = full_round_num
+                                rate_str = str(round(pass_rate, 1)).replace(".", "_")
+                                new_mcqs_best = f"{base_mcqs}_best_{rate_str}.json"
+                                new_results_best = f"{base_results}_best_{rate_str}.json"
+                                for old in glob.glob(f"{base_mcqs}_best_*.json"):
+                                    if old != new_mcqs_best and os.path.exists(old):
+                                        os.remove(old)
+                                for old in glob.glob(f"{base_results}_best_*.json"):
+                                    if old != new_results_best and os.path.exists(old):
+                                        os.remove(old)
+                                for old_path in [f"{base_mcqs}_best.json", f"{base_results}_best.json"]:
+                                    if os.path.exists(old_path):
+                                        os.remove(old_path)
+                                shutil.copy2(mcqs_path, new_mcqs_best)
+                                shutil.copy2(results_path, new_results_best)
+                                current_best_mcqs_path = new_mcqs_best
+                                current_best_results_path = new_results_best
+                                _log(f"  已保存最佳: {os.path.relpath(new_mcqs_best, project_root)}")
+                            result["best_pass_rate"] = round(best_pass_rate_seen, 2)
+                            result["best_round"] = best_round_seen
+                            _log(f"  全量通过率: {pass_count}/{n_valid} ({pass_rate:.1f}%)，历史最高 {best_pass_rate_seen:.1f}%")
+                            token_obj = gen_usage.get("usage_agg", {})
+                            total_tokens = (token_obj.get("prompt_tokens", 0) or 0) + (token_obj.get("completion_tokens", 0) or 0)
+                            avg_tokens = round(total_tokens / n_valid, 1) if n_valid and total_tokens else 0
+                            evaluation_list = out_data.get("evaluation_details", [])
+                            round_elapsed_s = round(time.time() - round_start, 1)
+                            round_entry = {
+                                "round": "full",
+                                "summary": {
+                                    "pass_rate": round(pass_rate, 2),
+                                    "pass_count": pass_count,
+                                    "n_valid": n_valid,
+                                    "round_elapsed_s": round_elapsed_s,
+                                    "token": {
+                                        "prompt_tokens": token_obj.get("prompt_tokens", 0),
+                                        "completion_tokens": token_obj.get("completion_tokens", 0),
+                                        "prompt_cache_hit_tokens": token_obj.get("prompt_cache_hit_tokens", 0),
+                                        "prompt_cache_miss_tokens": token_obj.get("prompt_cache_miss_tokens", 0),
+                                        "estimated_cost_cny": token_obj.get("estimated_cost_cny", 0),
+                                    },
+                                    "average_tokens_per_question": avg_tokens,
+                                },
+                                "generation": generation_list,
+                                "evaluation": evaluation_list,
+                            }
+                            rounds_data.append(round_entry)
+                        else:
+                            _log("  全量生成：无有效分数")
+                        _print_summary()
+                    for p in [mcqs_path, results_path]:
+                        if os.path.exists(p):
+                            try:
+                                os.remove(p)
+                            except Exception:
+                                pass
+                    try:
+                        up = mcqs_path.replace("mcqs_", "log_", 1).replace(".json", "_usage.json")
+                        if os.path.exists(up):
+                            os.remove(up)
+                    except Exception:
+                        pass
         except KeyboardInterrupt:
             _log("\n[用户中断] 已打印汇总，最佳题目与结果见上方。")
             _print_summary()
@@ -497,6 +641,7 @@ def main():
     loop_parser.add_argument("--parallel", type=int, default=20, help="评估阶段 InceptBench 并行数（默认 20）")
     loop_parser.add_argument("--log-file", nargs="?", default=None, const=None, help="综合 JSON 日志路径；不传时用默认 evaluation_output/log_237_<model>.json；传路径则用该路径")
     loop_parser.add_argument("--run-id", default=None, help="运行批次 ID；指定后 examples/prompt_rules/mcqs/results 均加此后缀，不同批次互不覆盖（如 --run-id exp1）")
+    loop_parser.add_argument("--pilot-batch", type=int, default=None, help="试水批量：先用小批量跑闭环积累范例和规则，最后自动全量生成（如 --pilot-batch 50 表示每轮试水 50 题）；不设则每轮全量")
     loop_parser.add_argument("--grade", default="3", help="年级（K, 1-12, AP, HS, SAT），默认 3")
     loop_parser.add_argument("--subject", default="ELA", help="学科缩写（ELA, MATH, SCI, USHIST 等），默认 ELA")
 
@@ -514,6 +659,7 @@ def main():
     multi_parser.add_argument("--summary-output", default=None, help="汇总 JSON 输出路径（默认 evaluation_output/closed_loop_multi_summary.json）")
     multi_parser.add_argument("--log-file", nargs="?", default=None, const=None, help="综合 JSON 日志路径；不传时用默认 log_237_<model>.json")
     multi_parser.add_argument("--run-id", default=None, help="运行批次 ID；指定后各模型 examples/prompt_rules/mcqs/results 均加此后缀，不同批次互不覆盖")
+    multi_parser.add_argument("--pilot-batch", type=int, default=None, help="试水批量：先用小批量跑闭环积累范例和规则，最后自动全量生成（如 --pilot-batch 50）；不设则每轮全量")
     multi_parser.add_argument("--grade", default="3", help="年级（K, 1-12, AP, HS, SAT），默认 3")
     multi_parser.add_argument("--subject", default="ELA", help="学科缩写（ELA, MATH, SCI, USHIST 等），默认 ELA")
 
