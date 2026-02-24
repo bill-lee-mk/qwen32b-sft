@@ -98,12 +98,14 @@ def collect_batch_high_scorers(
             s = _score_from_result(result_list[i])
         if s is None or not isinstance(s, (int, float)) or float(s) < threshold:
             continue
+        grade = m.get("grade", "3")
+        subject = m.get("subject", "ELA")
         desc = get_standard_description(std)
-        user_prompt = build_user_prompt(grade="3", standard=std, difficulty=diff, standard_description=desc, subject="ELA")
+        user_prompt = build_user_prompt(grade=grade, standard=std, difficulty=diff, standard_description=desc, subject=subject)
         mcq_norm = normalize_for_inceptbench(m)
-        mcq_norm["grade"] = "3"
+        mcq_norm["grade"] = grade
         mcq_norm["standard"] = std
-        mcq_norm["subject"] = "ELA"
+        mcq_norm["subject"] = subject
         mcq_norm["difficulty"] = diff
         example = {"user_prompt": user_prompt, "mcq_json": mcq_norm}
         by_key[key].append((example, float(s)))
@@ -145,12 +147,14 @@ def collect_batch_best_fallback(
             s = 0.0
         else:
             s = float(s)
+        grade = m.get("grade", "3")
+        subject = m.get("subject", "ELA")
         desc = get_standard_description(std)
-        user_prompt = build_user_prompt(grade="3", standard=std, difficulty=diff, standard_description=desc, subject="ELA")
+        user_prompt = build_user_prompt(grade=grade, standard=std, difficulty=diff, standard_description=desc, subject=subject)
         mcq_norm = normalize_for_inceptbench(m)
-        mcq_norm["grade"] = "3"
+        mcq_norm["grade"] = grade
         mcq_norm["standard"] = std
-        mcq_norm["subject"] = "ELA"
+        mcq_norm["subject"] = subject
         mcq_norm["difficulty"] = diff
         example = {"user_prompt": user_prompt, "mcq_json": mcq_norm}
         by_key[key].append((example, s))
@@ -259,9 +263,9 @@ def run(
             if not mcq:
                 continue
             norm = normalize_for_inceptbench(mcq)
-            norm["grade"] = "3"
+            norm["grade"] = c.get("mcq_json", {}).get("grade", "3")
             norm["standard"] = key[0]
-            norm["subject"] = "ELA"
+            norm["subject"] = c.get("mcq_json", {}).get("subject", "ELA")
             norm["difficulty"] = key[1]
             norm_list.append((c, norm))
         if norm_list:

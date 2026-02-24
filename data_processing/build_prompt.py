@@ -4,6 +4,7 @@
 
 将示例拼成给闭源模型的 prompt。
 支持动态规则：全局规则（所有题目）+ 针对性规则（按 standard 或 (standard, difficulty)）。
+支持多年级/学科：从 curriculum_standards.json 加载标准描述与课程元数据。
 """
 import json
 import os
@@ -12,28 +13,56 @@ from typing import Dict, List, Optional
 
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent
 _STANDARD_DESCRIPTIONS_PATH = _PROJECT_ROOT / "data" / "standard_descriptions.json"
+_CURRICULUM_STANDARDS_PATH = _PROJECT_ROOT / "data" / "curriculum_standards.json"
 _PROMPT_RULES_PATH = _PROJECT_ROOT / "processed_training_data" / "prompt_rules.json"
 _standard_descriptions_cache: Optional[Dict[str, str]] = None
+_curriculum_standards_cache: Optional[Dict[str, Dict]] = None
 # 按路径缓存，支持 PROMPT_RULES_PATH 环境变量（多模型闭环时每模型独立 prompt_rules）
 _prompt_rules_cache: Dict[str, Dict] = {}
 
 
+def load_curriculum_standards() -> Dict[str, Dict]:
+    """加载 curriculum_standards.json（含完整元数据）。"""
+    global _curriculum_standards_cache
+    if _curriculum_standards_cache is not None:
+        return _curriculum_standards_cache
+    if _CURRICULUM_STANDARDS_PATH.exists():
+        with open(_CURRICULUM_STANDARDS_PATH, "r", encoding="utf-8") as f:
+            _curriculum_standards_cache = json.load(f)
+    else:
+        _curriculum_standards_cache = {}
+    return _curriculum_standards_cache
+
+
 def load_standard_descriptions() -> Dict[str, str]:
-    """加载 CCSS 标准描述（用于提升生成质量和标准对齐）"""
+    """加载标准描述。优先从 curriculum_standards.json 提取，fallback 到 standard_descriptions.json。"""
     global _standard_descriptions_cache
     if _standard_descriptions_cache is not None:
         return _standard_descriptions_cache
-    if _STANDARD_DESCRIPTIONS_PATH.exists():
-        with open(_STANDARD_DESCRIPTIONS_PATH, "r", encoding="utf-8") as f:
-            _standard_descriptions_cache = json.load(f)
-    else:
-        _standard_descriptions_cache = {}
+    curriculum = load_curriculum_standards()
+    if curriculum:
+        _standard_descriptions_cache = {
+            sid: info["standard_description"]
+            for sid, info in curriculum.items()
+            if info.get("standard_description")
+        }
+    if not _standard_descriptions_cache:
+        if _STANDARD_DESCRIPTIONS_PATH.exists():
+            with open(_STANDARD_DESCRIPTIONS_PATH, "r", encoding="utf-8") as f:
+                _standard_descriptions_cache = json.load(f)
+        else:
+            _standard_descriptions_cache = {}
     return _standard_descriptions_cache
 
 
 def get_standard_description(standard: str) -> Optional[str]:
     """获取单个标准的描述"""
     return load_standard_descriptions().get(standard)
+
+
+def get_curriculum_metadata(standard: str) -> Optional[Dict]:
+    """获取标准的完整课程元数据（learning_objectives, assessment_boundaries, common_misconceptions）。"""
+    return load_curriculum_standards().get(standard)
 
 
 def load_prompt_rules() -> Dict:
@@ -89,9 +118,10 @@ MCQ_SCHEMA = """
 """
 
 
-def build_system_prompt(include_think_chain: bool = False) -> str:
-    """构建 system prompt"""
-    base = """You are an expert K-12 ELA (English Language Arts) MCQ designer for Alpha School, Grade 3.
+def build_system_prompt(grade: str = "3", subject: str = "ELA",
+                        include_think_chain: bool = False) -> str:
+    """构建 system prompt（支持任意 grade/subject）"""
+    base = f"""You are an expert K-12 {subject} MCQ designer for Alpha School, Grade {grade}.
 
 Your task: Generate one multiple-choice question (MCQ) that assesses the given standard at the specified difficulty.
 
@@ -158,6 +188,33 @@ _USER_VERIFICATION_REMINDER = (
 )
 
 
+def _build_curriculum_guidance(standard: str) -> str:
+    """当课程元数据可用时，构建 CURRICULUM GUIDANCE 段落。"""
+    meta = get_curriculum_metadata(standard)
+    if not meta:
+        return ""
+    lo = meta.get("learning_objectives") or []
+    ab = meta.get("assessment_boundaries") or []
+    cm = meta.get("common_misconceptions") or []
+    if not lo and not ab and not cm:
+        return ""
+    parts = ["\n--- CURRICULUM GUIDANCE (use to improve question quality) ---"]
+    if lo:
+        parts.append("Learning Objectives:")
+        for item in lo:
+            parts.append(f"  • {item}")
+    if ab:
+        parts.append("Assessment Boundaries:")
+        for item in ab:
+            parts.append(f"  • {item}")
+    if cm:
+        parts.append("Common Misconceptions (use as distractor inspiration):")
+        for item in cm:
+            parts.append(f"  • {item}")
+    parts.append("--- END CURRICULUM GUIDANCE ---")
+    return "\n".join(parts)
+
+
 def build_user_prompt(
     grade: str = "3",
     standard: str = "CCSS.ELA-LITERACY.L.3.1.E",
@@ -177,6 +234,9 @@ Standard: {standard}
 Return only the JSON object. The question MUST assess exactly the skill described above—not a related skill.
 
 {_USER_VERIFICATION_REMINDER}"""
+    curriculum_guidance = _build_curriculum_guidance(standard)
+    if curriculum_guidance:
+        text += "\n" + curriculum_guidance
     if targeted_rules:
         text += "\n\n--- Reminders for this standard/difficulty ---\n"
         for r in targeted_rules:
@@ -199,7 +259,8 @@ def build_full_prompt(
     desc = standard_description
     if desc is None and use_standard_descriptions:
         desc = get_standard_description(standard)
-    system = build_system_prompt(include_think_chain=include_think_chain)
+    system = build_system_prompt(grade=grade, subject=subject,
+                                include_think_chain=include_think_chain)
     targeted = get_targeted_rules(standard, difficulty)
     user = build_user_prompt(
         grade=grade,

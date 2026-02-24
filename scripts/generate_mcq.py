@@ -421,6 +421,7 @@ def _validate_and_repair_keep_all(
     results_by_index: list,
     plan: list,
     grade: str = "3",
+    subject: str = "ELA",
 ) -> tuple[list, dict]:
     """
     与 plan 一一对应：results_by_index[i] 为第 i 个 (standard, difficulty) 的生成结果（可为 None）。
@@ -437,7 +438,7 @@ def _validate_and_repair_keep_all(
         standard, difficulty = plan[i]
         mcq = results_by_index[i]
         if mcq is None:
-            out[i] = build_minimal_valid_mcq(standard, difficulty, grade=grade, index=i)
+            out[i] = build_minimal_valid_mcq(standard, difficulty, grade=grade, subject=subject, index=i)
             constructed_count += 1
             continue
         had_issues = len(validate_mcq(mcq, i)) > 0
@@ -454,7 +455,7 @@ def _validate_and_repair_keep_all(
             out[i]["id"] = f"diverse_{i:03d}"
             repaired_count += 1
         else:
-            out[i] = build_minimal_valid_mcq(standard, difficulty, grade=grade, index=i)
+            out[i] = build_minimal_valid_mcq(standard, difficulty, grade=grade, subject=subject, index=i)
             constructed_count += 1
     for i in range(n):
         out[i]["id"] = f"diverse_{i:03d}"
@@ -469,6 +470,7 @@ def _generate_one(
     api_key: str,
     model: str,
     grade: str = "3",
+    subject: str = "ELA",
     index: int = 0,
     max_retries: int = 3,
 ) -> tuple[dict | None, float, str | None, dict | None]:
@@ -480,7 +482,7 @@ def _generate_one(
         standard=standard,
         difficulty=difficulty,
         examples=filtered,
-        subject="ELA",
+        subject=subject,
     )
     messages = [{"role": "system", "content": system}, {"role": "user", "content": user}]
     for attempt in range(max_retries):
@@ -503,9 +505,9 @@ def _generate_one(
                 out = normalize_for_inceptbench(mcq)
                 out["grade"] = grade
                 out["standard"] = standard
-                out["subject"] = "ELA"
+                out["subject"] = subject
                 out["difficulty"] = difficulty
-                out["id"] = f"diverse_{index:03d}"  # 统一 ID 避免冲突
+                out["id"] = f"diverse_{index:03d}"
                 return (out, elapsed, None, usage)
             if provider == "kimi" and raw:
                 debug_path = PROJECT_ROOT / "evaluation_output" / "debug_kimi_raw.txt"
@@ -536,14 +538,15 @@ def main():
     parser.add_argument("--model", default="deepseek-chat", help="具体模型名，如 deepseek-chat / deepseek-reasoner / kimi-latest / gemini-3-flash-preview / gpt-4o（据此前缀选 API）")
     parser.add_argument("--api-key", default=None, help="API Key（未设时从环境变量按模型推断：DEEPSEEK_API_KEY / KIMI_API_KEY / GEMINI_API_KEY / OPENAI_API_KEY）")
     parser.add_argument("--examples", default=None, help="示例 JSON 路径，默认 processed_training_data/examples.json")
-    parser.add_argument("--grade", default="3", help="年级")
+    parser.add_argument("--grade", default="3", help="年级（K, 1-12, AP, HS, SAT）")
+    parser.add_argument("--subject", default="ELA", help="学科缩写（ELA, MATH, SCI, USHIST 等）")
     parser.add_argument("--standard", default="CCSS.ELA-LITERACY.L.3.1.E", help="标准 ID")
     parser.add_argument("--difficulty", default="medium", help="难度")
     parser.add_argument("--output", default=None, help="输出 JSON 路径（--all-combinations 未指定时默认 evaluation_output/mcqs_237_<model>.json）")
     parser.add_argument("--batch", type=int, default=1, help="生成条数（同参数重复）")
     parser.add_argument("--diverse", type=int, default=None, help="多样化生成 N 条，覆盖不同难度/标准")
     parser.add_argument("--all-combinations", action="store_true", help="遍历生成全部 (standard,difficulty) 组合（79 标准×3 难度=237 题）")
-    parser.add_argument("--workers", type=int, default=None, help="并行线程数（Gemini 2，Kimi 50，本地 8，DeepSeek-reasoner 6，DeepSeek-chat/其他 10）")
+    parser.add_argument("--workers", type=int, default=None, help="并行线程数（Gemini 2，Kimi 10，本地 8，DeepSeek/其他 API 10）")
     parser.add_argument("--input-dir", default="raw_data", help="--diverse 时分析 raw_data 的目录")
     parser.add_argument("--include-think-chain", action="store_true", help="是否要求输出 <think>")
     args = parser.parse_args()
@@ -576,10 +579,19 @@ def main():
 
     # 多样化批量生成（多线程）
     if args.diverse or args.all_combinations:
-        input_dir = Path(args.input_dir)
-        if not input_dir.is_absolute():
-            input_dir = PROJECT_ROOT / input_dir
-        dims = analyze_dimensions(input_dir=str(input_dir))
+        from data_processing.analyze_dimensions import analyze_dimensions_from_curriculum, validate_grade_subject
+        err = validate_grade_subject(args.grade, args.subject)
+        if err:
+            print(err)
+            sys.exit(1)
+        dims_curriculum = analyze_dimensions_from_curriculum(args.grade, args.subject)
+        if dims_curriculum["total"] > 0:
+            dims = dims_curriculum
+        else:
+            input_dir = Path(args.input_dir)
+            if not input_dir.is_absolute():
+                input_dir = PROJECT_ROOT / input_dir
+            dims = analyze_dimensions(input_dir=str(input_dir))
         n = args.diverse if args.diverse else None
         plan = build_diverse_plan(dims, n=n or 9999, all_combinations=args.all_combinations)
         n = len(plan)
@@ -600,8 +612,6 @@ def main():
             print("  提示: Gemini 免费版约 5 次/分钟，建议 --workers 2；遇 429 会自动重试")
         if provider == "kimi":
             print(f"  提示: Kimi {KIMI_MAX_CONCURRENT} 并发、间隔 {KIMI_MIN_INTERVAL}s；429 后等 2 分钟重试")
-        if provider == "deepseek" and "reasoner" in (model or "").lower():
-            print("  提示: DeepSeek-reasoner 单条较慢，默认 6 并发；可 --workers 5 更稳或 --workers 8 提速")
         if n >= 50 and len(examples) < 8:
             print("  建议: 可先运行 python main.py select-examples -n 8 以增加示例覆盖")
         print(f"  计划: {plan[:5]}..." if len(plan) > 5 else f"  计划: {plan}")
@@ -639,6 +649,7 @@ def main():
                     api_key=api_key,
                     model=model,
                     grade=args.grade,
+                    subject=args.subject,
                     index=i,
                 ): (i, s, d)
                 for i, (s, d) in enumerate(plan)
@@ -679,7 +690,7 @@ def main():
 
         # 校验不通过则修复或构造，保证输出题目数 = n、组合与 plan 一致
         results, validated_stats = _validate_and_repair_keep_all(
-            results_by_index, plan, grade=args.grade
+            results_by_index, plan, grade=args.grade, subject=args.subject
         )
         if validated_stats.get("fixed"):
             print(f"[生成] [校验] 自动修复后通过: {validated_stats['fixed']} 题")
@@ -744,6 +755,7 @@ def main():
             standard=args.standard,
             difficulty=args.difficulty,
             examples=filtered,
+            subject=args.subject,
             include_think_chain=args.include_think_chain,
         )
 
@@ -768,7 +780,7 @@ def main():
                 normalized = normalize_for_inceptbench(mcq)
                 normalized["grade"] = args.grade
                 normalized["standard"] = args.standard
-                normalized["subject"] = "ELA"
+                normalized["subject"] = args.subject
                 results.append(normalized)
                 print(f"生成 {i+1}/{args.batch}: {normalized.get('id', 'unknown')}", flush=True)
             else:

@@ -248,9 +248,9 @@ def main():
                     raw = (getattr(msg, "reasoning_content", None) or "").strip()
                 mcq = _parse_mcq(raw)
                 if mcq:
-                    mcq["grade"] = "3"
+                    mcq["grade"] = bundle.get("grade", "3")
                     mcq["standard"] = std
-                    mcq["subject"] = "ELA"
+                    mcq["subject"] = bundle.get("subject", "ELA")
                     mcq["difficulty"] = diff
                     mcq["id"] = f"diverse_{i:03d}"
                     return (i, mcq, elapsed, tok, "OK", None)

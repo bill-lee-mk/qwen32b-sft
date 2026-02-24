@@ -26,6 +26,8 @@ def main():
     parser.add_argument("--output", default="evaluation_output/prompt_bundle.json")
     parser.add_argument("--examples", default=None)
     parser.add_argument("--prompt-rules", default=None)
+    parser.add_argument("--grade", default="3", help="年级（K, 1-12, AP, HS, SAT）")
+    parser.add_argument("--subject", default="ELA", help="学科缩写（ELA, MATH, SCI, USHIST 等）")
     args = parser.parse_args()
 
     if args.prompt_rules:
@@ -37,25 +39,31 @@ def main():
         with open(examples_path, "r", encoding="utf-8") as f:
             examples = json.load(f)
 
-    dims = analyze_dimensions(str(PROJECT_ROOT / "raw_data"))
-    plan = build_diverse_plan(dims, n=9999, all_combinations=True)
-    if len(plan) < 200:
-        # 无 raw_data 时从 standard_descriptions 构建 79×3
-        from data_processing.build_prompt import load_standard_descriptions
-        stds = list(load_standard_descriptions().keys())
-        plan = [(s, d) for s in stds for d in ("easy", "medium", "hard")]
+    from data_processing.analyze_dimensions import analyze_dimensions_from_curriculum
+    dims = analyze_dimensions_from_curriculum(args.grade, args.subject)
+    if dims["total"] > 0:
+        plan = build_diverse_plan(dims, n=9999, all_combinations=True)
+    else:
+        dims = analyze_dimensions(str(PROJECT_ROOT / "raw_data"))
+        plan = build_diverse_plan(dims, n=9999, all_combinations=True)
+        if len(plan) < 200:
+            from data_processing.build_prompt import load_standard_descriptions
+            stds = list(load_standard_descriptions().keys())
+            plan = [(s, d) for s in stds for d in ("easy", "medium", "hard")]
 
     prompts = {}
     for standard, difficulty in plan:
         filtered = [e for e in examples if e.get("standard") == standard and e.get("difficulty") == difficulty]
-        system, user = build_full_prompt(grade="3", standard=standard, difficulty=difficulty, examples=filtered, subject="ELA")
+        system, user = build_full_prompt(grade=args.grade, standard=standard, difficulty=difficulty, examples=filtered, subject=args.subject)
         key = f"{standard}|{difficulty}"
         prompts[key] = {"system": system, "user": user}
 
     bundle = {
-        "version": "1.0",
+        "version": "1.1",
         "created_at": datetime.now().isoformat(),
-        "description": "K-12 ELA MCQ 独立提示词包。含 237 个 (standard,difficulty) 的完整 system+user prompt。配合 run_with_bundle.py 使用，无需本仓库。",
+        "grade": args.grade,
+        "subject": args.subject,
+        "description": f"K-12 {args.subject} Grade {args.grade} MCQ 独立提示词包。含 {len(plan)} 个 (standard,difficulty) 的完整 system+user prompt。配合 run_with_bundle.py 使用。",
         "prompts": prompts,
         "plan": plan,
     }

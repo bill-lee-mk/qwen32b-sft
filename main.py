@@ -54,18 +54,34 @@ def _run_closed_loop_one_model(project_root, model, args, use_model_specific_pat
     _existing_results = glob.glob(f"{base_results}_best_*.json")
     current_best_mcqs_path = _existing_mcqs[0] if _existing_mcqs else (f"{base_mcqs}_best.json" if os.path.exists(f"{base_mcqs}_best.json") else None)
     current_best_results_path = _existing_results[0] if _existing_results else (f"{base_results}_best.json" if os.path.exists(f"{base_results}_best.json") else None)
+    grade = getattr(args, "grade", "3")
+    subject = getattr(args, "subject", "ELA")
+    is_default_scope = (grade == "3" and subject == "ELA")
+    scope_prefix = "" if is_default_scope else f"{grade}_{subject}_"
     if use_model_specific_paths:
-        examples_path = os.path.join(project_root, "processed_training_data", f"examples_{model_slug}{run_suffix}.json")
-        prompt_rules_path = os.path.join(project_root, "processed_training_data", f"prompt_rules_{model_slug}{run_suffix}.json")
+        examples_path = os.path.join(project_root, "processed_training_data", f"{scope_prefix}examples_{model_slug}{run_suffix}.json")
+        prompt_rules_path = os.path.join(project_root, "processed_training_data", f"{scope_prefix}prompt_rules_{model_slug}{run_suffix}.json")
         # 首次运行：从默认文件复制一份，避免空文件
-        _default_examples = os.path.join(project_root, "processed_training_data", "examples.json")
-        _default_rules = os.path.join(project_root, "processed_training_data", "prompt_rules.json")
-        if not os.path.exists(examples_path) and os.path.exists(_default_examples):
+        if is_default_scope:
+            _default_examples = os.path.join(project_root, "processed_training_data", "examples.json")
+            _default_rules = os.path.join(project_root, "processed_training_data", "prompt_rules.json")
+        else:
+            _default_examples = None
+            _default_rules = None
+        if _default_examples and not os.path.exists(examples_path) and os.path.exists(_default_examples):
             shutil.copy2(_default_examples, examples_path)
             print(f"  已为模型 {model} 复制初始示例: {examples_path}", flush=True)
-        if not os.path.exists(prompt_rules_path) and os.path.exists(_default_rules):
+        elif not os.path.exists(examples_path):
+            with open(examples_path, "w", encoding="utf-8") as f:
+                json.dump([], f)
+            print(f"  已为 Grade {grade} {subject} 创建空示例: {examples_path}（冷启动）", flush=True)
+        if _default_rules and not os.path.exists(prompt_rules_path) and os.path.exists(_default_rules):
             shutil.copy2(_default_rules, prompt_rules_path)
             print(f"  已为模型 {model} 复制初始 prompt 规则: {prompt_rules_path}", flush=True)
+        elif not os.path.exists(prompt_rules_path):
+            with open(prompt_rules_path, "w", encoding="utf-8") as f:
+                json.dump({"global_rules": [], "by_standard": {}, "by_standard_difficulty": {}}, f)
+            print(f"  已为 Grade {grade} {subject} 创建空 prompt 规则: {prompt_rules_path}（冷启动）", flush=True)
     else:
         examples_path = os.path.join(project_root, args.examples) if not os.path.isabs(args.examples) else args.examples
         prompt_rules_path = os.path.join(project_root, "processed_training_data", "prompt_rules.json")
@@ -161,7 +177,11 @@ def _run_closed_loop_one_model(project_root, model, args, use_model_specific_pat
                     _log(f"\n  (未设通过率目标，将跑满 {max_rounds} 轮，取最终/历史最高通过率)")
                 _log(f"\n========== [{model}] 闭环 第 {round_num}/{max_rounds} 轮 ==========")
                 round_start = time.time()
-                gen_cmd = [sys.executable, os.path.join(project_root, "scripts", "generate_mcq.py"), "--model", model, "--all-combinations", "--output", mcqs_path, "--examples", examples_path]
+                grade = getattr(args, "grade", "3")
+                subject = getattr(args, "subject", "ELA")
+                gen_cmd = [sys.executable, os.path.join(project_root, "scripts", "generate_mcq.py"),
+                           "--model", model, "--all-combinations", "--output", mcqs_path,
+                           "--examples", examples_path, "--grade", grade, "--subject", subject]
                 if getattr(args, "workers", None) is not None:
                     gen_cmd.extend(["--workers", str(args.workers)])
                 _log(f"  [1/4] 生成: {' '.join(gen_cmd)}")
@@ -477,6 +497,8 @@ def main():
     loop_parser.add_argument("--parallel", type=int, default=20, help="评估阶段 InceptBench 并行数（默认 20）")
     loop_parser.add_argument("--log-file", nargs="?", default=None, const=None, help="综合 JSON 日志路径；不传时用默认 evaluation_output/log_237_<model>.json；传路径则用该路径")
     loop_parser.add_argument("--run-id", default=None, help="运行批次 ID；指定后 examples/prompt_rules/mcqs/results 均加此后缀，不同批次互不覆盖（如 --run-id exp1）")
+    loop_parser.add_argument("--grade", default="3", help="年级（K, 1-12, AP, HS, SAT），默认 3")
+    loop_parser.add_argument("--subject", default="ELA", help="学科缩写（ELA, MATH, SCI, USHIST 等），默认 ELA")
 
     # 多模型闭环：对多个模型分别跑闭环，最后汇总各模型通过率并保存 JSON
     multi_parser = subparsers.add_parser("closed-loop-multi", help="多模型闭环：对多个模型分别跑闭环，汇总通过率并保存 JSON")
@@ -492,6 +514,8 @@ def main():
     multi_parser.add_argument("--summary-output", default=None, help="汇总 JSON 输出路径（默认 evaluation_output/closed_loop_multi_summary.json）")
     multi_parser.add_argument("--log-file", nargs="?", default=None, const=None, help="综合 JSON 日志路径；不传时用默认 log_237_<model>.json")
     multi_parser.add_argument("--run-id", default=None, help="运行批次 ID；指定后各模型 examples/prompt_rules/mcqs/results 均加此后缀，不同批次互不覆盖")
+    multi_parser.add_argument("--grade", default="3", help="年级（K, 1-12, AP, HS, SAT），默认 3")
+    multi_parser.add_argument("--subject", default="ELA", help="学科缩写（ELA, MATH, SCI, USHIST 等），默认 ELA")
 
     # 从失败组合改进 prompt 规则（全局 + 按 standard / (standard,difficulty)）
     improve_prompt_parser = subparsers.add_parser("improve-prompt", help="从评估结果提取失败反馈，更新全局/针对性 prompt 规则")
@@ -911,11 +935,30 @@ def main():
 
     elif args.command == "closed-loop":
         project_root = os.path.dirname(os.path.abspath(__file__))
-        # 使用按模型隔离的 examples/prompt_rules，避免多终端分别跑不同模型时互相覆盖
+        from data_processing.analyze_dimensions import validate_grade_subject, print_available_options
+        grade = getattr(args, "grade", "3")
+        subject = getattr(args, "subject", "ELA")
+        err = validate_grade_subject(grade, subject)
+        if err:
+            print(err)
+            print()
+            print_available_options()
+            sys.exit(1)
+        print(f"  Grade: {grade}, Subject: {subject}")
         _run_closed_loop_one_model(project_root, getattr(args, "model", "deepseek-chat"), args, use_model_specific_paths=True, run_id=getattr(args, "run_id", None))
 
     elif args.command == "closed-loop-multi":
         project_root = os.path.dirname(os.path.abspath(__file__))
+        from data_processing.analyze_dimensions import validate_grade_subject, print_available_options
+        grade = getattr(args, "grade", "3")
+        subject = getattr(args, "subject", "ELA")
+        err = validate_grade_subject(grade, subject)
+        if err:
+            print(err)
+            print()
+            print_available_options()
+            sys.exit(1)
+        print(f"  Grade: {grade}, Subject: {subject}")
         models = [m.strip() for m in (args.models or "").split(",") if m.strip()]
         if not models:
             print("错误: --models 不能为空，例如 --models deepseek-chat,local,kimi-latest")

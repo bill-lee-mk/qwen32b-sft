@@ -3,6 +3,7 @@
 分析 raw_data 中的维度分布（难度、学科、标准等）
 
 用于 diverse 生成时确定要覆盖的 (standard, difficulty) 组合。
+支持从 curriculum_standards.json 按 grade/subject 过滤获取维度。
 """
 import json
 from collections import Counter, defaultdict
@@ -15,6 +16,10 @@ from .select_examples import (
     is_valid_mcq,
     load_jsonl,
 )
+
+_PROJECT_ROOT = Path(__file__).resolve().parent.parent
+_CURRICULUM_STANDARDS_PATH = _PROJECT_ROOT / "data" / "curriculum_standards.json"
+_CURRICULUM_META_PATH = _PROJECT_ROOT / "data" / "curriculum_meta.json"
 
 
 def _extract_mcq_and_meta(sample: Dict) -> Optional[Tuple[Dict, str, str, Optional[str]]]:
@@ -204,6 +209,108 @@ def build_diverse_plan(
             plan.append((s, d))
 
     return plan[:n]
+
+
+def load_curriculum_meta() -> Dict:
+    """加载 curriculum_meta.json（grade/subject 有效组合等）。"""
+    if _CURRICULUM_META_PATH.exists():
+        with open(_CURRICULUM_META_PATH, "r", encoding="utf-8") as f:
+            return json.load(f)
+    return {}
+
+
+def validate_grade_subject(grade: str, subject: str) -> Optional[str]:
+    """
+    校验 (grade, subject) 组合是否有效。
+    返回 None 表示有效，否则返回错误信息字符串。
+    """
+    meta = load_curriculum_meta()
+    if not meta:
+        return None
+    valid_grades = meta.get("valid_grades", [])
+    valid_subjects = meta.get("valid_subjects", [])
+    combos_by_grade = meta.get("combos_by_grade", {})
+    combos_by_subject = meta.get("combos_by_subject", {})
+
+    if grade not in valid_grades:
+        return (f"错误: grade '{grade}' 无效。\n"
+                f"可用的 grade 值: {', '.join(valid_grades)}")
+    if subject not in valid_subjects:
+        return (f"错误: subject '{subject}' 无效。\n"
+                f"可用的 subject 缩写: {', '.join(valid_subjects)}")
+    subjects_for_grade = combos_by_grade.get(grade, [])
+    if subject not in subjects_for_grade:
+        grades_for_subject = combos_by_subject.get(subject, [])
+        return (f"错误: Grade {grade} + {subject} 不是有效组合。\n"
+                f"{subject} 仅支持 grade: {', '.join(grades_for_subject)}\n"
+                f"Grade {grade} 支持的 subject: {', '.join(subjects_for_grade)}")
+    return None
+
+
+def print_available_options():
+    """打印所有可用的 grade 和 subject 值。"""
+    meta = load_curriculum_meta()
+    if not meta:
+        print("  (curriculum_meta.json 未找到，请先运行 scripts/parse_curriculum.py)")
+        return
+    print("  可用 grade 值:", ", ".join(meta.get("valid_grades", [])))
+    print("  可用 subject 缩写:", ", ".join(meta.get("valid_subjects", [])))
+    abbr = meta.get("subject_abbr", {})
+    if abbr:
+        print("  Subject 缩写对照:")
+        for full, short in sorted(abbr.items(), key=lambda x: x[1]):
+            print(f"    {short:>6} = {full}")
+    combos = meta.get("combos_by_grade", {})
+    if combos:
+        print("  Grade → Subject 组合:")
+        for g in meta.get("valid_grades", []):
+            subjects = combos.get(g, [])
+            if subjects:
+                print(f"    {g:>3}: {', '.join(subjects)}")
+
+
+def analyze_dimensions_from_curriculum(
+    grade: str = "3",
+    subject: str = "ELA",
+) -> Dict:
+    """
+    从 curriculum_standards.json 中获取指定 (grade, subject) 的维度分布。
+    每个标准生成 easy/medium/hard 三个难度组合。
+    返回与 analyze_dimensions() 兼容的格式。
+    """
+    if not _CURRICULUM_STANDARDS_PATH.exists():
+        return {
+            "difficulties": {"easy": 0, "medium": 0, "hard": 0},
+            "standards": {},
+            "subjects": {subject: 0},
+            "combinations": [],
+            "total": 0,
+        }
+
+    with open(_CURRICULUM_STANDARDS_PATH, "r", encoding="utf-8") as f:
+        all_standards = json.load(f)
+
+    matching = {
+        sid: info for sid, info in all_standards.items()
+        if info.get("grade") == grade and info.get("subject_abbr") == subject
+    }
+
+    difficulties = Counter()
+    standards_counter = Counter()
+    combinations = set()
+    for sid in matching:
+        standards_counter[sid] += 3
+        for diff in ("easy", "medium", "hard"):
+            difficulties[diff] += 1
+            combinations.add((sid, diff))
+
+    return {
+        "difficulties": dict(difficulties),
+        "standards": dict(standards_counter),
+        "subjects": {subject: sum(difficulties.values())},
+        "combinations": sorted(combinations),
+        "total": sum(difficulties.values()),
+    }
 
 
 def run(

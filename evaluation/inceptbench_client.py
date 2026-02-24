@@ -84,6 +84,7 @@ def _mcq_to_inceptbench_item(
         "answer_explanation": str(q.get("answer_explanation", "")),
     }
 
+    default_lesson = f"K-12 {subject}" if subject else "K-12 ELA"
     request = {
         "grade": str(grade),
         "subject": subject,
@@ -91,7 +92,7 @@ def _mcq_to_inceptbench_item(
         "difficulty": str(q.get("difficulty", "medium")),
         "locale": "en-US",
         "skills": {
-            "lesson_title": req_ctx.get("lesson_title", "K-12 ELA"),
+            "lesson_title": req_ctx.get("lesson_title", default_lesson),
             "substandard_id": standard,
             "substandard_description": req_ctx.get("substandard_description", standard),
         },
