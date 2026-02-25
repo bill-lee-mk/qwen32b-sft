@@ -27,29 +27,48 @@ except ImportError:
     print("请安装: pip install openai")
     exit(1)
 
-# 并发与限速（按平台文档）
-DEEPSEEK_REASONER_WORKERS = 8   # reasoner 单条慢(~30-60s)，8 并发可提速；DeepSeek 无硬性 RPM 限制
-DEEPSEEK_CHAT_WORKERS = 12      # chat 较快，可更高并发
-KIMI_DEFAULT_WORKERS = 15       # Kimi 默认 15 并发，避免 Tier0/限流；Tier1 可 --workers 30~50
-KIMI_MIN_INTERVAL = 0.5        # 请求间隔(s)，15×0.5≈7.5s 内发 15 请求 ≈ 120 RPM，留余量
+# === 直连 API 默认并发 ===
+DEEPSEEK_REASONER_WORKERS = 20  # DeepSeek 无硬性 RPM 限制，reasoner 单条 ~30-60s
+DEEPSEEK_CHAT_WORKERS = 30      # chat 响应更快，可更高并发
+KIMI_DEFAULT_WORKERS = 50       # Kimi Tier1: 50 并发 / 200 RPM
+KIMI_MIN_INTERVAL = 0.3         # Kimi 请求间隔(s)，50×0.3=15s 发 50 请求 ≈ 200 RPM
+# === Fireworks 企业账户默认并发 ===
+FIREWORKS_DEFAULT_WORKERS = 50  # 企业账户无硬性并发限制
 _kimi_rate_lock = threading.Lock()
 _kimi_last_call = 0.0
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 PROVIDERS = {
     "deepseek": ("https://api.deepseek.com", "DEEPSEEK_API_KEY"),
-    "kimi": ("https://api.moonshot.cn/v1", "KIMI_API_KEY"),  # Moonshot 也支持 MOONSHOT_API_KEY
+    "kimi": ("https://api.moonshot.cn/v1", "KIMI_API_KEY"),
+    "fireworks": ("https://api.fireworks.ai/inference/v1", "FIREWORKS_API_KEY"),
     "openai": (None, "OPENAI_API_KEY"),
+}
+FIREWORKS_MODEL_MAP = {
+    "deepseek-r1":       "accounts/fireworks/models/deepseek-r1",
+    "deepseek-v3.2":     "accounts/fireworks/models/deepseek-v3p2",
+    "kimi-k2.5":         "accounts/fireworks/models/kimi-k2p5",
+    "glm-5":             "accounts/fireworks/models/glm-5",
+    "gpt-oss-120b":      "accounts/fireworks/models/gpt-oss-120b",
+    "qwen3-235b":        "accounts/fireworks/models/qwen3-235b-a22b",
 }
 
 
 def _provider(model: str):
     m = (model or "").lower()
+    if m.startswith("fw/") or m.startswith("fireworks/"):
+        return "fireworks"
     if "deepseek" in m:
         return "deepseek"
     if "kimi" in m or "moonshot" in m:
         return "kimi"
     return "openai"
+
+
+def _resolve_fw_model(model: str) -> str:
+    """fw/deepseek-r1 → accounts/fireworks/models/deepseek-r1"""
+    short = model.replace("fw/", "").replace("fireworks/", "").strip()
+    return FIREWORKS_MODEL_MAP.get(short, f"accounts/fireworks/models/{short}")
 
 
 def _kimi_rate_wait():
@@ -68,17 +87,11 @@ def _call_api(messages, model: str, api_key: str, base_url: str | None, max_retr
     prov = _provider(model)
     if rate_limit_kimi and prov == "kimi":
         _kimi_rate_wait()
+    actual_model = _resolve_fw_model(model) if prov == "fireworks" else model
     client = OpenAI(api_key=api_key, base_url=base_url) if base_url else OpenAI(api_key=api_key)
-    kwargs = {"model": model, "messages": messages}
-    if "reasoner" in model.lower():
-        kwargs["max_tokens"] = 8192
-        kwargs["temperature"] = 0.7
-    elif "k2" in model.lower():
-        kwargs["max_tokens"] = 8192
-        kwargs["temperature"] = 1.0
-    else:
-        kwargs["max_tokens"] = 8192
-        kwargs["temperature"] = 0.7
+    m = model.lower()
+    temp = 1.0 if ("kimi" in m and "k2" in m) else 0.7
+    kwargs = {"model": actual_model, "messages": messages, "max_tokens": 8192, "temperature": temp}
     last_err = None
     for attempt in range(max_retries):
         try:
@@ -191,7 +204,7 @@ def main():
     p.add_argument("--api-key", default=None)
     p.add_argument("--output", default="mcqs.json")
     p.add_argument("--all", action="store_true", help="生成全部 237 题")
-    p.add_argument("--workers", type=int, default=None, help="并行数（默认 DeepSeek-reasoner 8、DeepSeek 12、Kimi 50）")
+    p.add_argument("--workers", type=int, default=None, help="并行数（默认 Fireworks 50、Kimi 50、DeepSeek-reasoner 20、DeepSeek-chat 30）")
     args = p.parse_args()
 
     with open(args.bundle, "r", encoding="utf-8") as f:
@@ -210,13 +223,14 @@ def main():
         exit(1)
 
     if args.all:
-        # 默认并发数：DeepSeek-reasoner 8、DeepSeek 12、Kimi 50
         workers = args.workers
         if workers is None:
-            if prov == "deepseek":
+            if prov == "fireworks":
+                workers = FIREWORKS_DEFAULT_WORKERS          # 企业账户，50 并发
+            elif prov == "deepseek":
                 workers = DEEPSEEK_REASONER_WORKERS if "reasoner" in args.model.lower() else DEEPSEEK_CHAT_WORKERS
             elif prov == "kimi":
-                workers = KIMI_DEFAULT_WORKERS
+                workers = KIMI_DEFAULT_WORKERS               # Tier1: 50
             else:
                 workers = 10
         workers = min(workers, len(plan))

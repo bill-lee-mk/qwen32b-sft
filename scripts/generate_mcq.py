@@ -140,6 +140,17 @@ def call_deepseek(messages: list, api_key: str, model: str = "deepseek-chat") ->
     return content, usage
 
 
+# Fireworks AI：https://fireworks.ai ，OpenAI 兼容，托管 DeepSeek / Kimi 等模型
+FIREWORKS_API_BASE = "https://api.fireworks.ai/inference/v1"
+FIREWORKS_MODEL_MAP = {
+    "deepseek-r1":       "accounts/fireworks/models/deepseek-r1",       # DeepSeek R1 推理，$0.56/$1.68
+    "deepseek-v3.2":     "accounts/fireworks/models/deepseek-v3p2",     # DeepSeek V3.2 对话，$0.56/$1.68
+    "kimi-k2.5":         "accounts/fireworks/models/kimi-k2p5",         # Kimi K2.5，$0.60/$3.00
+    "glm-5":             "accounts/fireworks/models/glm-5",             # GLM-5 智谱，$1.00/$3.20
+    "gpt-oss-120b":      "accounts/fireworks/models/gpt-oss-120b",      # OpenAI GPT-OSS 120B，$0.15/$0.60
+    "qwen3-235b":        "accounts/fireworks/models/qwen3-235b-a22b",   # Qwen3 235B（Qwen3.5 暂未上线 Fireworks）
+}
+
 # Kimi (Moonshot) 官方 API：https://platform.moonshot.cn ，OpenAI 兼容，需配置 API Key
 KIMI_API_BASE = "https://api.moonshot.cn/v1"
 KIMI_MAX_CONCURRENCY = 50  # Tier1 并发 50
@@ -169,10 +180,12 @@ def _is_local_model(model: str) -> bool:
 
 
 def _model_to_provider(model: str) -> str:
-    """从模型名推断 API 提供商：local / deepseek / kimi / gemini / openai"""
+    """从模型名推断 API 提供商：local / fireworks / deepseek / kimi / gemini / openai"""
     if _is_local_model(model):
         return "local"
     m = (model or "").strip().lower()
+    if m.startswith("fw/") or m.startswith("fireworks/"):
+        return "fireworks"
     if m.startswith("deepseek-") or m == "deepseek":
         return "deepseek"
     if m.startswith("kimi-") or m.startswith("moonshot-") or m == "kimi":
@@ -183,22 +196,23 @@ def _model_to_provider(model: str) -> str:
 
 
 def _get_generation_params(provider: str, model: str) -> dict:
-    """
-    按 provider 和 model 返回生成参数，避免混淆。
-    - DeepSeek: temperature=0.7, max_tokens=8192
-    - Kimi: k2 系列仅支持 temperature=1，其余 0.7；max_tokens=8192
-    - Local: temperature=0.7, max_tokens=4096
-    - OpenAI/Gemini: temperature=0.7, max_tokens=1024
-    """
+    """按 provider 和 model 返回生成参数。Fireworks 经由的底层模型也需区分温度。"""
     m = (model or "").strip().lower()
-    if provider == "deepseek":
-        return {"temperature": 0.7, "max_tokens": 8192}
+    if provider in ("deepseek", "fireworks"):
+        temp = 1.0 if "kimi" in m and "k2" in m else 0.7
+        return {"temperature": temp, "max_tokens": 8192}
     if provider == "kimi":
-        temp = 1.0 if "k2" in m else 0.7  # kimi-k2.5 等仅支持 temperature=1
+        temp = 1.0 if "k2" in m else 0.7
         return {"temperature": temp, "max_tokens": 8192}
     if provider == "local":
         return {"temperature": 0.7, "max_tokens": 4096}
     return {"temperature": 0.7, "max_tokens": 1024}
+
+
+def _resolve_fireworks_model(model: str) -> str:
+    """将用户传入的 fw/xxx 模型名解析为 Fireworks API 的完整 model ID。"""
+    short = model.replace("fw/", "").replace("fireworks/", "").strip()
+    return FIREWORKS_MODEL_MAP.get(short, f"accounts/fireworks/models/{short}")
 
 
 def _get_api_key_for_model(model: str) -> str | None:
@@ -206,7 +220,7 @@ def _get_api_key_for_model(model: str) -> str | None:
     provider = _model_to_provider(model)
     if provider == "local":
         return "dummy"
-    env_map = {"deepseek": "DEEPSEEK_API_KEY", "kimi": "KIMI_API_KEY", "gemini": "GEMINI_API_KEY", "openai": "OPENAI_API_KEY"}
+    env_map = {"deepseek": "DEEPSEEK_API_KEY", "kimi": "KIMI_API_KEY", "gemini": "GEMINI_API_KEY", "openai": "OPENAI_API_KEY", "fireworks": "FIREWORKS_API_KEY"}
     return os.environ.get(env_map[provider])
 
 
@@ -490,6 +504,10 @@ def _generate_one(
             usage = None
             if provider == "gemini":
                 raw = call_gemini(f"{system}\n\n{user}", api_key, model)
+            elif provider == "fireworks":
+                p = _get_generation_params(provider, model)
+                fw_model = _resolve_fireworks_model(model)
+                raw, usage = call_openai(messages, api_key, fw_model, base_url=FIREWORKS_API_BASE, temperature=p["temperature"], max_tokens=p["max_tokens"])
             elif provider == "deepseek":
                 raw, usage = call_deepseek(messages, api_key, model)
             elif provider == "kimi":
@@ -535,8 +553,8 @@ def _generate_one(
 
 def main():
     parser = argparse.ArgumentParser(description="生成 MCQ（generate_mcq）")
-    parser.add_argument("--model", default="deepseek-chat", help="具体模型名，如 deepseek-chat / deepseek-reasoner / kimi-latest / gemini-3-flash-preview / gpt-4o（据此前缀选 API）")
-    parser.add_argument("--api-key", default=None, help="API Key（未设时从环境变量按模型推断：DEEPSEEK_API_KEY / KIMI_API_KEY / GEMINI_API_KEY / OPENAI_API_KEY）")
+    parser.add_argument("--model", default="deepseek-chat", help="模型名：deepseek-chat / deepseek-reasoner / kimi-k2.5 / fw/deepseek-r1 / fw/kimi-k2.5（fw/ 前缀走 Fireworks）")
+    parser.add_argument("--api-key", default=None, help="API Key（未设时按模型推断：DEEPSEEK_API_KEY / KIMI_API_KEY / FIREWORKS_API_KEY / OPENAI_API_KEY）")
     parser.add_argument("--examples", default=None, help="示例 JSON 路径，默认 processed_training_data/examples.json")
     parser.add_argument("--grade", default="3", help="年级（K, 1-12, AP, HS, SAT）")
     parser.add_argument("--subject", default="ELA", help="学科缩写（ELA, MATH, SCI, USHIST 等）")
@@ -546,7 +564,7 @@ def main():
     parser.add_argument("--batch", type=int, default=1, help="生成条数（同参数重复）")
     parser.add_argument("--diverse", type=int, default=None, help="多样化生成 N 条，覆盖不同难度/标准")
     parser.add_argument("--all-combinations", action="store_true", help="遍历生成全部 (standard,difficulty) 组合（79 标准×3 难度=237 题）")
-    parser.add_argument("--workers", type=int, default=None, help="并行线程数（Gemini 2，Kimi 10，本地 8，DeepSeek/其他 API 10）")
+    parser.add_argument("--workers", type=int, default=None, help="并行线程数（Fireworks 50、Kimi 50、DeepSeek-reasoner 20、DeepSeek-chat 30、Gemini 2、本地 8）")
     parser.add_argument("--input-dir", default="raw_data", help="--diverse 时分析 raw_data 的目录")
     parser.add_argument("--include-think-chain", action="store_true", help="是否要求输出 <think>")
     args = parser.parse_args()
@@ -597,21 +615,32 @@ def main():
         n = len(plan)
         workers = args.workers
         if workers is None:
-            # 生成并发默认：Gemini 2，Kimi 50，本地 8，DeepSeek-reasoner 6（单条慢，适度并发），DeepSeek-chat/其他 API 10
-            if provider == "deepseek" and "reasoner" in (model or "").lower():
-                workers = 6
+            if provider == "fireworks":
+                workers = 50                               # Fireworks 企业账户，无硬性并发限制
+            elif provider == "deepseek":
+                workers = 20 if "reasoner" in (model or "").lower() else 30  # DeepSeek 无硬性 RPM 限制
+            elif provider == "kimi":
+                workers = KIMI_MAX_CONCURRENCY              # Kimi Tier1: 50 并发 / 200 RPM
+            elif provider == "gemini":
+                workers = 2                                 # Gemini 免费版 ~5 RPM
+            elif provider == "local":
+                workers = 8
             else:
-                workers = 2 if provider == "gemini" else (KIMI_MAX_CONCURRENCY if provider == "kimi" else (8 if provider == "local" else 10))
+                workers = 10
         workers = min(workers, n)
         if provider == "kimi":
-            workers = min(workers, KIMI_MAX_CONCURRENCY)  # 不超过平台并发数
+            workers = min(workers, KIMI_MAX_CONCURRENCY)
         print(f"多样化生成 {n} 条，{workers} 线程并行，覆盖 {len(set(p[0] for p in plan))} 个标准、{len(set(p[1] for p in plan))} 个难度")
         if provider == "local":
             print("  提示: 本地默认 8 并发（8 卡机可保持队列）；单进程 serve-api 串行推理仅用 1–2 卡，若需用满 8 卡可起 8 个 serve-api 实例并做负载均衡")
-        if provider == "gemini" and workers > 2:
+        if provider == "fireworks":
+            print(f"  提示: Fireworks 企业账户，{workers} 并发；遇 429 可降低 --workers")
+        elif provider == "gemini" and workers > 2:
             print("  提示: Gemini 免费版约 5 次/分钟，建议 --workers 2；遇 429 会自动重试")
-        if provider == "kimi":
+        elif provider == "kimi":
             print(f"  提示: Kimi {KIMI_MAX_CONCURRENT} 并发、间隔 {KIMI_MIN_INTERVAL}s；429 后等 2 分钟重试")
+        elif provider == "deepseek":
+            print(f"  提示: DeepSeek 无硬性 RPM 限制，{workers} 并发")
         if n >= 50 and len(examples) < 8:
             print("  建议: 可先运行 python main.py select-examples -n 8 以增加示例覆盖")
         print(f"  计划: {plan[:5]}..." if len(plan) > 5 else f"  计划: {plan}")
@@ -699,13 +728,15 @@ def main():
         if validated_stats.get("constructed"):
             print(f"[生成] [校验] 未通过则构造最小合法题: {validated_stats['constructed']} 题（保持组合与总数一致）")
         # 记录 token 用量并估算费用（DeepSeek/Kimi/OpenAI 等 OpenAI 兼容接口均返回 usage）
-        if usage_agg["n_calls"] > 0 and provider in ("deepseek", "kimi", "openai"):
+        if usage_agg["n_calls"] > 0 and provider in ("deepseek", "kimi", "fireworks", "openai"):
             hit = usage_agg["prompt_cache_hit_tokens"]
             miss = usage_agg["prompt_cache_miss_tokens"]
             out = usage_agg["completion_tokens"]
-            # 定价（元/百万 token）；Kimi 约 4/16，DeepSeek-chat 2/8、reasoner 4/16
-            if provider == "kimi":
-                hit_yuan, miss_yuan, out_yuan = 1.0, 4.0, 16.0  # 缓存1/未命中4，输出16
+            # 定价（元/百万 token）
+            if provider == "fireworks":
+                hit_yuan, miss_yuan, out_yuan = 2.0, 4.0, 12.0  # Fireworks DeepSeek: $0.56→≈¥4 入，$1.68→≈¥12 出
+            elif provider == "kimi":
+                hit_yuan, miss_yuan, out_yuan = 1.0, 4.0, 16.0
             elif provider == "deepseek":
                 is_reasoner = "reasoner" in model.lower()
                 hit_yuan, miss_yuan = (0.5, 2.0) if not is_reasoner else (1.0, 4.0)
@@ -721,11 +752,13 @@ def main():
         usage_out = str(args.output).replace("mcqs_", "log_", 1).replace(".json", "_usage.json") if args.output else None
         if usage_out:
             est_cost = 0.0
-            if usage_agg["n_calls"] > 0 and provider in ("deepseek", "kimi", "openai"):
+            if usage_agg["n_calls"] > 0 and provider in ("deepseek", "kimi", "fireworks", "openai"):
                 hit = usage_agg["prompt_cache_hit_tokens"]
                 miss = usage_agg["prompt_cache_miss_tokens"]
                 out = usage_agg["completion_tokens"]
-                if provider == "kimi":
+                if provider == "fireworks":
+                    hit_yuan, miss_yuan, out_yuan = 2.0, 4.0, 12.0
+                elif provider == "kimi":
                     hit_yuan, miss_yuan, out_yuan = 1.0, 4.0, 16.0
                 elif provider == "deepseek":
                     is_reasoner = "reasoner" in model.lower()
@@ -765,6 +798,10 @@ def main():
             if provider == "gemini":
                 full_prompt = f"{system}\n\n{user}"
                 raw = call_gemini(full_prompt, api_key, model)
+            elif provider == "fireworks":
+                p = _get_generation_params(provider, model)
+                fw_model = _resolve_fireworks_model(model)
+                raw, _ = call_openai(messages, api_key, fw_model, base_url=FIREWORKS_API_BASE, temperature=p["temperature"], max_tokens=p["max_tokens"])
             elif provider == "deepseek":
                 raw, _ = call_deepseek(messages, api_key, model)
             elif provider == "kimi":

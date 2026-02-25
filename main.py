@@ -37,51 +37,47 @@ def _run_closed_loop_one_model(project_root, model, args, use_model_specific_pat
     model = (model or "deepseek-chat").strip()
     model_slug = model.replace(".", "_").replace("/", "_")
     run_suffix = f"_{run_id}" if run_id else ""
+    grade = getattr(args, "grade", "3")
+    subject = getattr(args, "subject", "ELA")
+    scope_tag = f"{grade}_{subject}"
+    scope_prefix = f"{scope_tag}_"
     use_default_paths = args.mcqs == _DEFAULT_MCQS and args.results == _DEFAULT_RESULTS
     if use_default_paths:
-        base_mcqs = os.path.join(project_root, "evaluation_output", f"mcqs_237_{model_slug}{run_suffix}")
-        base_results = os.path.join(project_root, "evaluation_output", f"results_237_{model_slug}{run_suffix}")
-        progress_path = os.path.join(project_root, "evaluation_output", f"closed_loop_progress_{model_slug}{run_suffix}.json")
+        base_mcqs = os.path.join(project_root, "evaluation_output", f"mcqs_{scope_tag}_{model_slug}{run_suffix}")
+        base_results = os.path.join(project_root, "evaluation_output", f"results_{scope_tag}_{model_slug}{run_suffix}")
+        progress_path = os.path.join(project_root, "evaluation_output", f"closed_loop_progress_{scope_tag}_{model_slug}{run_suffix}.json")
     else:
         base_mcqs = (os.path.join(project_root, args.mcqs) if not os.path.isabs(args.mcqs) else args.mcqs).replace(".json", "")
         base_results = (os.path.join(project_root, args.results) if not os.path.isabs(args.results) else args.results).replace(".json", "")
         if run_suffix:
             base_mcqs += run_suffix
             base_results += run_suffix
-        progress_path = os.path.join(project_root, "evaluation_output", f"closed_loop_progress_{model_slug}{run_suffix}.json")
-    # 当前最佳文件路径（含通过率，如 best_94_5.json），启动时从已有文件恢复；兼容旧格式 best.json
+        progress_path = os.path.join(project_root, "evaluation_output", f"closed_loop_progress_{scope_tag}_{model_slug}{run_suffix}.json")
     _existing_mcqs = glob.glob(f"{base_mcqs}_best_*.json")
     _existing_results = glob.glob(f"{base_results}_best_*.json")
     current_best_mcqs_path = _existing_mcqs[0] if _existing_mcqs else (f"{base_mcqs}_best.json" if os.path.exists(f"{base_mcqs}_best.json") else None)
     current_best_results_path = _existing_results[0] if _existing_results else (f"{base_results}_best.json" if os.path.exists(f"{base_results}_best.json") else None)
-    grade = getattr(args, "grade", "3")
-    subject = getattr(args, "subject", "ELA")
-    is_default_scope = (grade == "3" and subject == "ELA")
-    scope_prefix = "" if is_default_scope else f"{grade}_{subject}_"
     if use_model_specific_paths:
         examples_path = os.path.join(project_root, "processed_training_data", f"{scope_prefix}examples_{model_slug}{run_suffix}.json")
         prompt_rules_path = os.path.join(project_root, "processed_training_data", f"{scope_prefix}prompt_rules_{model_slug}{run_suffix}.json")
-        # 首次运行：从默认文件复制一份，避免空文件
-        if is_default_scope:
-            _default_examples = os.path.join(project_root, "processed_training_data", "examples.json")
-            _default_rules = os.path.join(project_root, "processed_training_data", "prompt_rules.json")
-        else:
-            _default_examples = None
-            _default_rules = None
-        if _default_examples and not os.path.exists(examples_path) and os.path.exists(_default_examples):
-            shutil.copy2(_default_examples, examples_path)
-            print(f"  已为模型 {model} 复制初始示例: {examples_path}", flush=True)
-        elif not os.path.exists(examples_path):
-            with open(examples_path, "w", encoding="utf-8") as f:
-                json.dump([], f)
-            print(f"  已为 Grade {grade} {subject} 创建空示例: {examples_path}（冷启动）", flush=True)
-        if _default_rules and not os.path.exists(prompt_rules_path) and os.path.exists(_default_rules):
-            shutil.copy2(_default_rules, prompt_rules_path)
-            print(f"  已为模型 {model} 复制初始 prompt 规则: {prompt_rules_path}", flush=True)
-        elif not os.path.exists(prompt_rules_path):
-            with open(prompt_rules_path, "w", encoding="utf-8") as f:
-                json.dump({"global_rules": [], "by_standard": {}, "by_standard_difficulty": {}}, f)
-            print(f"  已为 Grade {grade} {subject} 创建空 prompt 规则: {prompt_rules_path}（冷启动）", flush=True)
+        _default_examples = os.path.join(project_root, "processed_training_data", "examples.json")
+        _default_rules = os.path.join(project_root, "processed_training_data", "prompt_rules.json")
+        if not os.path.exists(examples_path):
+            if os.path.exists(_default_examples) and grade == "3" and subject == "ELA":
+                shutil.copy2(_default_examples, examples_path)
+                print(f"  已为模型 {model} 复制初始示例: {examples_path}", flush=True)
+            else:
+                with open(examples_path, "w", encoding="utf-8") as f:
+                    json.dump([], f)
+                print(f"  已为 Grade {grade} {subject} 创建空示例: {examples_path}（冷启动）", flush=True)
+        if not os.path.exists(prompt_rules_path):
+            if os.path.exists(_default_rules) and grade == "3" and subject == "ELA":
+                shutil.copy2(_default_rules, prompt_rules_path)
+                print(f"  已为模型 {model} 复制初始 prompt 规则: {prompt_rules_path}", flush=True)
+            else:
+                with open(prompt_rules_path, "w", encoding="utf-8") as f:
+                    json.dump({"global_rules": [], "by_standard": {}, "by_standard_difficulty": {}}, f)
+                print(f"  已为 Grade {grade} {subject} 创建空 prompt 规则: {prompt_rules_path}（冷启动）", flush=True)
     else:
         examples_path = os.path.join(project_root, args.examples) if not os.path.isabs(args.examples) else args.examples
         prompt_rules_path = os.path.join(project_root, "processed_training_data", "prompt_rules.json")
@@ -92,7 +88,7 @@ def _run_closed_loop_one_model(project_root, model, args, use_model_specific_pat
     no_target = (target is None or target <= 0)  # 不设目标时跑满 max_rounds，取最终/最高通过率
     # 日志路径：--log-file 指定或默认 evaluation_output/log_237_{model}.json
     log_file_arg = getattr(args, "log_file", None)
-    default_log_base = os.path.join(project_root, "evaluation_output", f"log_237_{model_slug}{run_suffix}")
+    default_log_base = os.path.join(project_root, "evaluation_output", f"log_{scope_tag}_{model_slug}{run_suffix}")
     if log_file_arg and log_file_arg != "":
         log_base = log_file_arg[:-4] if log_file_arg.endswith(".log") else (log_file_arg[:-5] if log_file_arg.endswith(".json") else log_file_arg)
     else:
