@@ -198,9 +198,11 @@ def _model_to_provider(model: str) -> str:
 def _get_generation_params(provider: str, model: str) -> dict:
     """按 provider 和 model 返回生成参数。Fireworks 经由的底层模型也需区分温度。"""
     m = (model or "").strip().lower()
-    if provider in ("deepseek", "fireworks"):
+    if provider == "fireworks":
         temp = 1.0 if "kimi" in m and "k2" in m else 0.7
-        return {"temperature": temp, "max_tokens": 8192}
+        return {"temperature": temp, "max_tokens": 4096}
+    if provider == "deepseek":
+        return {"temperature": 0.7, "max_tokens": 8192}
     if provider == "kimi":
         temp = 1.0 if "k2" in m else 0.7
         return {"temperature": temp, "max_tokens": 8192}

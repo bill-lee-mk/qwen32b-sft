@@ -91,7 +91,8 @@ def _call_api(messages, model: str, api_key: str, base_url: str | None, max_retr
     client = OpenAI(api_key=api_key, base_url=base_url) if base_url else OpenAI(api_key=api_key)
     m = model.lower()
     temp = 1.0 if ("kimi" in m and "k2" in m) else 0.7
-    kwargs = {"model": actual_model, "messages": messages, "max_tokens": 8192, "temperature": temp}
+    max_tok = 4096 if prov == "fireworks" else 8192
+    kwargs = {"model": actual_model, "messages": messages, "max_tokens": max_tok, "temperature": temp}
     last_err = None
     for attempt in range(max_retries):
         try:

@@ -34,7 +34,8 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 # === 可配置参数 ===
-MODELS="${MODELS:-fw/deepseek-r1 fw/deepseek-v3.2 fw/kimi-k2.5 fw/glm-5 fw/gpt-oss-120b fw/qwen3-235b}"
+#MODELS="${MODELS:-fw/deepseek-r1 fw/deepseek-v3.2 fw/kimi-k2.5 fw/glm-5 fw/gpt-oss-120b fw/qwen3-235b}"
+MODELS="${MODELS:-fw/deepseek-v3.2 fw/kimi-k2.5 fw/glm-5 fw/gpt-oss-120b}"
 GRADES="${GRADES:-K 1 2 3 4 5 6 7 8 10 11 AP}"
 SUBJECT="${SUBJECT:-ELA}"
 N="${N:-50}"                    # 单轮模式：--diverse N 采样题数
