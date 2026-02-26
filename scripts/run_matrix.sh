@@ -77,7 +77,7 @@ FAIL=0
 START_TIME=$(date +%s)
 
 for MODEL in $MODELS; do
-  MNAME=$(echo "$MODEL" | tr '/' '_')
+  MNAME=$(echo "$MODEL" | tr '/' '_' | tr '.' '_')
   for GRADE in $GRADES; do
     TOTAL=$((TOTAL + 1))
     TAG="${MNAME}_${GRADE}_${SUBJECT}"
@@ -115,7 +115,7 @@ for MODEL in $MODELS; do
       # 文件名格式：results_{grade}_{subject}_{model_slug}_{run_id}_best_{rate}.json
       SCOPE_TAG="${GRADE}_${SUBJECT}"
       BEST_PATTERN="evaluation_output/results_${SCOPE_TAG}_${MNAME}_${RUN_ID}_best_*.json"
-      BEST_FILE=$(ls $BEST_PATTERN 2>/dev/null | head -1)
+      BEST_FILE=$(ls $BEST_PATTERN 2>/dev/null | head -1 || true)
 
       if [ -n "$BEST_FILE" ] && [ -f "$BEST_FILE" ]; then
         cp "$BEST_FILE" "$OUTDIR/results_${TAG}.json"
