@@ -84,7 +84,8 @@ def _run_closed_loop_one_model(project_root, model, args, use_model_specific_pat
     target = getattr(args, "pass_rate_target", 95.0)
     pilot_batch = getattr(args, "pilot_batch", None)
     max_rounds = getattr(args, "max_rounds", 10)
-    parallel = getattr(args, "parallel", 20)
+    patience = getattr(args, "patience", 5)
+    parallel = getattr(args, "parallel", 25)
     no_target = (target is None or target <= 0)  # 不设目标时跑满 max_rounds，取最终/最高通过率
     # 日志路径：--log-file 指定或默认 evaluation_output/log_237_{model}.json
     log_file_arg = getattr(args, "log_file", None)
@@ -124,6 +125,7 @@ def _run_closed_loop_one_model(project_root, model, args, use_model_specific_pat
     }
     best_pass_rate_seen = -1.0
     best_round_seen = 0
+    no_improve_count = 0
     rounds_data = []  # 供综合 JSON 日志使用
     total_start = time.time()
 
@@ -288,6 +290,9 @@ def _run_closed_loop_one_model(project_root, model, args, use_model_specific_pat
                 if pass_rate > best_pass_rate_seen:
                     best_pass_rate_seen = pass_rate
                     best_round_seen = round_num
+                    no_improve_count = 0
+                else:
+                    no_improve_count += 1
                     rate_str = str(round(pass_rate, 1)).replace(".", "_")
                     new_mcqs_best = f"{base_mcqs}_best_{rate_str}.json"
                     new_results_best = f"{base_results}_best_{rate_str}.json"
@@ -363,6 +368,17 @@ def _run_closed_loop_one_model(project_root, model, args, use_model_specific_pat
                                     pass
                         _print_summary()
                         return result
+                if patience > 0 and no_improve_count >= patience and round_num < max_rounds:
+                    _log(f"\n  [Early Stop] 连续 {no_improve_count} 轮未刷新最佳（patience={patience}），提前终止")
+                    _log(f"  历史最高: {best_pass_rate_seen:.1f}% @ 第{best_round_seen}轮")
+                    for p in [mcqs_path, results_path]:
+                        if os.path.exists(p):
+                            try:
+                                os.remove(p)
+                            except Exception:
+                                pass
+                    _print_summary()
+                    break
                 imp_cmd = [sys.executable, os.path.join(project_root, "main.py"), "improve-examples", "--results", results_path, "--mcqs", mcqs_path, "--output", examples_path, "--raw-data-dir", args.raw_data_dir, "--parallel", str(parallel)]
                 _log(f"  [3/4] 补示例: ... --parallel {parallel}")
                 _run_with_log_stream(imp_cmd, project_root)
@@ -664,6 +680,7 @@ def main():
     loop_parser.add_argument("--examples", default="processed_training_data/examples.json", help="few-shot 示例路径（每轮 improve 会更新）")
     loop_parser.add_argument("--pass-rate-target", type=float, default=95.0, help="通过率目标（百分数，默认 95）；设为 0 表示不设目标，跑满 --max-rounds 后取最终/最高通过率")
     loop_parser.add_argument("--max-rounds", type=int, default=10, help="最大循环轮数")
+    loop_parser.add_argument("--patience", type=int, default=5, help="连续 N 轮未刷新最佳通过率则提前终止（0=不启用，默认 5）")
     loop_parser.add_argument("--raw-data-dir", default="raw_data", help="improve-examples 使用的 raw_data 目录")
     loop_parser.add_argument("--workers", type=int, default=None, help="生成阶段并行数（DeepSeek/API 默认 10，本地 8，Kimi 10）")
     loop_parser.add_argument("--parallel", type=int, default=20, help="评估阶段 InceptBench 并行数（默认 20）")
@@ -681,6 +698,7 @@ def main():
     multi_parser.add_argument("--examples", default="processed_training_data/examples.json", help="few-shot 示例路径（多模型共用，每轮更新）")
     multi_parser.add_argument("--pass-rate-target", type=float, default=95.0, help="通过率目标（百分数）；设为 0 表示不设目标，跑满 --max-rounds 取最终/最高通过率")
     multi_parser.add_argument("--max-rounds", type=int, default=10, help="每个模型最大循环轮数")
+    multi_parser.add_argument("--patience", type=int, default=5, help="连续 N 轮未刷新最佳通过率则提前终止（0=不启用，默认 5）")
     multi_parser.add_argument("--raw-data-dir", default="raw_data", help="improve-examples 使用的 raw_data 目录")
     multi_parser.add_argument("--workers", type=int, default=None, help="生成阶段并行数")
     multi_parser.add_argument("--parallel", type=int, default=20, help="评估阶段并行数（默认 20）")
@@ -923,7 +941,7 @@ def main():
                 question_data = json.load(f)
             items = question_data if isinstance(question_data, list) else [question_data]
             timeout = getattr(args, "timeout", 180)
-            parallel = getattr(args, "parallel", 20)
+            parallel = getattr(args, "parallel", 25)
 
             if len(items) == 1:
                 # 单题：一次提交
@@ -950,10 +968,76 @@ def main():
                 print(f"[评估] {n_total} 题，每次 1 题，{parallel} 并行，超时 {timeout}s/题", flush=True)
                 evaluator = InceptBenchEvaluator(timeout=timeout)
 
+                def _brief_reason(result_dict):
+                    """从 InceptBench 返回中提取简短的低分/错误原因"""
+                    if result_dict.get("status") == "error":
+                        msg = str(result_dict.get("message", ""))
+                        if "timeout" in msg.lower() or "timed out" in msg.lower():
+                            return "API超时"
+                        if "429" in msg:
+                            return "限流"
+                        if any(c in msg for c in ("500", "502", "503", "504")):
+                            return "服务端错误"
+                        return msg[:40]
+                    evals = result_dict.get("evaluations", {})
+                    for ev in evals.values():
+                        inc = ev.get("inceptbench_new_evaluation", {})
+                        reasoning = str((inc.get("overall") or {}).get("reasoning", ""))
+                        if not reasoning:
+                            reasoning = str((ev.get("overall") or {}).get("reasoning", ""))
+                        if not reasoning:
+                            break
+                        r_lower = reasoning.lower()
+                        reasons = []
+                        if any(k in r_lower for k in ("distract", "option", "implaus", "answer choice")):
+                            reasons.append("选项区分度")
+                        if any(k in r_lower for k in ("explanation", "rationale")):
+                            reasons.append("解释不足")
+                        if any(k in r_lower for k in ("alignment", "standard", "curriculum", "does not align")):
+                            reasons.append("标准对齐")
+                        if any(k in r_lower for k in ("unclear", "confus", "ambig", "grammar", "ungrammat")):
+                            reasons.append("表述不清")
+                        if any(k in r_lower for k in ("mislabel", "difficulty level", "too easy", "too hard")):
+                            reasons.append("难度偏差")
+                        if any(k in r_lower for k in ("missing", "lack", "absent", "do not exist")):
+                            reasons.append("缺少内容")
+                        return "|".join(reasons) if reasons else reasoning[:40]
+                    return ""
+
+                def _is_timeout_error(result):
+                    if result.get("status") != "error":
+                        return False
+                    msg = str(result.get("message", "")).lower()
+                    return any(k in msg for k in ("timeout", "timed out"))
+
                 def _eval_one(idx_item):
                     idx, item = idx_item
                     t0 = time.time()
+                    retry_info = ""
                     r = evaluator.evaluate_mcq(item)
+
+                    if _is_timeout_error(r):
+                        for attempt in range(2, 4):
+                            time.sleep(10)
+                            r = evaluator.evaluate_mcq(item)
+                            if not _is_timeout_error(r):
+                                retry_info = f"→重评{attempt}次成功"
+                                break
+                        else:
+                            retry_info = "API超时 3 次"
+                    else:
+                        s = r.get("overall_score")
+                        if isinstance(s, (int, float)) and float(s) == 0.0:
+                            time.sleep(5)
+                            r2 = evaluator.evaluate_mcq(item)
+                            s2 = r2.get("overall_score")
+                            if isinstance(s2, (int, float)) and float(s2) > 0:
+                                r = r2
+                                retry_info = "→重评成功"
+                            else:
+                                retry_info = "→重评仍0分"
+
+                    r["_retry_info"] = retry_info
                     return idx, r, time.time() - t0
 
                 results_by_idx = {}
@@ -980,15 +1064,29 @@ def main():
                             progress = f"{done:>3}/{n_total}"
                             label = f"题{i_actual+1:>3} ({std}, {diff})".ljust(label_width)
                             dur_str = f"  {elapsed:.1f}s"
+                            retry_info = r.pop("_retry_info", "")
                             if isinstance(s, (int, float)):
                                 sf = float(s)
                                 status = f"score={sf:.2f}"
                                 if sf < 0.85:
-                                    status += "  X"
+                                    reason = _brief_reason(r)
+                                    parts = []
+                                    if reason:
+                                        parts.append(reason)
+                                    if retry_info:
+                                        parts.append(retry_info)
+                                    tag = "  [" + "|".join(parts) + "]" if parts else ""
+                                    status += f"  X{tag}"
+                                elif retry_info:
+                                    status += f"  [{retry_info}]"
                                 print(f"[评估] [{progress}] {label}: {status}{dur_str}", flush=True)
                             else:
-                                err_reason = _extract_error_reason(r)
-                                status = "error (原因: " + (err_reason[:150] if err_reason else "未知") + ")"
+                                if retry_info == "API超时 3 次":
+                                    status = f"error [{retry_info}]"
+                                else:
+                                    err_reason = _extract_error_reason(r)
+                                    tag = f"  [{retry_info}]" if retry_info else ""
+                                    status = "error (原因: " + (err_reason[:150] if err_reason else "未知") + f"){tag}"
                                 print(f"[评估] [{progress}] {label}: {status}{dur_str}", flush=True)
                                 if not err_reason:
                                     # 无明确错误信息时打印原始响应摘要便于排查

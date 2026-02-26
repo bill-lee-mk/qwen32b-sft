@@ -115,6 +115,9 @@ def collect_batch_high_scorers(
     return dict(by_key)
 
 
+FALLBACK_MIN_SCORE = 0.85
+
+
 def collect_batch_best_fallback(
     results_path: str,
     mcqs_path: str,
@@ -122,7 +125,8 @@ def collect_batch_best_fallback(
 ) -> dict[tuple[str, str], list[tuple[dict, float]]]:
     """
     当 raw_data 与本批均无 ≥0.85 候选时：从本批中取该 (standard,difficulty) 得分最高的题
-    构造成一条示例（即使分数 < 0.85），作为「构造示例」补入，避免该组合完全无示例。
+    构造成一条 fallback 示例。只有分数 >= FALLBACK_MIN_SCORE 的题才有资格作为示例，
+    避免低质量题污染 prompt。
     返回 key -> [(example_dict, score), ...]，每个 key 至多 1 条。
     """
     with open(results_path, "r", encoding="utf-8") as f:
@@ -158,10 +162,13 @@ def collect_batch_best_fallback(
         mcq_norm["difficulty"] = diff
         example = {"user_prompt": user_prompt, "mcq_json": mcq_norm}
         by_key[key].append((example, s))
-    for key in by_key:
-        by_key[key].sort(key=lambda x: -x[1])
-        by_key[key] = by_key[key][:1]
-    return dict(by_key)
+    filtered: dict[tuple[str, str], list[tuple[dict, float]]] = {}
+    for key, lst in by_key.items():
+        lst.sort(key=lambda x: -x[1])
+        best = lst[0] if lst else None
+        if best and best[1] >= FALLBACK_MIN_SCORE:
+            filtered[key] = [best]
+    return filtered
 
 
 def extract_failed_standard_difficulty(
@@ -457,10 +464,11 @@ def run(
         constructed = collect_batch_best_fallback(results_path, mcqs_path, no_pass)
         for k, lst in constructed.items():
             kept_by_key[k].extend([ex for ex, _ in lst])
+        skipped = len(no_pass) - len(constructed)
         if constructed:
-            print(f"未找到达标候选的组合中，已用本批最高分构造示例: {len(constructed)} 个", flush=True)
-        for k in no_pass - set(constructed.keys()):
-            print(f"  组合 {_fmt_key(k)} 本批无题目，无法构造示例", flush=True)
+            print(f"未找到达标候选的组合中，已用本批最高分(≥{FALLBACK_MIN_SCORE})构造示例: {len(constructed)} 个", flush=True)
+        if skipped > 0:
+            print(f"  跳过 {skipped} 个组合（最高分 < {FALLBACK_MIN_SCORE}，不作为示例以免污染 prompt）", flush=True)
 
     # 加载现有 examples，用新达标项替换失败组合的示例
     examples_path = Path(examples_output)

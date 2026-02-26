@@ -320,13 +320,11 @@ class InceptBenchEvaluator:
     def evaluate_mcq(
         self,
         question_data: Dict[str, Any] | List[Dict[str, Any]],
+        max_retries: int = 2,
     ) -> Dict[str, Any]:
         """
         评估 MCQ（支持单个或批量）。
-        当主配置返回错误时，自动尝试第二套 EVALUATOR_TOKEN（URL 固定）。
-
-        输入: 我们的 MCQ 格式，单个 dict 或 dict 列表
-        输出: API 返回的评估结果
+        超时/服务端错误自动重试 max_retries 次（每次切换端点）。
         """
         if not self.endpoints:
             return {
@@ -338,14 +336,25 @@ class InceptBenchEvaluator:
         payload = to_inceptbench_payload(question_data)
         last_err: Dict[str, Any] = {}
 
-        for idx, (url, token) in enumerate(self.endpoints):
-            result = _do_evaluate_catch(url, token, payload, self.timeout)
-            if result.get("status") == "error":
+        for attempt in range(max_retries + 1):
+            for idx, (url, token) in enumerate(self.endpoints):
+                result = _do_evaluate_catch(url, token, payload, self.timeout)
+                if result.get("status") != "error":
+                    return result
                 last_err = result
+                msg = str(result.get("message", "")).lower()
+                is_retryable = any(k in msg for k in ("timeout", "timed out", "connection", "502", "503", "504"))
+                if is_retryable:
+                    if attempt < max_retries:
+                        import time as _time
+                        wait = min(10 * (attempt + 1), 30)
+                        _time.sleep(wait)
+                        break  # break endpoint loop → retry from first endpoint
+                    return last_err
                 if idx < len(self.endpoints) - 1:
-                    # 无缝切换至备用端点
                     continue
                 return last_err
-            return result
+            else:
+                return last_err
 
         return last_err
