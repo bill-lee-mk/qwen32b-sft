@@ -12,7 +12,7 @@ import os
 import json
 from typing import Dict, Any, Optional, List, Tuple
 
-_PRIMARY_URL = "https://inceptbench.api.inceptlabs.ai/2.3.0/evaluate"
+_PRIMARY_URL = "https://inceptbench.api.inceptlabs.ai/2.3.3/evaluate"
 _EVALUATOR_FALLBACK_URL = "https://api.inceptbench.com/evaluate"
 
 

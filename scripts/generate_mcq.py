@@ -151,6 +151,42 @@ FIREWORKS_MODEL_MAP = {
     "qwen3-235b":        "accounts/fireworks/models/qwen3-235b-a22b",   # Qwen3 235B（Qwen3.5 暂未上线 Fireworks）
 }
 
+# Fireworks 各模型定价 ($/百万 token): (cache_input, input, output)
+FIREWORKS_PRICING = {
+    "deepseek-r1":    (0.28, 0.56, 1.68),
+    "deepseek-v3.2":  (0.28, 0.56, 1.68),
+    "deepseek-v3.1":  (0.28, 0.56, 1.68),
+    "kimi-k2.5":      (0.30, 0.60, 3.00),
+    "kimi-k2":        (0.30, 0.60, 3.00),
+    "glm-5":          (0.50, 1.00, 3.20),
+    "gpt-oss-120b":   (0.075, 0.15, 0.60),
+    "qwen3-235b":     (0.45, 0.90, 0.90),
+}
+
+
+def _estimate_cost(provider: str, model: str, hit: int, miss: int, out: int) -> tuple[float, str]:
+    """
+    估算生成费用。返回 (cost_value, cost_str)。
+    Fireworks: USD per-model pricing; DeepSeek/Kimi 直连: CNY; 免费/本地: 0。
+    """
+    m = (model or "").strip().lower()
+    if provider == "fireworks":
+        short = m.replace("fw/", "")
+        p = FIREWORKS_PRICING.get(short, (0.28, 0.56, 1.68))
+        cost = (hit * p[0] + miss * p[1] + out * p[2]) / 1e6
+        return cost, f"${cost:.2f}" if cost > 0 else "$0"
+    if provider == "deepseek":
+        is_reasoner = "reasoner" in m
+        h_y, m_y = (1.0, 4.0) if is_reasoner else (0.5, 2.0)
+        o_y = 16.0 if is_reasoner else 8.0
+        cost = (hit * h_y + miss * m_y + out * o_y) / 1e6
+        return cost, f"¥{cost:.2f}" if cost > 0 else "¥0"
+    if provider == "kimi":
+        cost = (hit * 1.0 + miss * 4.0 + out * 16.0) / 1e6
+        return cost, f"¥{cost:.2f}" if cost > 0 else "¥0"
+    return 0.0, "$0"
+
+
 # Kimi (Moonshot) 官方 API：https://platform.moonshot.cn ，OpenAI 兼容，需配置 API Key
 KIMI_API_BASE = "https://api.moonshot.cn/v1"
 KIMI_MAX_CONCURRENCY = 50  # Tier1 并发 50
@@ -704,7 +740,7 @@ def main():
                     tok = ""
                     if usage:
                         pt = (usage.get("prompt_tokens") or 0) + (usage.get("completion_tokens") or 0)
-                        tok = f"  {pt}token"
+                        tok = f"  {pt} token"
                     if mcq:
                         results_by_index[i] = mcq
                         done += 1
@@ -729,52 +765,30 @@ def main():
             print(f"[生成] [校验] 激进修复后通过: {validated_stats['repaired']} 题")
         if validated_stats.get("constructed"):
             print(f"[生成] [校验] 未通过则构造最小合法题: {validated_stats['constructed']} 题（保持组合与总数一致）")
-        # 记录 token 用量并估算费用（DeepSeek/Kimi/OpenAI 等 OpenAI 兼容接口均返回 usage）
         if usage_agg["n_calls"] > 0 and provider in ("deepseek", "kimi", "fireworks", "openai"):
             hit = usage_agg["prompt_cache_hit_tokens"]
             miss = usage_agg["prompt_cache_miss_tokens"]
             out = usage_agg["completion_tokens"]
-            # 定价（元/百万 token）
-            if provider == "fireworks":
-                hit_yuan, miss_yuan, out_yuan = 2.0, 4.0, 12.0  # Fireworks DeepSeek: $0.56→≈¥4 入，$1.68→≈¥12 出
-            elif provider == "kimi":
-                hit_yuan, miss_yuan, out_yuan = 1.0, 4.0, 16.0
-            elif provider == "deepseek":
-                is_reasoner = "reasoner" in model.lower()
-                hit_yuan, miss_yuan = (0.5, 2.0) if not is_reasoner else (1.0, 4.0)
-                out_yuan = 16.0 if is_reasoner else 8.0
-            else:  # openai 等
-                hit_yuan, miss_yuan, out_yuan = 0, 0, 0  # 不估算，仅记录 token
-            cost_in = (hit * hit_yuan + miss * miss_yuan) / 1e6 if (hit_yuan or miss_yuan) else 0
-            cost_out = out * out_yuan / 1e6 if out_yuan else 0
             total_tok = usage_agg["prompt_tokens"] + usage_agg["completion_tokens"]
-            cost_str = f"，估算 ¥{cost_in + cost_out:.2f}" if (cost_in + cost_out) > 0 else ""
-            print(f"[生成] [用量] 本批 {n} 题总 token: {total_tok:,}（输入 {usage_agg['prompt_tokens']:,}，缓存命中 {hit:,}；输出 {out:,}）{cost_str}")
+            _, cost_str = _estimate_cost(provider, model, hit, miss, out)
+            cost_disp = f"  估算 {cost_str}" if cost_str not in ("$0", "¥0") else ""
+            print(f"[生成] [用量] 本批 {n} 题总 token: {total_tok:,}（输入 {usage_agg['prompt_tokens']:,}，缓存命中 {hit:,}；输出 {out:,}）{cost_disp}")
         # 由 --output 路径推导 usage 路径（mcqs_xxx.json -> log_xxx_usage.json），写入 evaluation_output 供闭环综合日志使用
         usage_out = str(args.output).replace("mcqs_", "log_", 1).replace(".json", "_usage.json") if args.output else None
         if usage_out:
             est_cost = 0.0
+            cost_display = "$0"
             if usage_agg["n_calls"] > 0 and provider in ("deepseek", "kimi", "fireworks", "openai"):
                 hit = usage_agg["prompt_cache_hit_tokens"]
                 miss = usage_agg["prompt_cache_miss_tokens"]
                 out = usage_agg["completion_tokens"]
-                if provider == "fireworks":
-                    hit_yuan, miss_yuan, out_yuan = 2.0, 4.0, 12.0
-                elif provider == "kimi":
-                    hit_yuan, miss_yuan, out_yuan = 1.0, 4.0, 16.0
-                elif provider == "deepseek":
-                    is_reasoner = "reasoner" in model.lower()
-                    hit_yuan, miss_yuan = (0.5, 2.0) if not is_reasoner else (1.0, 4.0)
-                    out_yuan = 16.0 if is_reasoner else 8.0
-                else:
-                    hit_yuan, miss_yuan, out_yuan = 0, 0, 0
-                est_cost = (hit * hit_yuan + miss * miss_yuan) / 1e6 + out * out_yuan / 1e6
+                est_cost, cost_display = _estimate_cost(provider, model, hit, miss, out)
             token_out = {
                 "prompt_tokens": usage_agg["prompt_tokens"],
                 "completion_tokens": usage_agg["completion_tokens"],
                 "prompt_cache_hit_tokens": usage_agg["prompt_cache_hit_tokens"],
                 "prompt_cache_miss_tokens": usage_agg["prompt_cache_miss_tokens"],
-                "estimated_cost_cny": round(est_cost, 3),
+                "estimated_cost": cost_display,
             }
             generation = [g for g in generation_details if g is not None]
             usage_data = {"usage_agg": token_out, "generation": generation}

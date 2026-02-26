@@ -146,8 +146,30 @@ def _run_closed_loop_one_model(project_root, model, args, use_model_specific_pat
         with open(progress_path, "w", encoding="utf-8") as f:
             json.dump(prog, f, indent=2, ensure_ascii=False)
 
+    def _calc_total_cost() -> str:
+        """汇总所有轮次的费用"""
+        usd_total, cny_total = 0.0, 0.0
+        for rd in rounds_data:
+            cs = rd.get("summary", {}).get("token", {}).get("estimated_cost", "$0")
+            if cs.startswith("$"):
+                try: usd_total += float(cs[1:])
+                except ValueError: pass
+            elif cs.startswith("¥"):
+                try: cny_total += float(cs[1:])
+                except ValueError: pass
+        parts = []
+        if usd_total > 0:
+            parts.append(f"${usd_total:.2f}")
+        if cny_total > 0:
+            parts.append(f"¥{cny_total:.2f}")
+        return " + ".join(parts) if parts else "$0"
+
     def _print_summary():
         rel_progress = os.path.relpath(progress_path, project_root)
+        total_s = time.time() - total_start
+        t_h, t_m = int(total_s // 3600), int((total_s % 3600) // 60)
+        elapsed_str = f"{t_h}h {t_m}m" if t_h > 0 else f"{t_m}m"
+        cost_str = _calc_total_cost()
         _log("\n" + "=" * 60)
         _log("闭环汇总（可随时查看 " + rel_progress + "）")
         _log("=" * 60)
@@ -155,6 +177,8 @@ def _run_closed_loop_one_model(project_root, model, args, use_model_specific_pat
         _log(f"当前轮次: {result.get('round_reached', 0)}")
         _log(f"本轮通过率: {result.get('final_pass_rate')}%")
         _log(f"历史最高: {result.get('best_pass_rate')}% @ 第{result.get('best_round', 0)}轮")
+        _log(f"总耗时: {elapsed_str}")
+        _log(f"总估算费用: {cost_str}")
         if current_best_mcqs_path and current_best_results_path:
             rel_best_m = os.path.relpath(current_best_mcqs_path, project_root)
             rel_best_r = os.path.relpath(current_best_results_path, project_root)
@@ -286,29 +310,31 @@ def _run_closed_loop_one_model(project_root, model, args, use_model_specific_pat
                 n_error = n_submitted - n_valid
                 if n_error:
                     _log(f"  无分数题: {n_error} 题")
-                _log(f"  通过率(>=0.85): {pass_count}/{n_valid} ({pass_rate:.1f}%)（总提交 {n_submitted}）" + (f"  历史最高: {best_pass_rate_seen:.1f}% @ 第{best_round_seen}轮" if best_round_seen != round_num else ""))
-                _write_progress(round_num, round(pass_rate, 2), best_round_seen, round(best_pass_rate_seen, 2), mcqs_path, results_path)
-                # 收集本轮数据供综合 JSON 日志
+                round_elapsed_s = time.time() - round_start
+                round_elapsed_min = round(round_elapsed_s / 60, 1)
                 token_obj = gen_usage.get("usage_agg", {})
                 if not token_obj and gen_usage.get("usage_agg"):
                     token_obj = gen_usage["usage_agg"]
+                round_cost_str = token_obj.get("estimated_cost", "$0")
+                cost_disp = f"  估算: {round_cost_str}" if round_cost_str not in ("$0", "¥0") else ""
+                _log(f"  通过率(>=0.85): {pass_count}/{n_valid} ({pass_rate:.1f}%)（总提交 {n_submitted}）  本轮耗时: {round_elapsed_min}min{cost_disp}" + (f"  历史最高: {best_pass_rate_seen:.1f}% @ 第{best_round_seen}轮" if best_round_seen != round_num else ""))
+                _write_progress(round_num, round(pass_rate, 2), best_round_seen, round(best_pass_rate_seen, 2), mcqs_path, results_path)
                 total_tokens = (token_obj.get("prompt_tokens", 0) or 0) + (token_obj.get("completion_tokens", 0) or 0)
                 avg_tokens = round(total_tokens / n_valid, 1) if n_valid and total_tokens else 0
                 evaluation_list = out_data.get("evaluation_details", [])
-                round_elapsed_s = round(time.time() - round_start, 1)
                 round_entry = {
                     "round": round_num,
                     "summary": {
                         "pass_rate": round(pass_rate, 2),
                         "pass_count": pass_count,
                         "n_valid": n_valid,
-                        "round_elapsed_s": round_elapsed_s,
+                        "round_elapsed_min": round_elapsed_min,
                         "token": {
                             "prompt_tokens": token_obj.get("prompt_tokens", 0),
                             "completion_tokens": token_obj.get("completion_tokens", 0),
                             "prompt_cache_hit_tokens": token_obj.get("prompt_cache_hit_tokens", 0),
                             "prompt_cache_miss_tokens": token_obj.get("prompt_cache_miss_tokens", 0),
-                            "estimated_cost_cny": token_obj.get("estimated_cost_cny", 0),
+                            "estimated_cost": round_cost_str,
                         },
                         "average_tokens_per_question": avg_tokens,
                     },
@@ -445,20 +471,21 @@ def _run_closed_loop_one_model(project_root, model, args, use_model_specific_pat
                             total_tokens = (token_obj.get("prompt_tokens", 0) or 0) + (token_obj.get("completion_tokens", 0) or 0)
                             avg_tokens = round(total_tokens / n_valid, 1) if n_valid and total_tokens else 0
                             evaluation_list = out_data.get("evaluation_details", [])
-                            round_elapsed_s = round(time.time() - round_start, 1)
+                            round_elapsed_s = time.time() - round_start
+                            round_elapsed_min = round(round_elapsed_s / 60, 1)
                             round_entry = {
                                 "round": "full",
                                 "summary": {
                                     "pass_rate": round(pass_rate, 2),
                                     "pass_count": pass_count,
                                     "n_valid": n_valid,
-                                    "round_elapsed_s": round_elapsed_s,
+                                    "round_elapsed_min": round_elapsed_min,
                                     "token": {
                                         "prompt_tokens": token_obj.get("prompt_tokens", 0),
                                         "completion_tokens": token_obj.get("completion_tokens", 0),
                                         "prompt_cache_hit_tokens": token_obj.get("prompt_cache_hit_tokens", 0),
                                         "prompt_cache_miss_tokens": token_obj.get("prompt_cache_miss_tokens", 0),
-                                        "estimated_cost_cny": token_obj.get("estimated_cost_cny", 0),
+                                        "estimated_cost": token_obj.get("estimated_cost", "$0"),
                                     },
                                     "average_tokens_per_question": avg_tokens,
                                 },
@@ -489,9 +516,13 @@ def _run_closed_loop_one_model(project_root, model, args, use_model_specific_pat
         # 写入综合 JSON 日志
         if rounds_data:
             avg_pass = sum(r["summary"]["pass_rate"] for r in rounds_data) / len(rounds_data)
-            total_elapsed_s = round(time.time() - total_start, 1)
+            total_elapsed_s = time.time() - total_start
+            total_h = int(total_elapsed_s // 3600)
+            total_m = int((total_elapsed_s % 3600) // 60)
+            total_elapsed = f"{total_h}h {total_m}m" if total_h > 0 else f"{total_m}m"
             best_m = os.path.relpath(current_best_mcqs_path, project_root) if current_best_mcqs_path and use_default_paths else (current_best_mcqs_path or "")
             best_r = os.path.relpath(current_best_results_path, project_root) if current_best_results_path and use_default_paths else (current_best_results_path or "")
+            total_cost_str = _calc_total_cost()
             log_payload = {
                 "summary": {
                     "model": model,
@@ -501,7 +532,8 @@ def _run_closed_loop_one_model(project_root, model, args, use_model_specific_pat
                     "best_round": result.get("best_round"),
                     "best_mcqs_path": best_m,
                     "best_results_path": best_r,
-                    "total_elapsed_s": total_elapsed_s,
+                    "total_elapsed": total_elapsed,
+                    "total_estimated_cost": total_cost_str,
                 },
                 "rounds": rounds_data,
             }

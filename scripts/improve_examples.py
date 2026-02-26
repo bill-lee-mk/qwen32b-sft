@@ -454,10 +454,9 @@ def run(
     print(f"实际评估: {done_total[0]} 条（提前停止节约 {saved} 条）", flush=True)
     no_pass = failed - set(kept_by_key.keys())
     if no_pass:
-        # 原始数据与本批均无 ≥threshold 候选时：用本批该组合最高分题构造一条示例（即使 < 0.85）
         constructed = collect_batch_best_fallback(results_path, mcqs_path, no_pass)
         for k, lst in constructed.items():
-            kept_by_key[k].extend(lst)
+            kept_by_key[k].extend([ex for ex, _ in lst])
         if constructed:
             print(f"未找到达标候选的组合中，已用本批最高分构造示例: {len(constructed)} 个", flush=True)
         for k in no_pass - set(constructed.keys()):
