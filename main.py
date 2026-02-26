@@ -1026,16 +1026,23 @@ def main():
                         else:
                             retry_info = "API超时 3 次"
                     else:
+                        is_server_err = (r.get("status") == "error")
                         s = r.get("overall_score")
-                        if isinstance(s, (int, float)) and float(s) == 0.0:
+                        need_retry = is_server_err or (isinstance(s, (int, float)) and float(s) == 0.0)
+                        if need_retry:
                             time.sleep(5)
                             r2 = evaluator.evaluate_mcq(item)
                             s2 = r2.get("overall_score")
-                            if isinstance(s2, (int, float)) and float(s2) > 0:
+                            if r2.get("status") == "error":
+                                if is_server_err:
+                                    retry_info = "服务端错误(重评失败)"
+                                else:
+                                    retry_info = "→重评失败(服务端错误)"
+                            elif isinstance(s2, (int, float)) and float(s2) > 0:
                                 r = r2
-                                retry_info = "→重评成功"
+                                retry_info = "→重评成功" if not is_server_err else "服务端错误→重评成功"
                             else:
-                                retry_info = "→重评仍0分"
+                                retry_info = "→重评仍0分" if not is_server_err else "服务端错误(重评仍0分)"
 
                     r["_retry_info"] = retry_info
                     return idx, r, time.time() - t0
@@ -1083,6 +1090,7 @@ def main():
                             else:
                                 if retry_info == "API超时 3 次":
                                     status = f"error [{retry_info}]"
+                                    err_reason = "timeout"
                                 else:
                                     err_reason = _extract_error_reason(r)
                                     tag = f"  [{retry_info}]" if retry_info else ""
