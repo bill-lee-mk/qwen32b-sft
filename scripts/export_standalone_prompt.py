@@ -26,7 +26,7 @@ def main():
     parser.add_argument("--output", default="evaluation_output/prompt_bundle.json")
     parser.add_argument("--examples", default=None)
     parser.add_argument("--prompt-rules", default=None)
-    parser.add_argument("--grade", default="3", help="年级（K, 1-12, AP, HS, SAT）")
+    parser.add_argument("--grade", default="3", help="年级（1-12）")
     parser.add_argument("--subject", default="ELA", help="学科缩写（ELA, MATH, SCI, USHIST 等）")
     args = parser.parse_args()
 

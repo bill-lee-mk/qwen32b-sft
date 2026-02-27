@@ -25,6 +25,16 @@ _DEFAULT_MCQS = "evaluation_output/mcqs_237.json"
 _DEFAULT_RESULTS = "evaluation_output/results_237.json"
 
 
+def _count_json_items(path: str) -> int:
+    """快速计算 JSON 数组文件的元素数量。"""
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        return len(data) if isinstance(data, list) else 0
+    except Exception:
+        return 0
+
+
 def _run_closed_loop_one_model(project_root, model, args, use_model_specific_paths=False, run_id=None):
     """
     对单个模型跑闭环：生成 → 评估 → 未达标则补示例/改 prompt → 重复至达标或达最大轮数。
@@ -60,19 +70,28 @@ def _run_closed_loop_one_model(project_root, model, args, use_model_specific_pat
     if use_model_specific_paths:
         examples_path = os.path.join(project_root, "processed_training_data", f"{scope_prefix}examples_{model_slug}{run_suffix}.json")
         prompt_rules_path = os.path.join(project_root, "processed_training_data", f"{scope_prefix}prompt_rules_{model_slug}{run_suffix}.json")
-        _default_examples = os.path.join(project_root, "processed_training_data", "examples.json")
-        _default_rules = os.path.join(project_root, "processed_training_data", "prompt_rules.json")
-        if not os.path.exists(examples_path):
-            if os.path.exists(_default_examples) and grade == "3" and subject == "ELA":
-                shutil.copy2(_default_examples, examples_path)
+        _seed_examples = os.path.join(project_root, "processed_training_data", f"{scope_prefix}examples.json")
+        _seed_rules = os.path.join(project_root, "processed_training_data", f"{scope_prefix}prompt_rules.json")
+        _legacy_examples = os.path.join(project_root, "processed_training_data", "examples.json")
+        _legacy_rules = os.path.join(project_root, "processed_training_data", "prompt_rules.json")
+        _examples_missing = not os.path.exists(examples_path) or _count_json_items(examples_path) == 0
+        if _examples_missing:
+            if os.path.exists(_seed_examples) and _count_json_items(_seed_examples) > 0:
+                shutil.copy2(_seed_examples, examples_path)
+                print(f"  已加载 Grade {grade} {subject} 种子示例 ({_count_json_items(_seed_examples)} 条): {examples_path}", flush=True)
+            elif os.path.exists(_legacy_examples) and grade == "3" and subject == "ELA":
+                shutil.copy2(_legacy_examples, examples_path)
                 print(f"  已为模型 {model} 复制初始示例: {examples_path}", flush=True)
-            else:
+            elif not os.path.exists(examples_path):
                 with open(examples_path, "w", encoding="utf-8") as f:
                     json.dump([], f)
                 print(f"  已为 Grade {grade} {subject} 创建空示例: {examples_path}（冷启动）", flush=True)
         if not os.path.exists(prompt_rules_path):
-            if os.path.exists(_default_rules) and grade == "3" and subject == "ELA":
-                shutil.copy2(_default_rules, prompt_rules_path)
+            if os.path.exists(_seed_rules):
+                shutil.copy2(_seed_rules, prompt_rules_path)
+                print(f"  已加载 Grade {grade} {subject} 种子规则: {prompt_rules_path}", flush=True)
+            elif os.path.exists(_legacy_rules) and grade == "3" and subject == "ELA":
+                shutil.copy2(_legacy_rules, prompt_rules_path)
                 print(f"  已为模型 {model} 复制初始 prompt 规则: {prompt_rules_path}", flush=True)
             else:
                 with open(prompt_rules_path, "w", encoding="utf-8") as f:
@@ -687,7 +706,7 @@ def main():
     loop_parser.add_argument("--log-file", nargs="?", default=None, const=None, help="综合 JSON 日志路径；不传时用默认 evaluation_output/log_237_<model>.json；传路径则用该路径")
     loop_parser.add_argument("--run-id", default=None, help="运行批次 ID；指定后 examples/prompt_rules/mcqs/results 均加此后缀，不同批次互不覆盖（如 --run-id exp1）")
     loop_parser.add_argument("--pilot-batch", type=int, default=None, help="试水批量：先用小批量跑闭环积累范例和规则，最后自动全量生成（如 --pilot-batch 50 表示每轮试水 50 题）；不设则每轮全量")
-    loop_parser.add_argument("--grade", default="3", help="年级（K, 1-12, AP, HS, SAT），默认 3")
+    loop_parser.add_argument("--grade", default="3", help="年级（1-12），默认 3")
     loop_parser.add_argument("--subject", default="ELA", help="学科缩写（ELA, MATH, SCI, USHIST 等），默认 ELA")
 
     # 多模型闭环：对多个模型分别跑闭环，最后汇总各模型通过率并保存 JSON
@@ -706,7 +725,7 @@ def main():
     multi_parser.add_argument("--log-file", nargs="?", default=None, const=None, help="综合 JSON 日志路径；不传时用默认 log_237_<model>.json")
     multi_parser.add_argument("--run-id", default=None, help="运行批次 ID；指定后各模型 examples/prompt_rules/mcqs/results 均加此后缀，不同批次互不覆盖")
     multi_parser.add_argument("--pilot-batch", type=int, default=None, help="试水批量：先用小批量跑闭环积累范例和规则，最后自动全量生成（如 --pilot-batch 50）；不设则每轮全量")
-    multi_parser.add_argument("--grade", default="3", help="年级（K, 1-12, AP, HS, SAT），默认 3")
+    multi_parser.add_argument("--grade", default="3", help="年级（1-12），默认 3")
     multi_parser.add_argument("--subject", default="ELA", help="学科缩写（ELA, MATH, SCI, USHIST 等），默认 ELA")
 
     # 从失败组合改进 prompt 规则（全局 + 按 standard / (standard,difficulty)）

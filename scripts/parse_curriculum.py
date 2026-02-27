@@ -43,6 +43,8 @@ SUBJECT_ABBR = {
 # 缩写 → 全名（反向映射）
 ABBR_TO_SUBJECT = {v: k for k, v in SUBJECT_ABBR.items()}
 
+SKIP_GRADES = {"K", "AP", "HS", "SAT", "unknown"}
+
 
 def _infer_grade(course: str) -> str:
     """从 course 名推断 grade。"""
@@ -147,6 +149,8 @@ def parse_curriculum(raw_path: Path = RAW_PATH) -> dict:
     for block in blocks:
         parsed = _parse_block(block)
         if parsed:
+            if parsed["grade"] in SKIP_GRADES:
+                continue
             sid = parsed.pop("standard_id")
             if sid not in standards:
                 standards[sid] = parsed

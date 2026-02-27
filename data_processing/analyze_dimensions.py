@@ -219,10 +219,17 @@ def load_curriculum_meta() -> Dict:
     return {}
 
 
+GRADE_ALIASES: Dict[str, str] = {
+    "9":  "10",   # CCSS 9-10 band → stored as grade "10"
+    "12": "11",   # CCSS 11-12 band → stored as grade "11"
+}
+
+
 def validate_grade_subject(grade: str, subject: str) -> Optional[str]:
     """
     校验 (grade, subject) 组合是否有效。
     返回 None 表示有效，否则返回错误信息字符串。
+    支持年级别名（9→10, 12→11）。
     """
     meta = load_curriculum_meta()
     if not meta:
@@ -232,13 +239,14 @@ def validate_grade_subject(grade: str, subject: str) -> Optional[str]:
     combos_by_grade = meta.get("combos_by_grade", {})
     combos_by_subject = meta.get("combos_by_subject", {})
 
-    if grade not in valid_grades:
+    lookup_grade = GRADE_ALIASES.get(grade, grade)
+    if lookup_grade not in valid_grades:
         return (f"错误: grade '{grade}' 无效。\n"
                 f"可用的 grade 值: {', '.join(valid_grades)}")
     if subject not in valid_subjects:
         return (f"错误: subject '{subject}' 无效。\n"
                 f"可用的 subject 缩写: {', '.join(valid_subjects)}")
-    subjects_for_grade = combos_by_grade.get(grade, [])
+    subjects_for_grade = combos_by_grade.get(lookup_grade, [])
     if subject not in subjects_for_grade:
         grades_for_subject = combos_by_subject.get(subject, [])
         return (f"错误: Grade {grade} + {subject} 不是有效组合。\n"
@@ -277,6 +285,8 @@ def analyze_dimensions_from_curriculum(
     从 curriculum_standards.json 中获取指定 (grade, subject) 的维度分布。
     每个标准生成 easy/medium/hard 三个难度组合。
     返回与 analyze_dimensions() 兼容的格式。
+
+    grade 9 / 12 会自动映射到 10 / 11（CCSS 年级段共用标准）。
     """
     if not _CURRICULUM_STANDARDS_PATH.exists():
         return {
@@ -290,9 +300,10 @@ def analyze_dimensions_from_curriculum(
     with open(_CURRICULUM_STANDARDS_PATH, "r", encoding="utf-8") as f:
         all_standards = json.load(f)
 
+    lookup_grade = GRADE_ALIASES.get(grade, grade)
     matching = {
         sid: info for sid, info in all_standards.items()
-        if info.get("grade") == grade and info.get("subject_abbr") == subject
+        if info.get("grade") == lookup_grade and info.get("subject_abbr") == subject
     }
 
     difficulties = Counter()

@@ -574,11 +574,17 @@ def _generate_one(
             return (None, elapsed, None, usage)
         except Exception as e:
             err_str = str(e)
-            is_429 = "429" in err_str or "quota" in err_str.lower() or "rate" in err_str.lower()
+            is_overload = "no healthy upstream" in err_str.lower()
+            is_429 = "429" in err_str or "quota" in err_str.lower() or "rate" in err_str.lower() or is_overload
             if is_429 and attempt < max_retries - 1:
-                wait_s = KIMI_429_WAIT_SECONDS if provider == "kimi" else _parse_retry_seconds(err_str)
-                msg = _extract_kimi_429_message(err_str) if provider == "kimi" else err_str
-                print(f"  [429] {standard} {difficulty}: {msg}", flush=True)
+                if provider == "kimi":
+                    wait_s = KIMI_429_WAIT_SECONDS
+                elif provider == "fireworks" or is_overload:
+                    wait_s = 30 * (attempt + 1)  # 30s, 60s 指数退避
+                else:
+                    wait_s = _parse_retry_seconds(err_str)
+                msg = _extract_kimi_429_message(err_str) if provider == "kimi" else err_str[:120]
+                print(f"  [429] {standard} {difficulty}: {msg}  (等{wait_s}s后重试)", flush=True)
                 time.sleep(wait_s)
             else:
                 elapsed = time.time() - start
@@ -594,7 +600,7 @@ def main():
     parser.add_argument("--model", default="deepseek-chat", help="模型名：deepseek-chat / deepseek-reasoner / kimi-k2.5 / fw/deepseek-r1 / fw/kimi-k2.5（fw/ 前缀走 Fireworks）")
     parser.add_argument("--api-key", default=None, help="API Key（未设时按模型推断：DEEPSEEK_API_KEY / KIMI_API_KEY / FIREWORKS_API_KEY / OPENAI_API_KEY）")
     parser.add_argument("--examples", default=None, help="示例 JSON 路径，默认 processed_training_data/examples.json")
-    parser.add_argument("--grade", default="3", help="年级（K, 1-12, AP, HS, SAT）")
+    parser.add_argument("--grade", default="3", help="年级（1-12）")
     parser.add_argument("--subject", default="ELA", help="学科缩写（ELA, MATH, SCI, USHIST 等）")
     parser.add_argument("--standard", default="CCSS.ELA-LITERACY.L.3.1.E", help="标准 ID")
     parser.add_argument("--difficulty", default="medium", help="难度")
@@ -602,7 +608,7 @@ def main():
     parser.add_argument("--batch", type=int, default=1, help="生成条数（同参数重复）")
     parser.add_argument("--diverse", type=int, default=None, help="多样化生成 N 条，覆盖不同难度/标准")
     parser.add_argument("--all-combinations", action="store_true", help="遍历生成全部 (standard,difficulty) 组合（79 标准×3 难度=237 题）")
-    parser.add_argument("--workers", type=int, default=None, help="并行线程数（Fireworks 50、Kimi 50、DeepSeek-reasoner 20、DeepSeek-chat 30、Gemini 2、本地 8）")
+    parser.add_argument("--workers", type=int, default=None, help="并行线程数（Fireworks 50/kimi系20、Kimi 50、DeepSeek-reasoner 20、DeepSeek-chat 30、Gemini 2、本地 8）")
     parser.add_argument("--input-dir", default="raw_data", help="--diverse 时分析 raw_data 的目录")
     parser.add_argument("--include-think-chain", action="store_true", help="是否要求输出 <think>")
     args = parser.parse_args()
@@ -654,7 +660,11 @@ def main():
         workers = args.workers
         if workers is None:
             if provider == "fireworks":
-                workers = 50                               # Fireworks 企业账户，无硬性并发限制
+                fw_model = (model or "").lower()
+                if "kimi" in fw_model:
+                    workers = 35                           # Fireworks kimi 系列后端容量有限，35 并发防 429
+                else:
+                    workers = 50                           # 其他 Fireworks 模型 50 并发
             elif provider == "deepseek":
                 workers = 20 if "reasoner" in (model or "").lower() else 30  # DeepSeek 无硬性 RPM 限制
             elif provider == "kimi":
@@ -672,7 +682,7 @@ def main():
         if provider == "local":
             print("  提示: 本地默认 8 并发（8 卡机可保持队列）；单进程 serve-api 串行推理仅用 1–2 卡，若需用满 8 卡可起 8 个 serve-api 实例并做负载均衡")
         if provider == "fireworks":
-            print(f"  提示: Fireworks 企业账户，{workers} 并发；遇 429 可降低 --workers")
+            print(f"  提示: Fireworks {workers} 并发；遇 429 可降低 --workers")
         elif provider == "gemini" and workers > 2:
             print("  提示: Gemini 免费版约 5 次/分钟，建议 --workers 2；遇 429 会自动重试")
         elif provider == "kimi":
