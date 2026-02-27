@@ -47,7 +47,7 @@ SUBJECT="${SUBJECT:-ELA}"
 QTYPE="${QTYPE:-all}"           # 题型：all（默认，同时生成 mcq+msq+fill-in） / mcq / msq / fill-in
 N="${N:-50}"                    # 单轮模式：--diverse N 采样题数
 MODE="${MODE:-diverse}"         # 单轮模式：diverse / all
-WORKERS="${WORKERS:-50}"        # 并发线程数（Fireworks 企业账户默认 50）
+WORKERS="${WORKERS:-}"          # 并发线程数（空=按模型自动检测：kimi系20/其他Fireworks 50）
 ROUNDS="${ROUNDS:-1}"           # 1=单轮快速对比，>1=闭环改进轮数
 PILOT="${PILOT:-}"              # 闭环试水：先用小批量跑，最后全量（如 PILOT=50）
 PASS_TARGET="${PASS_TARGET:-0}" # 闭环目标通过率（0=不设目标，跑满 ROUNDS 轮）
@@ -75,7 +75,7 @@ else
     echo "  策略: 单轮采样 N=$N 题/年级 (--diverse $N)"
   fi
 fi
-echo "  并发: $WORKERS"
+echo "  并发: ${WORKERS:-自动检测}"
 echo "  输出: $OUTDIR/"
 echo "============================================================"
 
@@ -105,7 +105,7 @@ for MODEL in $MODELS; do
       if [ -n "$PILOT" ]; then
         LOOP_ARGS="$LOOP_ARGS --pilot-batch $PILOT"
       fi
-      if [ "$WORKERS" != "20" ]; then
+      if [ -n "$WORKERS" ]; then
         LOOP_ARGS="$LOOP_ARGS --workers $WORKERS"
       fi
 
@@ -151,7 +151,10 @@ for MODEL in $MODELS; do
       MCQS="$OUTDIR/mcqs_${TAG}.json"
       RESULT="$OUTDIR/results_${TAG}.json"
 
-      GEN_ARGS="--model $MODEL --grade $GRADE --subject $SUBJECT --type $QTYPE --workers $WORKERS --output $MCQS"
+      GEN_ARGS="--model $MODEL --grade $GRADE --subject $SUBJECT --type $QTYPE --output $MCQS"
+      if [ -n "$WORKERS" ]; then
+        GEN_ARGS="$GEN_ARGS --workers $WORKERS"
+      fi
       if [ "$MODE" = "all" ]; then
         GEN_ARGS="$GEN_ARGS --all-combinations"
       else

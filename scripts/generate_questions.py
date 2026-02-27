@@ -461,9 +461,29 @@ def parse_mcq(text: str, expected_type: str = "mcq") -> dict | None:
     return obj if ok else None
 
 
-def _filter_examples_for_standard_difficulty(examples: list, standard: str, difficulty: str) -> list:
-    """仅保留与当前 (standard, difficulty) 匹配的示例，避免 prompt 超出 64K 上下文"""
-    return [e for e in examples if e.get("standard") == standard and e.get("difficulty") == difficulty]
+def _filter_examples_for_standard_difficulty(
+    examples: list, standard: str, difficulty: str, question_type: str = "mcq", max_examples: int = 2,
+) -> list:
+    """按 (standard, difficulty, type) 多级 fallback 筛选示例，避免 prompt 过长。
+    优先级：同 standard+difficulty+type > 同 standard+type > 同 type+difficulty > 同 type"""
+    def _match(e, s=None, d=None, t=None):
+        if s and e.get("standard") != s: return False
+        if d and e.get("difficulty") != d: return False
+        et = e.get("type") or e.get("mcq_json", {}).get("type") or "mcq"
+        if t and et != t: return False
+        return True
+    qt = question_type.lower().strip() if question_type else "mcq"
+    for s, d, t in [
+        (standard, difficulty, qt),
+        (standard, None, qt),
+        (None, difficulty, qt),
+        (None, None, qt),
+    ]:
+        hits = [e for e in examples if _match(e, s, d, t)]
+        if hits:
+            hits.sort(key=lambda e: e.get("score", 0), reverse=True)
+            return hits[:max_examples]
+    return [e for e in examples if e.get("standard") == standard and e.get("difficulty") == difficulty][:max_examples]
 
 
 def _validate_and_keep_passing(results: list) -> tuple[list, dict]:
@@ -566,13 +586,14 @@ def _generate_one(
     grade: str = "3",
     subject: str = "ELA",
     index: int = 0,
-    max_retries: int = 3,
+    max_retries: int = 0,
     question_type: str = "mcq",
 ) -> tuple[dict | None, float, str | None, dict | None]:
-    """生成单条题目，供多线程调用。所有可重试错误（429/超时/网络/解析失败）均自动重试。
+    """生成单条题目，供多线程调用。
+    max_retries=0 表示无限重试直到成功（默认行为）；>0 时最多重试该次数。
     返回 (mcq_or_none, 耗时秒, 异常信息_or_None, usage_dict_or_None)。"""
     start = time.time()
-    filtered = _filter_examples_for_standard_difficulty(examples, standard, difficulty)
+    filtered = _filter_examples_for_standard_difficulty(examples, standard, difficulty, question_type=question_type)
     system, user = build_full_prompt(
         grade=grade,
         standard=standard,
@@ -584,7 +605,9 @@ def _generate_one(
     messages = [{"role": "system", "content": system}, {"role": "user", "content": user}]
     last_usage = None
     last_err = None
-    for attempt in range(max_retries):
+    attempt = 0
+    while True:
+        has_budget = (max_retries == 0) or (attempt < max_retries)
         try:
             usage = None
             if provider == "gemini":
@@ -613,46 +636,41 @@ def _generate_one(
                 out["subject"] = subject
                 out["difficulty"] = difficulty
                 out["id"] = f"diverse_{index:03d}"
+                if attempt > 0:
+                    print(f"  [OK] {standard} {difficulty} {question_type}: 第{attempt+1}次尝试成功 (耗时{elapsed:.0f}s)", flush=True)
                 return (out, elapsed, None, usage)
-            # API 返回成功但解析失败 → 可重试
-            if attempt < max_retries - 1:
-                wait_s = 5 * (attempt + 1)
-                print(f"  [解析失败] {standard} {difficulty}: 返回内容无法解析为{question_type}  (第{attempt+1}次，{wait_s}s后重试)", flush=True)
-                time.sleep(wait_s)
-                last_err = f"解析失败: 返回内容无法解析为{question_type}"
-            else:
-                last_err = f"解析失败: {max_retries}次均无法解析为{question_type}"
-                print(f"  [WARN] {standard} {difficulty}: {last_err}", flush=True)
+            wait_s = min(5 * (attempt + 1), 30)
+            print(f"  [解析失败] {standard} {difficulty}: 返回内容无法解析为{question_type}  (第{attempt+1}次，{wait_s}s后重试)", flush=True)
+            time.sleep(wait_s)
+            last_err = f"解析失败: 返回内容无法解析为{question_type}"
         except Exception as e:
             err_str = str(e)
             reason, retryable = _classify_error(err_str)
-            if retryable and attempt < max_retries - 1:
-                if reason == "429/限流":
-                    if provider == "kimi":
-                        wait_s = KIMI_429_WAIT_SECONDS
-                    elif provider == "fireworks":
-                        wait_s = 30 * (attempt + 1)
-                    else:
-                        wait_s = _parse_retry_seconds(err_str)
-                    msg = _extract_kimi_429_message(err_str) if provider == "kimi" else err_str[:120]
-                    print(f"  [429] {standard} {difficulty}: {msg}  (等{wait_s}s后重试)", flush=True)
-                elif reason == "上游不可用":
-                    wait_s = 30 * (attempt + 1)
-                    print(f"  [上游不可用] {standard} {difficulty}: (等{wait_s}s后重试)", flush=True)
-                else:
-                    wait_s = 10 * (attempt + 1)
-                    print(f"  [{reason}] {standard} {difficulty}: {err_str[:80]}  (第{attempt+1}次，{wait_s}s后重试)", flush=True)
-                time.sleep(wait_s)
-                last_err = f"{reason}: {err_str[:200]}"
-            else:
+            if not retryable and not has_budget:
                 elapsed = time.time() - start
-                if not retryable:
-                    print(f"  [WARN] {standard} {difficulty}: {reason}（不可重试）: {err_str[:100]}", flush=True)
-                else:
-                    print(f"  [WARN] {standard} {difficulty}: {reason}（{max_retries}次重试均失败）: {err_str[:100]}", flush=True)
+                print(f"  [FAIL] {standard} {difficulty}: {reason}（不可重试）: {err_str[:100]}", flush=True)
                 return (None, elapsed, f"{reason}: {err_str[:200]}", None)
-    elapsed = time.time() - start
-    return (None, elapsed, last_err, last_usage)
+            if reason == "429/限流":
+                if provider == "kimi":
+                    wait_s = KIMI_429_WAIT_SECONDS
+                elif provider == "fireworks":
+                    wait_s = min(30 * (attempt + 1), 120)
+                else:
+                    wait_s = _parse_retry_seconds(err_str)
+                msg = _extract_kimi_429_message(err_str) if provider == "kimi" else err_str[:120]
+                print(f"  [429] {standard} {difficulty}: {msg}  (第{attempt+1}次，等{wait_s}s后重试)", flush=True)
+            elif reason == "上游不可用":
+                wait_s = min(30 * (attempt + 1), 120)
+                print(f"  [上游不可用] {standard} {difficulty}: (第{attempt+1}次，等{wait_s}s后重试)", flush=True)
+            elif reason == "内容过滤":
+                wait_s = 5
+                print(f"  [内容过滤] {standard} {difficulty}: (第{attempt+1}次，{wait_s}s后重试)", flush=True)
+            else:
+                wait_s = min(10 * (attempt + 1), 60)
+                print(f"  [{reason}] {standard} {difficulty}: {err_str[:80]}  (第{attempt+1}次，{wait_s}s后重试)", flush=True)
+            time.sleep(wait_s)
+            last_err = f"{reason}: {err_str[:200]}"
+        attempt += 1
 
 
 def main():
@@ -732,7 +750,7 @@ def main():
             if provider == "fireworks":
                 fw_model = (model or "").lower()
                 if "kimi" in fw_model:
-                    workers = 35                           # Fireworks kimi 系列后端容量有限，35 并发防 429
+                    workers = 10                           # Fireworks kimi 系列后端容量极有限，10 并发防 429
                 else:
                     workers = 50                           # 其他 Fireworks 模型 50 并发
             elif provider == "deepseek":
@@ -789,9 +807,12 @@ def main():
         results_by_index = [None] * n
         generation_details = [None] * n  # 供 usage 文件写入（闭环综合日志使用）
         usage_agg = {"prompt_tokens": 0, "completion_tokens": 0, "prompt_cache_hit_tokens": 0, "prompt_cache_miss_tokens": 0, "n_calls": 0}
+        # 渐进启动：前 workers 个任务分批提交（间隔 ramp_delay），避免瞬间洪峰触发 429
+        ramp_delay = 1.0 if provider == "fireworks" and "kimi" in (model or "").lower() else 0.1
         with ThreadPoolExecutor(max_workers=workers) as ex:
-            futures = {
-                ex.submit(
+            futures = {}
+            for i, (s, d, qt) in enumerate(plan):
+                fut = ex.submit(
                     _generate_one,
                     standard=s,
                     difficulty=d,
@@ -803,9 +824,10 @@ def main():
                     subject=args.subject,
                     index=i,
                     question_type=qt,
-                ): (i, s, d, qt)
-                for i, (s, d, qt) in enumerate(plan)
-            }
+                )
+                futures[fut] = (i, s, d, qt)
+                if i < workers:
+                    time.sleep(ramp_delay)
             done = 0
             for fut in as_completed(futures):
                 i, s, d, qt = futures[fut]
@@ -886,7 +908,7 @@ def main():
     else:
         # 单参数模式（原有逻辑）；单题时 all 降级为 mcq
         single_type = "mcq" if question_type == "all" else question_type
-        filtered = _filter_examples_for_standard_difficulty(examples, args.standard, args.difficulty)
+        filtered = _filter_examples_for_standard_difficulty(examples, args.standard, args.difficulty, question_type=single_type)
         system, user = build_full_prompt(
             grade=args.grade,
             standard=args.standard,
