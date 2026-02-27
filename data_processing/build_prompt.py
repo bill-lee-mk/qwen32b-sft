@@ -105,6 +105,8 @@ def get_targeted_rules(standard: str, difficulty: str) -> List[str]:
     out.extend(by_key.get(key) or [])
     return out
 
+QUESTION_TYPES = ("mcq", "msq", "fill-in")
+
 MCQ_SCHEMA = """
 {
   "id": "唯一ID",
@@ -117,10 +119,38 @@ MCQ_SCHEMA = """
 }
 """
 
+MSQ_SCHEMA = """
+{
+  "id": "唯一ID",
+  "type": "msq",
+  "question": "题目文本（必须明确指示 'Select ALL that apply' 或 'Choose all correct answers'）",
+  "answer": "A,C（逗号分隔的所有正确选项字母，按字母顺序排列）",
+  "answer_options": {"A": "...", "B": "...", "C": "...", "D": "..."},
+  "answer_explanation": "解释为什么每个正确选项是对的，以及每个错误选项为什么不对",
+  "difficulty": "easy/medium/hard"
+}
+"""
 
-def build_system_prompt(grade: str = "3", subject: str = "ELA",
-                        include_think_chain: bool = False) -> str:
-    """构建 system prompt（支持任意 grade/subject）"""
+FILLIN_SCHEMA = """
+{
+  "id": "唯一ID",
+  "type": "fill-in",
+  "question": "题目文本（包含一个需要填入答案的空白，用 ______ 标记）",
+  "answer": "正确答案文本",
+  "acceptable_answers": ["正确答案的其他可接受写法（可选）"],
+  "answer_explanation": "正确答案解析",
+  "difficulty": "easy/medium/hard"
+}
+"""
+
+_SCHEMA_BY_TYPE = {
+    "mcq": MCQ_SCHEMA,
+    "msq": MSQ_SCHEMA,
+    "fill-in": FILLIN_SCHEMA,
+}
+
+
+def _build_system_prompt_mcq(grade: str, subject: str, include_think_chain: bool) -> str:
     base = f"""You are an expert K-12 {subject} MCQ designer for Alpha School, Grade {grade}.
 
 Your task: Generate one multiple-choice question (MCQ) that assesses the given standard at the specified difficulty.
@@ -153,13 +183,85 @@ Rules:
         base += "\n\n17. You may optionally include <think>...</think> before the JSON, but the output MUST end with a complete JSON object."
     else:
         base += "\n\n17. Output ONLY the JSON object."
+    return base
+
+
+def _build_system_prompt_msq(grade: str, subject: str, include_think_chain: bool) -> str:
+    base = f"""You are an expert K-12 {subject} question designer for Alpha School, Grade {grade}.
+
+Your task: Generate one multiple-select question (MSQ) that assesses the given standard at the specified difficulty. MSQ questions have MULTIPLE correct answers (2 or 3 out of 4 options).
+
+--- GLOBAL CONSTRAINTS (apply to every MSQ; violation causes validation failure) ---
+• Option uniqueness: All options must have different text. Duplicate option text will cause validation to fail.
+• Multi-answer wording: The stem MUST clearly indicate multiple answers are expected. Use phrases like "Select ALL that apply", "Choose all correct answers", or "Which of the following are correct? (Select all that apply)".
+• No unreferenced images: Do not reference images unless you provide image_url.
+Before outputting your JSON, do a final check: (1) all options have different text, (2) stem clearly indicates multiple selection, (3) answer field lists ALL correct options separated by commas.
+--- END GLOBAL CONSTRAINTS ---
+
+Rules:
+1. The question MUST directly assess the EXACT skill described in the standard.
+2. Difficulty must match the request (easy/medium/hard).
+3. Provide exactly 4 answer options (A, B, C, D). At least 2 and at most 3 must be correct.
+4. The "answer" field must list ALL correct option letters separated by commas in alphabetical order (e.g. "A,C" or "A,B,D").
+5. Distractors should be plausible but clearly incorrect when analyzed carefully.
+6. answer_explanation must explain why EACH correct option is right AND why each incorrect option is wrong.
+7. Return ONLY a valid JSON object. No markdown, no extra text."""
+    if include_think_chain:
+        base += "\n\n8. You may optionally include <think>...</think> before the JSON, but the output MUST end with a complete JSON object."
+    else:
+        base += "\n\n8. Output ONLY the JSON object."
+    return base
+
+
+def _build_system_prompt_fillin(grade: str, subject: str, include_think_chain: bool) -> str:
+    base = f"""You are an expert K-12 {subject} question designer for Alpha School, Grade {grade}.
+
+Your task: Generate one fill-in-the-blank question that assesses the given standard at the specified difficulty. Students must type the correct answer (no options provided).
+
+--- GLOBAL CONSTRAINTS (apply to every fill-in question; violation causes validation failure) ---
+• The question MUST contain a clear blank (use "______" to mark it) where the student types their answer.
+• The "answer" field must contain the single best correct answer text.
+• Optionally provide "acceptable_answers" array with alternative correct spellings, phrasings, or forms.
+• No unreferenced images: Do not reference images unless you provide image_url.
+Before outputting your JSON, do a final check: (1) question contains a blank, (2) answer is a reasonable text that fills the blank, (3) acceptable_answers covers common variations.
+--- END GLOBAL CONSTRAINTS ---
+
+Rules:
+1. The question MUST directly assess the EXACT skill described in the standard.
+2. Difficulty must match the request (easy/medium/hard).
+3. The blank should test a specific skill—avoid overly open-ended blanks with too many valid answers.
+4. The "answer" field contains the primary correct answer. Keep it concise (1-3 words typically).
+5. "acceptable_answers" should list reasonable alternative correct responses (e.g. different tenses, abbreviations, synonyms that are equally correct).
+6. answer_explanation must explain why the answer is correct and what skill it tests.
+7. Do NOT include answer_options (this is not a multiple-choice question).
+8. Return ONLY a valid JSON object. No markdown, no extra text."""
+    if include_think_chain:
+        base += "\n\n9. You may optionally include <think>...</think> before the JSON, but the output MUST end with a complete JSON object."
+    else:
+        base += "\n\n9. Output ONLY the JSON object."
+    return base
+
+
+def build_system_prompt(grade: str = "3", subject: str = "ELA",
+                        include_think_chain: bool = False,
+                        question_type: str = "mcq") -> str:
+    """构建 system prompt（支持任意 grade/subject/question_type）"""
+    qtype = question_type.lower().strip() if question_type else "mcq"
+    if qtype == "msq":
+        base = _build_system_prompt_msq(grade, subject, include_think_chain)
+    elif qtype == "fill-in":
+        base = _build_system_prompt_fillin(grade, subject, include_think_chain)
+    else:
+        base = _build_system_prompt_mcq(grade, subject, include_think_chain)
+
     global_rules = get_global_rules()
     if global_rules:
         base += "\n\n--- Dynamic global rules (from failure analysis) ---\n"
         for r in global_rules:
             base += f"• {r}\n"
         base += "--- END dynamic global rules ---"
-    base += f"\n\nOutput schema:\n{MCQ_SCHEMA.strip()}"
+    schema = _SCHEMA_BY_TYPE.get(qtype, MCQ_SCHEMA)
+    base += f"\n\nOutput schema:\n{schema.strip()}"
     return base
 
 
@@ -180,12 +282,25 @@ def build_examples_text(examples: List[Dict], include_think_chain: bool = False)
     return "\n\n---\n\n".join(parts) if parts else ""
 
 
-# 每次生成前必读的校验提醒（写入 user prompt，确保模型在输出前看到）
-_USER_VERIFICATION_REMINDER = (
-    "Before returning the JSON: verify (1) options A, B, C, and D all have different text—no duplicates; "
-    "(2) the stem uses singular wording (e.g. \"Which choice...\" or \"Which option...\"), not \"Which choices/options\"; "
-    "(3) do not say \"look at the picture\" or \"use the image\" unless you provide image_url."
-)
+_USER_VERIFICATION_REMINDER = {
+    "mcq": (
+        "Before returning the JSON: verify (1) options A, B, C, and D all have different text—no duplicates; "
+        "(2) the stem uses singular wording (e.g. \"Which choice...\" or \"Which option...\"), not \"Which choices/options\"; "
+        "(3) do not say \"look at the picture\" or \"use the image\" unless you provide image_url."
+    ),
+    "msq": (
+        "Before returning the JSON: verify (1) all options have different text—no duplicates; "
+        "(2) the stem clearly says \"Select ALL that apply\" or similar multi-select wording; "
+        "(3) the answer field lists ALL correct letters separated by commas in alphabetical order; "
+        "(4) at least 2 and at most 3 options are correct."
+    ),
+    "fill-in": (
+        "Before returning the JSON: verify (1) the question contains a clear blank (______); "
+        "(2) the answer is concise and directly fills the blank; "
+        "(3) acceptable_answers covers reasonable alternative correct responses; "
+        "(4) do NOT include answer_options (this is not multiple-choice)."
+    ),
+}
 
 
 def _build_curriculum_guidance(standard: str) -> str:
@@ -215,6 +330,13 @@ def _build_curriculum_guidance(standard: str) -> str:
     return "\n".join(parts)
 
 
+_TYPE_LABELS = {
+    "mcq": "MCQ (multiple-choice, single correct answer)",
+    "msq": "MSQ (multiple-select, 2-3 correct answers)",
+    "fill-in": "fill-in-the-blank (student types the answer)",
+}
+
+
 def build_user_prompt(
     grade: str = "3",
     standard: str = "CCSS.ELA-LITERACY.L.3.1.E",
@@ -222,18 +344,22 @@ def build_user_prompt(
     difficulty: str = "medium",
     subject: str = "ELA",
     targeted_rules: Optional[List[str]] = None,
+    question_type: str = "mcq",
 ) -> str:
     """构建 user prompt。targeted_rules 为针对该 (standard, difficulty) 的额外提醒。"""
+    qtype = question_type.lower().strip() if question_type else "mcq"
+    type_label = _TYPE_LABELS.get(qtype, _TYPE_LABELS["mcq"])
     desc = standard_description or ""
     desc_line = f"Description: {desc}\n" if desc else ""
-    text = f"""Generate one MCQ for Grade {grade} {subject}.
+    reminder = _USER_VERIFICATION_REMINDER.get(qtype, _USER_VERIFICATION_REMINDER["mcq"])
+    text = f"""Generate one {type_label} question for Grade {grade} {subject}.
 
 Standard: {standard}
 {desc_line}Difficulty: {difficulty}
 
 Return only the JSON object. The question MUST assess exactly the skill described above—not a related skill.
 
-{_USER_VERIFICATION_REMINDER}"""
+{reminder}"""
     curriculum_guidance = _build_curriculum_guidance(standard)
     if curriculum_guidance:
         text += "\n" + curriculum_guidance
@@ -254,13 +380,16 @@ def build_full_prompt(
     standard_description: Optional[str] = None,
     include_think_chain: bool = False,
     use_standard_descriptions: bool = True,
+    question_type: str = "mcq",
 ) -> tuple:
     """构建完整 prompt，返回 (system, user)。会注入全局规则与针对该 (standard, difficulty) 的规则。"""
+    qtype = question_type.lower().strip() if question_type else "mcq"
     desc = standard_description
     if desc is None and use_standard_descriptions:
         desc = get_standard_description(standard)
     system = build_system_prompt(grade=grade, subject=subject,
-                                include_think_chain=include_think_chain)
+                                include_think_chain=include_think_chain,
+                                question_type=qtype)
     targeted = get_targeted_rules(standard, difficulty)
     user = build_user_prompt(
         grade=grade,
@@ -269,8 +398,11 @@ def build_full_prompt(
         difficulty=difficulty,
         subject=subject,
         targeted_rules=targeted if targeted else None,
+        question_type=qtype,
     )
     if examples:
-        examples_text = build_examples_text(examples, include_think_chain=include_think_chain)
+        same_type = [e for e in examples if (e.get("mcq_json", {}).get("type") or "mcq") == qtype]
+        ex_to_use = same_type if same_type else examples
+        examples_text = build_examples_text(ex_to_use, include_think_chain=include_think_chain)
         system += f"\n\nHere are some examples:\n\n{examples_text}\n\n---\n\n"
     return system, user

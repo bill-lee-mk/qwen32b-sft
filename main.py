@@ -226,10 +226,12 @@ def _run_closed_loop_one_model(project_root, model, args, use_model_specific_pat
                 round_start = time.time()
                 grade = getattr(args, "grade", "3")
                 subject = getattr(args, "subject", "ELA")
+                qtype = getattr(args, "question_type", "all") or "all"
                 gen_mode = ["--diverse", str(pilot_batch)] if pilot_batch else ["--all-combinations"]
-                gen_cmd = [sys.executable, os.path.join(project_root, "scripts", "generate_mcq.py"),
+                gen_cmd = [sys.executable, os.path.join(project_root, "scripts", "generate_questions.py"),
                            "--model", model, *gen_mode, "--output", mcqs_path,
-                           "--examples", examples_path, "--grade", grade, "--subject", subject]
+                           "--examples", examples_path, "--grade", grade, "--subject", subject,
+                           "--type", qtype]
                 if getattr(args, "workers", None) is not None:
                     gen_cmd.extend(["--workers", str(args.workers)])
                 _log(f"  [1/4] 生成: {' '.join(gen_cmd)}")
@@ -245,7 +247,7 @@ def _run_closed_loop_one_model(project_root, model, args, use_model_specific_pat
                             except Exception:
                                 pass
                     return result
-                # 读取生成阶段的 usage 与 generation 明细（路径由 generate_mcq 按 --output 推导写入）
+                # 读取生成阶段的 usage 与 generation 明细（路径由 generate_questions 按 --output 推导写入）
                 usage_output_path = mcqs_path.replace("mcqs_", "log_", 1).replace(".json", "_usage.json")
                 gen_usage = {}
                 generation_list = []
@@ -427,10 +429,12 @@ def _run_closed_loop_one_model(project_root, model, args, use_model_specific_pat
                 results_path = f"{base_results}_full.json"
                 grade = getattr(args, "grade", "3")
                 subject = getattr(args, "subject", "ELA")
+                qtype = getattr(args, "question_type", "all") or "all"
                 _log(f"\n========== [{model}] 全量生成（基于 {pilot_rounds_done} 轮试水积累的范例） ==========")
-                gen_cmd = [sys.executable, os.path.join(project_root, "scripts", "generate_mcq.py"),
+                gen_cmd = [sys.executable, os.path.join(project_root, "scripts", "generate_questions.py"),
                            "--model", model, "--all-combinations", "--output", mcqs_path,
-                           "--examples", examples_path, "--grade", grade, "--subject", subject]
+                           "--examples", examples_path, "--grade", grade, "--subject", subject,
+                           "--type", qtype]
                 if getattr(args, "workers", None) is not None:
                     gen_cmd.extend(["--workers", str(args.workers)])
                 _log(f"  [1/2] 生成: {' '.join(gen_cmd)}")
@@ -708,6 +712,7 @@ def main():
     loop_parser.add_argument("--pilot-batch", type=int, default=None, help="试水批量：先用小批量跑闭环积累范例和规则，最后自动全量生成（如 --pilot-batch 50 表示每轮试水 50 题）；不设则每轮全量")
     loop_parser.add_argument("--grade", default="3", help="年级（1-12），默认 3")
     loop_parser.add_argument("--subject", default="ELA", help="学科缩写（ELA, MATH, SCI, USHIST 等），默认 ELA")
+    loop_parser.add_argument("--type", default="all", dest="question_type", help="题型：all / mcq / msq / fill-in（默认 all = 同时生成三种题型）")
 
     # 多模型闭环：对多个模型分别跑闭环，最后汇总各模型通过率并保存 JSON
     multi_parser = subparsers.add_parser("closed-loop-multi", help="多模型闭环：对多个模型分别跑闭环，汇总通过率并保存 JSON")
@@ -727,6 +732,7 @@ def main():
     multi_parser.add_argument("--pilot-batch", type=int, default=None, help="试水批量：先用小批量跑闭环积累范例和规则，最后自动全量生成（如 --pilot-batch 50）；不设则每轮全量")
     multi_parser.add_argument("--grade", default="3", help="年级（1-12），默认 3")
     multi_parser.add_argument("--subject", default="ELA", help="学科缩写（ELA, MATH, SCI, USHIST 等），默认 ELA")
+    multi_parser.add_argument("--type", default="all", dest="question_type", help="题型：all / mcq / msq / fill-in（默认 all = 同时生成三种题型）")
 
     # 从失败组合改进 prompt 规则（全局 + 按 standard / (standard,difficulty)）
     improve_prompt_parser = subparsers.add_parser("improve-prompt", help="从评估结果提取失败反馈，更新全局/针对性 prompt 规则")

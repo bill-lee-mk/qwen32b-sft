@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-生成 MCQ（generate_mcq）
+生成题目（generate_questions）
 
 用闭源 API（Gemini/OpenAI/DeepSeek）生成 MCQ。
 
@@ -10,12 +10,12 @@
   python main.py select-examples -n 5
 
   # 2. 生成 MCQ（单条，--model 指定具体模型，默认 deepseek-chat）
-  python scripts/generate_mcq.py --model deepseek-chat --output evaluation_output/mcqs.json
-  python scripts/generate_mcq.py --model kimi-latest --output evaluation_output/mcqs.json
+  python scripts/generate_questions.py --model deepseek-chat --output evaluation_output/mcqs.json
+  python scripts/generate_questions.py --model kimi-latest --output evaluation_output/mcqs.json
 
   # 3. 全组合生成（输出默认 evaluation_output/mcqs_237_<model>.json，79 标准×3 难度=237 题）
-  python scripts/generate_mcq.py --model deepseek-chat --all-combinations
-  python scripts/generate_mcq.py --model gemini-3-flash-preview --all-combinations --output evaluation_output/mcqs.json
+  python scripts/generate_questions.py --model deepseek-chat --all-combinations
+  python scripts/generate_questions.py --model gemini-3-flash-preview --all-combinations --output evaluation_output/mcqs.json
 """
 import argparse
 import json
@@ -363,15 +363,25 @@ def call_local(messages: list, base_url: str, model: str = "local") -> str:
     return (response.choices[0].message.content or "").strip()
 
 
-def _normalize_parsed_mcq(obj: dict) -> dict | None:
-    """将解析出的对象规范化为 MCQ 格式，兼容 kimi-k2.5 等模型的多种输出格式。"""
+def _normalize_parsed_mcq(obj: dict, expected_type: str = "mcq") -> dict | None:
+    """将解析出的对象规范化为题目格式，兼容 kimi-k2.5 等模型的多种输出格式。支持 mcq/msq/fill-in。"""
     if not isinstance(obj, dict):
         return None
     # 补全必填字段默认值
     if "type" not in obj:
-        obj["type"] = "mcq"
+        obj["type"] = expected_type
     if "id" not in obj and "question" in obj:
         obj["id"] = "parsed"
+    qtype = str(obj.get("type", "mcq")).lower().strip()
+
+    if qtype == "fill-in":
+        if "answer" not in obj and "correct_answer" in obj:
+            obj["answer"] = obj.pop("correct_answer", "")
+        if isinstance(obj.get("acceptable_answers"), str):
+            obj["acceptable_answers"] = [obj["acceptable_answers"]]
+        return obj
+
+    # MCQ / MSQ: 需要 answer_options
     # 兼容 answer_options 为 list 格式：[{key:"A", text:"..."}, ...]
     opts = obj.get("answer_options")
     if isinstance(opts, list):
@@ -391,11 +401,21 @@ def _normalize_parsed_mcq(obj: dict) -> dict | None:
         o = obj["options"]
         if isinstance(o, dict) and set(str(k).upper()[:1] for k in o) >= {"A", "B", "C", "D"}:
             obj["answer_options"] = {k: str(v) for k, v in o.items()}
+
+    # MSQ: normalize answer to sorted comma-separated letters
+    if qtype == "msq":
+        ans = obj.get("answer", "")
+        if isinstance(ans, list):
+            ans = ",".join(str(a).upper().strip() for a in ans)
+        elif isinstance(ans, str):
+            ans = ",".join(sorted(set(l.strip().upper() for l in ans.replace(" ", "").split(",") if l.strip())))
+        obj["answer"] = ans
+
     return obj
 
 
-def parse_mcq(text: str) -> dict | None:
-    """从模型回复中解析 MCQ JSON。支持 <think>、```json 等包裹，兼容多种输出格式。"""
+def parse_mcq(text: str, expected_type: str = "mcq") -> dict | None:
+    """从模型回复中解析题目 JSON。支持 <think>、```json 等包裹，兼容多种输出格式。支持 mcq/msq/fill-in。"""
     if not (text or "").strip():
         return None
     s = text.strip()
@@ -434,7 +454,7 @@ def parse_mcq(text: str) -> dict | None:
                 continue
     if not obj:
         return None
-    obj = _normalize_parsed_mcq(obj)
+    obj = _normalize_parsed_mcq(obj, expected_type=expected_type)
     if not obj:
         return None
     ok, _ = is_valid_mcq(obj)
@@ -474,9 +494,11 @@ def _validate_and_repair_keep_all(
     plan: list,
     grade: str = "3",
     subject: str = "ELA",
+    question_type: str = "mcq",
 ) -> tuple[list, dict]:
     """
-    与 plan 一一对应：results_by_index[i] 为第 i 个 (standard, difficulty) 的生成结果（可为 None）。
+    与 plan 一一对应：results_by_index[i] 为第 i 个组合的生成结果（可为 None）。
+    plan 条目可为 (standard, difficulty) 或 (standard, difficulty, qtype)。
     对未生成或校验不通过的题目进行修复或构造，保证输出题目数 = len(plan)，且每条通过校验。
     返回 (题目列表, {"fixed": 修复后通过数, "repaired": 激进修复后通过数, "constructed": 构造的最小合法题数})
     """
@@ -487,10 +509,12 @@ def _validate_and_repair_keep_all(
     constructed_count = 0
     out = [None] * n
     for i in range(n):
-        standard, difficulty = plan[i]
+        item = plan[i]
+        standard, difficulty = item[0], item[1]
+        item_qtype = item[2] if len(item) >= 3 else question_type
         mcq = results_by_index[i]
         if mcq is None:
-            out[i] = build_minimal_valid_mcq(standard, difficulty, grade=grade, subject=subject, index=i)
+            out[i] = build_minimal_valid_mcq(standard, difficulty, grade=grade, subject=subject, index=i, question_type=item_qtype)
             constructed_count += 1
             continue
         had_issues = len(validate_mcq(mcq, i)) > 0
@@ -507,11 +531,29 @@ def _validate_and_repair_keep_all(
             out[i]["id"] = f"diverse_{i:03d}"
             repaired_count += 1
         else:
-            out[i] = build_minimal_valid_mcq(standard, difficulty, grade=grade, subject=subject, index=i)
+            out[i] = build_minimal_valid_mcq(standard, difficulty, grade=grade, subject=subject, index=i, question_type=item_qtype)
             constructed_count += 1
     for i in range(n):
         out[i]["id"] = f"diverse_{i:03d}"
     return out, {"fixed": fixed_count, "repaired": repaired_count, "constructed": constructed_count}
+
+
+def _classify_error(err_str: str) -> tuple[str, bool]:
+    """分类错误类型，返回 (简短原因, 是否可重试)。"""
+    low = err_str.lower()
+    if "429" in err_str or "quota" in low or "rate" in low or "too_many_requests" in low:
+        return "429/限流", True
+    if "no healthy upstream" in low:
+        return "上游不可用", True
+    if "timed out" in low or "timeout" in low or "deadline" in low:
+        return "请求超时", True
+    if "connection" in low and ("reset" in low or "refused" in low or "error" in low):
+        return "连接异常", True
+    if "500" in err_str or "502" in err_str or "503" in err_str or "internal" in low:
+        return "服务端错误", True
+    if "content_filter" in low or "content management" in low:
+        return "内容过滤", False
+    return "未知异常", True
 
 
 def _generate_one(
@@ -525,8 +567,10 @@ def _generate_one(
     subject: str = "ELA",
     index: int = 0,
     max_retries: int = 3,
+    question_type: str = "mcq",
 ) -> tuple[dict | None, float, str | None, dict | None]:
-    """生成单条 MCQ，供多线程调用。遇 429 自动重试。返回 (mcq_or_none, 耗时秒, 异常信息_or_None, usage_dict_or_None)。"""
+    """生成单条题目，供多线程调用。所有可重试错误（429/超时/网络/解析失败）均自动重试。
+    返回 (mcq_or_none, 耗时秒, 异常信息_or_None, usage_dict_or_None)。"""
     start = time.time()
     filtered = _filter_examples_for_standard_difficulty(examples, standard, difficulty)
     system, user = build_full_prompt(
@@ -535,8 +579,11 @@ def _generate_one(
         difficulty=difficulty,
         examples=filtered,
         subject=subject,
+        question_type=question_type,
     )
     messages = [{"role": "system", "content": system}, {"role": "user", "content": user}]
+    last_usage = None
+    last_err = None
     for attempt in range(max_retries):
         try:
             usage = None
@@ -555,7 +602,9 @@ def _generate_one(
             else:
                 p = _get_generation_params(provider, model)
                 raw, usage = call_openai(messages, api_key, model, temperature=p["temperature"], max_tokens=p["max_tokens"])
-            mcq = parse_mcq(raw)
+            if usage:
+                last_usage = usage
+            mcq = parse_mcq(raw, expected_type=question_type)
             elapsed = time.time() - start
             if mcq:
                 out = normalize_for_inceptbench(mcq)
@@ -565,38 +614,49 @@ def _generate_one(
                 out["difficulty"] = difficulty
                 out["id"] = f"diverse_{index:03d}"
                 return (out, elapsed, None, usage)
-            if provider == "kimi" and raw:
-                debug_path = PROJECT_ROOT / "evaluation_output" / "debug_kimi_raw.txt"
-                debug_path.parent.mkdir(parents=True, exist_ok=True)
-                with open(debug_path, "w", encoding="utf-8") as f:
-                    f.write(raw)
-                print(f"  [解析失败] 已保存完整输出到 {debug_path}", flush=True)
-            return (None, elapsed, None, usage)
+            # API 返回成功但解析失败 → 可重试
+            if attempt < max_retries - 1:
+                wait_s = 5 * (attempt + 1)
+                print(f"  [解析失败] {standard} {difficulty}: 返回内容无法解析为{question_type}  (第{attempt+1}次，{wait_s}s后重试)", flush=True)
+                time.sleep(wait_s)
+                last_err = f"解析失败: 返回内容无法解析为{question_type}"
+            else:
+                last_err = f"解析失败: {max_retries}次均无法解析为{question_type}"
+                print(f"  [WARN] {standard} {difficulty}: {last_err}", flush=True)
         except Exception as e:
             err_str = str(e)
-            is_overload = "no healthy upstream" in err_str.lower()
-            is_429 = "429" in err_str or "quota" in err_str.lower() or "rate" in err_str.lower() or is_overload
-            if is_429 and attempt < max_retries - 1:
-                if provider == "kimi":
-                    wait_s = KIMI_429_WAIT_SECONDS
-                elif provider == "fireworks" or is_overload:
-                    wait_s = 30 * (attempt + 1)  # 30s, 60s 指数退避
+            reason, retryable = _classify_error(err_str)
+            if retryable and attempt < max_retries - 1:
+                if reason == "429/限流":
+                    if provider == "kimi":
+                        wait_s = KIMI_429_WAIT_SECONDS
+                    elif provider == "fireworks":
+                        wait_s = 30 * (attempt + 1)
+                    else:
+                        wait_s = _parse_retry_seconds(err_str)
+                    msg = _extract_kimi_429_message(err_str) if provider == "kimi" else err_str[:120]
+                    print(f"  [429] {standard} {difficulty}: {msg}  (等{wait_s}s后重试)", flush=True)
+                elif reason == "上游不可用":
+                    wait_s = 30 * (attempt + 1)
+                    print(f"  [上游不可用] {standard} {difficulty}: (等{wait_s}s后重试)", flush=True)
                 else:
-                    wait_s = _parse_retry_seconds(err_str)
-                msg = _extract_kimi_429_message(err_str) if provider == "kimi" else err_str[:120]
-                print(f"  [429] {standard} {difficulty}: {msg}  (等{wait_s}s后重试)", flush=True)
+                    wait_s = 10 * (attempt + 1)
+                    print(f"  [{reason}] {standard} {difficulty}: {err_str[:80]}  (第{attempt+1}次，{wait_s}s后重试)", flush=True)
                 time.sleep(wait_s)
+                last_err = f"{reason}: {err_str[:200]}"
             else:
                 elapsed = time.time() - start
-                msg = _extract_kimi_429_message(err_str) if (provider == "kimi" and is_429) else err_str
-                print(f"  [WARN] {standard} {difficulty}: {msg}", flush=True)
-                return (None, elapsed, err_str, None)
+                if not retryable:
+                    print(f"  [WARN] {standard} {difficulty}: {reason}（不可重试）: {err_str[:100]}", flush=True)
+                else:
+                    print(f"  [WARN] {standard} {difficulty}: {reason}（{max_retries}次重试均失败）: {err_str[:100]}", flush=True)
+                return (None, elapsed, f"{reason}: {err_str[:200]}", None)
     elapsed = time.time() - start
-    return (None, elapsed, None, None)
+    return (None, elapsed, last_err, last_usage)
 
 
 def main():
-    parser = argparse.ArgumentParser(description="生成 MCQ（generate_mcq）")
+    parser = argparse.ArgumentParser(description="生成题目（支持 mcq/msq/fill-in，默认同时生成三种题型）")
     parser.add_argument("--model", default="deepseek-chat", help="模型名：deepseek-chat / deepseek-reasoner / kimi-k2.5 / fw/deepseek-r1 / fw/kimi-k2.5（fw/ 前缀走 Fireworks）")
     parser.add_argument("--api-key", default=None, help="API Key（未设时按模型推断：DEEPSEEK_API_KEY / KIMI_API_KEY / FIREWORKS_API_KEY / OPENAI_API_KEY）")
     parser.add_argument("--examples", default=None, help="示例 JSON 路径，默认 processed_training_data/examples.json")
@@ -604,6 +664,7 @@ def main():
     parser.add_argument("--subject", default="ELA", help="学科缩写（ELA, MATH, SCI, USHIST 等）")
     parser.add_argument("--standard", default="CCSS.ELA-LITERACY.L.3.1.E", help="标准 ID")
     parser.add_argument("--difficulty", default="medium", help="难度")
+    parser.add_argument("--type", default="all", dest="question_type", help="题型：all / mcq / msq / fill-in（默认 all = 同时生成三种题型）")
     parser.add_argument("--output", default=None, help="输出 JSON 路径（--all-combinations 未指定时默认 evaluation_output/mcqs_237_<model>.json）")
     parser.add_argument("--batch", type=int, default=1, help="生成条数（同参数重复）")
     parser.add_argument("--diverse", type=int, default=None, help="多样化生成 N 条，覆盖不同难度/标准")
@@ -612,6 +673,9 @@ def main():
     parser.add_argument("--input-dir", default="raw_data", help="--diverse 时分析 raw_data 的目录")
     parser.add_argument("--include-think-chain", action="store_true", help="是否要求输出 <think>")
     args = parser.parse_args()
+    question_type = (args.question_type or "all").lower().strip()
+    ALL_QUESTION_TYPES = ["mcq", "msq", "fill-in"]
+    types_to_gen = ALL_QUESTION_TYPES if question_type == "all" else [question_type]
 
     model = (args.model or "deepseek-chat").strip()
     provider = _model_to_provider(model)
@@ -623,6 +687,7 @@ def main():
         print("使用模型: 本地 (serve-api)，确保已启动: python main.py serve-api --model <模型路径>")
     else:
         print(f"使用模型: {model}")
+    print(f"题型: {', '.join(t.upper() for t in types_to_gen)}")
 
     # 加载示例（默认 examples.json，兼容旧版 few_shot_examples.json）
     examples_path = args.examples or (PROJECT_ROOT / "processed_training_data" / "examples.json")
@@ -655,7 +720,12 @@ def main():
                 input_dir = PROJECT_ROOT / input_dir
             dims = analyze_dimensions(input_dir=str(input_dir))
         n = args.diverse if args.diverse else None
-        plan = build_diverse_plan(dims, n=n or 9999, all_combinations=args.all_combinations)
+        base_plan = build_diverse_plan(dims, n=n or 9999, all_combinations=args.all_combinations)
+        # Expand plan: each (standard, difficulty) × types_to_gen
+        plan = []
+        for qtype in types_to_gen:
+            for s, d in base_plan:
+                plan.append((s, d, qtype))
         n = len(plan)
         workers = args.workers
         if workers is None:
@@ -678,7 +748,10 @@ def main():
         workers = min(workers, n)
         if provider == "kimi":
             workers = min(workers, KIMI_MAX_CONCURRENCY)
-        print(f"多样化生成 {n} 条，{workers} 线程并行，覆盖 {len(set(p[0] for p in plan))} 个标准、{len(set(p[1] for p in plan))} 个难度")
+        n_standards = len(set(p[0] for p in plan))
+        n_difficulties = len(set(p[1] for p in plan))
+        type_info = f"、{len(types_to_gen)} 种题型" if len(types_to_gen) > 1 else ""
+        print(f"多样化生成 {n} 条，{workers} 线程并行，覆盖 {n_standards} 个标准、{n_difficulties} 个难度{type_info}")
         if provider == "local":
             print("  提示: 本地默认 8 并发（8 卡机可保持队列）；单进程 serve-api 串行推理仅用 1–2 卡，若需用满 8 卡可起 8 个 serve-api 实例并做负载均衡")
         if provider == "fireworks":
@@ -705,13 +778,14 @@ def main():
             model_slug = model.replace(".", "_").replace("/", "_")
             args.output = str(PROJECT_ROOT / "evaluation_output" / f"mcqs_237_{model_slug}.json")
 
-        # 与评估一致：按本题集最大「题号+(标准,难度)」长度固定 label 宽度；耗时列固定宽度对齐
+        # 与评估一致：按本题集最大「题号+(标准,难度,题型)」长度固定 label 宽度；耗时列固定宽度对齐
+        multi_type = len(types_to_gen) > 1
         label_width = max(
-            len(f"题{i+1:>3} ({(s or '').replace('CCSS.ELA-LITERACY.', '')}, {d})")
-            for i, (s, d) in enumerate(plan)
+            len(f"题{i+1:>3} ({(s or '').replace('CCSS.ELA-LITERACY.', '')}, {d}" + (f", {qt}" if multi_type else "") + ")")
+            for i, (s, d, qt) in enumerate(plan)
         )
         time_width = 8  # 耗时列宽度，如 "  12.3s"、" 120.5s"
-        # 按组合下标存储，保证题目总数与 (standard, difficulty) 组合一致；未生成或校验不通过则修复或构造，不丢弃
+        # 按组合下标存储，保证题目总数与 plan 一致；未生成或校验不通过则修复或构造，不丢弃
         results_by_index = [None] * n
         generation_details = [None] * n  # 供 usage 文件写入（闭环综合日志使用）
         usage_agg = {"prompt_tokens": 0, "completion_tokens": 0, "prompt_cache_hit_tokens": 0, "prompt_cache_miss_tokens": 0, "n_calls": 0}
@@ -728,12 +802,13 @@ def main():
                     grade=args.grade,
                     subject=args.subject,
                     index=i,
-                ): (i, s, d)
-                for i, (s, d) in enumerate(plan)
+                    question_type=qt,
+                ): (i, s, d, qt)
+                for i, (s, d, qt) in enumerate(plan)
             }
             done = 0
             for fut in as_completed(futures):
-                i, s, d = futures[fut]
+                i, s, d, qt = futures[fut]
                 try:
                     mcq, elapsed, err_msg, usage = fut.result()
                     if usage:
@@ -743,10 +818,11 @@ def main():
                         usage_agg["prompt_cache_hit_tokens"] += usage.get("prompt_cache_hit_tokens", 0) or 0
                         usage_agg["prompt_cache_miss_tokens"] += usage.get("prompt_cache_miss_tokens", 0) or 0
                     std_short = (s or "").replace("CCSS.ELA-LITERACY.", "")
+                    type_tag = f", {qt}" if multi_type else ""
                     tokens = (usage.get("prompt_tokens", 0) or 0) + (usage.get("completion_tokens", 0) or 0) if usage else 0
-                    generation_details[i] = {"index": i + 1, "standard": std_short, "difficulty": d, "tokens": tokens, "elapsed_s": round(elapsed, 1)}
+                    generation_details[i] = {"index": i + 1, "standard": std_short, "difficulty": d, "type": qt, "tokens": tokens, "elapsed_s": round(elapsed, 1)}
                     elapsed_s = f"{elapsed:.1f}s".rjust(time_width)
-                    label = f"题{i+1:>3} ({std_short}, {d})".ljust(label_width)
+                    label = f"题{i+1:>3} ({std_short}, {d}{type_tag})".ljust(label_width)
                     tok = ""
                     if usage:
                         pt = (usage.get("prompt_tokens") or 0) + (usage.get("completion_tokens") or 0)
@@ -762,7 +838,8 @@ def main():
                         print(f"[生成] 失败: {label}  {elapsed_s}{tok}，将修复或构造", flush=True)
                 except Exception as e:
                     std_short = (s or "").replace("CCSS.ELA-LITERACY.", "")
-                    label = f"题{i+1:>3} ({std_short}, {d})".ljust(label_width)
+                    type_tag = f", {qt}" if multi_type else ""
+                    label = f"题{i+1:>3} ({std_short}, {d}{type_tag})".ljust(label_width)
                     print(f"[生成] 异常: {label}  {'—':>{time_width}}  {str(e)[:40]}…，将修复或构造", flush=True)
 
         # 校验不通过则修复或构造，保证输出题目数 = n、组合与 plan 一致
@@ -807,7 +884,8 @@ def main():
             with open(out_usage, "w", encoding="utf-8") as f:
                 json.dump(usage_data, f, ensure_ascii=False, indent=2)
     else:
-        # 单参数模式（原有逻辑）
+        # 单参数模式（原有逻辑）；单题时 all 降级为 mcq
+        single_type = "mcq" if question_type == "all" else question_type
         filtered = _filter_examples_for_standard_difficulty(examples, args.standard, args.difficulty)
         system, user = build_full_prompt(
             grade=args.grade,
@@ -816,6 +894,7 @@ def main():
             examples=filtered,
             subject=args.subject,
             include_think_chain=args.include_think_chain,
+            question_type=single_type,
         )
 
         results = []
@@ -838,7 +917,7 @@ def main():
                 p = _get_generation_params(provider, model)
                 raw, _ = call_openai(messages, api_key, model, temperature=p["temperature"], max_tokens=p["max_tokens"])
 
-            mcq = parse_mcq(raw)
+            mcq = parse_mcq(raw, expected_type=single_type)
             if mcq:
                 normalized = normalize_for_inceptbench(mcq)
                 normalized["grade"] = args.grade

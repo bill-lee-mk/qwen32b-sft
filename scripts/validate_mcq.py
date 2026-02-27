@@ -72,7 +72,7 @@ def _explanation_references_correct_option(explanation: str, ans: str, correct_t
 
 def validate_mcq(mcq: dict, index: int = 0) -> list:
     """
-    校验单条 MCQ 的潜在问题。返回问题列表，空列表表示通过。
+    校验单条题目的潜在问题（支持 mcq/msq/fill-in）。返回问题列表，空列表表示通过。
     """
     issues = []
 
@@ -82,38 +82,60 @@ def validate_mcq(mcq: dict, index: int = 0) -> list:
         issues.append(msg)
         return issues
 
+    qtype = str(mcq.get("type", "mcq")).lower().strip()
+
+    if qtype == "fill-in":
+        question = mcq.get("question", "")
+        q_lower = question.lower()
+        if any(p in q_lower for p in ["look at the picture", "use the image", "see the picture", "based on the image"]):
+            img = mcq.get("image_url") or mcq.get("image")
+            if not img or (isinstance(img, list) and not img):
+                issues.append("stem_references_image_but_no_image_url")
+        return issues
+
+    if qtype == "msq":
+        opts = mcq.get("answer_options", {})
+        question = mcq.get("question", "")
+        q_lower = question.lower()
+        if not any(p in q_lower for p in ["select all", "choose all", "all that apply", "all correct"]):
+            issues.append("msq_stem_missing_multi_select_instruction")
+        if isinstance(opts, dict):
+            texts = [str(opts.get(k, "")).strip() for k in ["A", "B", "C", "D"] if k in opts]
+            if len(texts) >= 2 and len(set(texts)) < len(texts):
+                issues.append("duplicate_option_text")
+        if any(p in q_lower for p in ["look at the picture", "use the image", "see the picture", "based on the image"]):
+            img = mcq.get("image_url") or mcq.get("image")
+            if not img or (isinstance(img, list) and not img):
+                issues.append("stem_references_image_but_no_image_url")
+        return issues
+
+    # MCQ validation (original logic)
     opts, ans, correct_text = _get_correct_option_text(mcq)
     explanation = mcq.get("answer_explanation", "")
 
-    # 1. 解析是否提及正确选项（启发式：选项关键词 或 选项字母 出现即可）
     if correct_text and len(correct_text) > 3 and explanation:
         words = [w.strip(".,;:!?\"'") for w in correct_text.split() if len(w) > 2]
         ref_ok = _explanation_references_correct_option(explanation, ans, correct_text)
         if not ref_ok and len(words) >= 2:
             issues.append("explanation_may_not_reference_correct_option")
 
-    # 2. 检查 answer 键与选项键一致
     if ans not in opts:
         issues.append(f"answer_{ans}_not_in_options")
 
-    # 3. 题干与选项一致性：若问 "Which word..." 但正确选项是短语
     question = mcq.get("question", "")
     if "which word" in question.lower() and " " in correct_text.strip():
         issues.append("stem_says_word_but_answer_is_phrase")
 
-    # 4. 题干要求看图但未提供 image_url（InceptBench 会扣 passage_reference）
     q_lower = question.lower()
     if any(p in q_lower for p in ["look at the picture", "use the image", "see the picture", "based on the image"]):
         img = mcq.get("image_url") or mcq.get("image")
         if not img or (isinstance(img, list) and not img):
             issues.append("stem_references_image_but_no_image_url")
 
-    # 5. 单题单选但题干用复数 "which choices" 易被理解为多选
     if "which choices" in q_lower or "which options" in q_lower:
         if "correctly complete" in q_lower or "are correct" in q_lower:
             issues.append("stem_says_choices_plural_may_imply_multiple_answers")
 
-    # 6. 选项不得重复（A 与 C 等同会导致双正确答案）
     if isinstance(opts, dict):
         texts = [str(opts.get(k, "")).strip() for k in ["A", "B", "C", "D"] if k in opts]
     else:
@@ -238,13 +260,25 @@ def repair_aggressively(mcq: dict, standard: str = "", difficulty: str = "medium
     """
     对校验未通过的题目做更激进的修复（补全缺失字段、修正 answer 与选项一致等），
     尽量在保留原题内容的前提下通过校验。返回修复后的新 dict。
+    支持 mcq/msq/fill-in。
     """
     import copy
     out = copy.deepcopy(mcq)
+    qtype = str(out.get("type", "mcq")).lower().strip()
 
-    # 补全必填字段（与 select_examples.is_valid_mcq 一致）
-    if "type" not in out:
-        out["type"] = "mcq"
+    if not out.get("id"):
+        out["id"] = f"diverse_{index:03d}"
+
+    if qtype == "fill-in":
+        if not out.get("question", "").strip():
+            out["question"] = f"Complete the sentence: The skill in {standard or 'ELA'} is shown by ______."
+        if not out.get("answer", "").strip():
+            out["answer"] = "the correct response"
+        if not out.get("answer_explanation", "").strip():
+            out["answer_explanation"] = f"The answer '{out['answer']}' is correct because it matches the standard."
+        return out
+
+    # MCQ / MSQ
     opts = out.get("answer_options")
     if not isinstance(opts, dict):
         opts = {"A": "", "B": "", "C": "", "D": ""}
@@ -253,31 +287,38 @@ def repair_aggressively(mcq: dict, standard: str = "", difficulty: str = "medium
             opts[k] = opts.get(k.lower(), "")
     out["answer_options"] = opts
 
-    ans = str(out.get("answer", "")).upper().strip()[:1]
-    if ans not in "ABCD":
-        ans = "A"
-    if ans not in opts:
-        ans = "A"
-    out["answer"] = ans
+    if qtype == "msq":
+        ans_raw = str(out.get("answer", "A,B")).upper().strip()
+        ans_letters = sorted(set(l.strip() for l in ans_raw.replace(" ", "").split(",") if l.strip() and l.strip() in "ABCD"))
+        if len(ans_letters) < 2:
+            ans_letters = ["A", "B"]
+        out["answer"] = ",".join(ans_letters)
+        if not out.get("question", "").strip():
+            out["question"] = f"Which of the following demonstrate the skill in {standard or 'ELA'}? (Select ALL that apply)"
+        if not out.get("answer_explanation", "").strip():
+            out["answer_explanation"] = f"Options {' and '.join(ans_letters)} are correct because they match the standard."
+    else:
+        ans = str(out.get("answer", "")).upper().strip()[:1]
+        if ans not in "ABCD":
+            ans = "A"
+        if ans not in opts:
+            ans = "A"
+        out["answer"] = ans
+        if not out.get("question", "").strip():
+            out["question"] = f"Which choice best fits the standard {standard or 'ELA'} at {difficulty} difficulty?"
+        if not out.get("answer_explanation", "").strip():
+            correct_text = opts.get(ans, "")
+            out["answer_explanation"] = f"Option {ans} is correct because {correct_text or 'it matches the standard.'}"
 
-    if not out.get("question", "").strip():
-        out["question"] = f"Which choice best fits the standard {standard or 'ELA'} at {difficulty} difficulty?"
-    if not out.get("answer_explanation", "").strip():
-        correct_text = opts.get(ans, "")
-        out["answer_explanation"] = f"Option {ans} is correct because {correct_text or 'it matches the standard.'}"
-    if not out.get("id"):
-        out["id"] = f"diverse_{index:03d}"
-
-    # 多轮 fix_mcq 直到通过或不再变化
     for _ in range(3):
         issues = validate_mcq(out, index)
         if not issues:
             return out
         out = fix_mcq(out, issues)
-        # 处理 fix_mcq 未覆盖的 issue 类型
         for iss in issues:
             if isinstance(iss, str) and "answer_" in iss and "_not_in_options" in iss:
-                out["answer"] = "A"
+                if qtype != "msq":
+                    out["answer"] = "A"
                 break
             if isinstance(iss, str) and "missing" in iss.lower():
                 if "question" in iss and not out.get("question"):
@@ -295,12 +336,49 @@ def build_minimal_valid_mcq(
     grade: str = "3",
     subject: str = "ELA",
     index: int = 0,
+    question_type: str = "mcq",
 ) -> dict:
     """
     当生成失败或修复后仍无法通过校验时，构造一条满足校验的最小合法题目，
     保证 (standard, difficulty) 组合不丢失，题目总数与组合数一致。
+    支持 mcq/msq/fill-in。
     """
     std_short = (standard or "L.3.1").replace("CCSS.ELA-LITERACY.", "")
+    qtype = question_type.lower().strip() if question_type else "mcq"
+
+    if qtype == "fill-in":
+        return {
+            "id": f"diverse_{index:03d}",
+            "type": "fill-in",
+            "question": f"Complete the sentence: The skill described in {std_short} is demonstrated by ______.",
+            "answer": "the correct response",
+            "acceptable_answers": ["the correct response"],
+            "answer_explanation": "The correct answer demonstrates the skill described in the standard.",
+            "difficulty": difficulty or "medium",
+            "grade": grade,
+            "standard": standard or "",
+            "subject": subject or "ELA",
+        }
+
+    if qtype == "msq":
+        return {
+            "id": f"diverse_{index:03d}",
+            "type": "msq",
+            "question": f"Which of the following demonstrate the skill described in {std_short} at {difficulty} difficulty? (Select ALL that apply)",
+            "answer": "A,B",
+            "answer_options": {
+                "A": "A correct choice that matches the standard.",
+                "B": "Another correct choice that also matches.",
+                "C": "An unrelated distractor option.",
+                "D": "A plausible but incorrect choice.",
+            },
+            "answer_explanation": "Options A and B are correct because they match the skill described in the standard. Options C and D are incorrect.",
+            "difficulty": difficulty or "medium",
+            "grade": grade,
+            "standard": standard or "",
+            "subject": subject or "ELA",
+        }
+
     return {
         "id": f"diverse_{index:03d}",
         "type": "mcq",
@@ -308,9 +386,9 @@ def build_minimal_valid_mcq(
         "answer": "A",
         "answer_options": {
             "A": "The correct choice that matches the standard.",
-            "B": "An incorrect distractor.",
-            "C": "Another incorrect distractor.",
-            "D": "Another incorrect distractor.",
+            "B": "An unrelated distractor option.",
+            "C": "A plausible but incorrect choice.",
+            "D": "Another distractor that does not apply.",
         },
         "answer_explanation": "Option A is correct because it matches the skill described in the standard.",
         "difficulty": difficulty or "medium",

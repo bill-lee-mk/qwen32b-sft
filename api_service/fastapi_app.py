@@ -117,8 +117,8 @@ async def get_config():
     )
 
 @app.post("/generate", response_model=MCQResponse)
-async def generate_mcq(request: MCQRequest):
-    """生成单个MCQ"""
+async def generate_question(request: MCQRequest):
+    """生成单个题目"""
     if not generator or not generator.model_loaded:
         raise HTTPException(status_code=503, detail="服务未就绪，模型未加载")
     
@@ -139,8 +139,8 @@ async def generate_mcq(request: MCQRequest):
         raise HTTPException(status_code=500, detail=f"生成失败: {str(e)}")
 
 @app.post("/batch-generate", response_model=BatchMCQResponse)
-async def batch_generate_mcq(request: BatchMCQRequest):
-    """批量生成MCQ"""
+async def batch_generate_questions(request: BatchMCQRequest):
+    """批量生成题目"""
     if not generator or not generator.model_loaded:
         raise HTTPException(status_code=503, detail="服务未就绪，模型未加载")
     
@@ -177,7 +177,7 @@ async def batch_generate_mcq(request: BatchMCQRequest):
 
 @app.post("/v1/chat/completions")
 async def openai_chat_completions(request: Request):
-    """OpenAI 兼容的 chat completions，供 generate_mcq / 闭环使用本地模型。"""
+    """OpenAI 兼容的 chat completions，供 generate_questions / 闭环使用本地模型。"""
     if not generator or not generator.model_loaded:
         raise HTTPException(status_code=503, detail="服务未就绪，模型未加载")
     try:
@@ -261,7 +261,7 @@ async def generate_from_template(
         include_think_chain=include_think_chain
     )
     
-    return await generate_mcq(request)
+    return await generate_question(request)
 
 def run_api_server(host: str = "0.0.0.0", port: int = 8000, model_path: str = None):
     """运行API服务器。model_path 会覆盖环境变量 MODEL_PATH"""

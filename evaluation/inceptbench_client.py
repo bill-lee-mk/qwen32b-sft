@@ -58,37 +58,51 @@ def _mcq_to_inceptbench_item(
     req_ctx: Dict[str, Any],
     index: int = 0,
 ) -> Dict[str, Any]:
-    """将单个 MCQ 转为 generated_content 的一项"""
+    """将单个题目转为 generated_content 的一项（支持 mcq/msq/fill-in）"""
     grade = q.get("grade") or req_ctx.get("grade", "3")
     standard = q.get("standard") or req_ctx.get("standard", "CCSS.ELA-LITERACY.L.3.1.E")
     subject = q.get("subject") or req_ctx.get("subject", "ELA")
+    qtype = str(q.get("type", "mcq")).lower().strip()
 
-    opts = q.get("answer_options", {})
-    ans_key = str(q.get("answer", "A")).upper().strip()[:1]
     question = str(q.get("question", ""))
-    # clarity_precision 修复：题干 "Which word" + 正确答案为多词 → 替换为 "Which choice"
-    correct_text = ""
-    if isinstance(opts, dict):
-        correct_text = opts.get(ans_key, opts.get(ans_key.lower(), ""))
-    elif isinstance(opts, list):
-        for o in opts:
-            if str(o.get("key", "")).upper() == ans_key:
-                correct_text = str(o.get("text", ""))
-                break
-    if correct_text and " " in str(correct_text).strip() and "which word" in question.lower():
-        question = question.replace("Which word", "Which choice").replace("which word", "which choice")
-    content = {
-        "question": question,
-        "answer": ans_key,
-        "answer_options": _convert_answer_options(opts),
-        "answer_explanation": str(q.get("answer_explanation", "")),
-    }
+
+    if qtype == "fill-in":
+        content = {
+            "question": question,
+            "answer": str(q.get("answer", "")),
+            "answer_explanation": str(q.get("answer_explanation", "")),
+        }
+        if q.get("acceptable_answers"):
+            content["acceptable_answers"] = q["acceptable_answers"]
+    else:
+        opts = q.get("answer_options", {})
+        if qtype == "msq":
+            ans_value = str(q.get("answer", "A,B")).upper().strip()
+        else:
+            ans_key = str(q.get("answer", "A")).upper().strip()[:1]
+            correct_text = ""
+            if isinstance(opts, dict):
+                correct_text = opts.get(ans_key, opts.get(ans_key.lower(), ""))
+            elif isinstance(opts, list):
+                for o in opts:
+                    if str(o.get("key", "")).upper() == ans_key:
+                        correct_text = str(o.get("text", ""))
+                        break
+            if correct_text and " " in str(correct_text).strip() and "which word" in question.lower():
+                question = question.replace("Which word", "Which choice").replace("which word", "which choice")
+            ans_value = ans_key
+        content = {
+            "question": question,
+            "answer": ans_value,
+            "answer_options": _convert_answer_options(opts),
+            "answer_explanation": str(q.get("answer_explanation", "")),
+        }
 
     default_lesson = f"K-12 {subject}" if subject else "K-12 ELA"
     request = {
         "grade": str(grade),
         "subject": subject,
-        "type": "mcq",
+        "type": qtype,
         "difficulty": str(q.get("difficulty", "medium")),
         "locale": "en-US",
         "skills": {
@@ -98,7 +112,6 @@ def _mcq_to_inceptbench_item(
         },
     }
 
-    # evaluations 的 key 必须为字符串；generated_question_id 需在 metadata 中
     item_id = str(q.get("id", index))
     metadata = dict(q.get("metadata", {}))
     metadata["generated_question_id"] = item_id
@@ -164,15 +177,36 @@ def _extract_overall_score(result: Dict[str, Any]) -> Optional[float]:
 
 def normalize_for_inceptbench(question_data: Dict[str, Any]) -> Dict[str, Any]:
     """
-    将 MCQ 归一化为内部标准格式（供 generate_mcq 输出）。
-    保证 answer_options 为 dict，answer 为 A/B/C/D。
+    将题目归一化为内部标准格式（供 generate_questions 输出）。
+    支持 mcq/msq/fill-in：
+    - mcq/msq: 保证 answer_options 为 dict
+    - fill-in: 无 answer_options
     """
+    qtype = str(question_data.get("type", "mcq")).lower().strip()
     out = {}
+
+    if qtype == "fill-in":
+        for k in ["id", "type", "question", "answer", "answer_explanation", "difficulty"]:
+            v = question_data.get(k)
+            if v is None:
+                if k == "type":
+                    out[k] = "fill-in"
+                elif k == "difficulty":
+                    out[k] = "medium"
+                else:
+                    out[k] = ""
+            else:
+                out[k] = v
+        if "acceptable_answers" in question_data:
+            out["acceptable_answers"] = question_data["acceptable_answers"]
+        return out
+
+    # mcq / msq
     for k in ["id", "type", "question", "answer", "answer_options", "answer_explanation", "difficulty"]:
         v = question_data.get(k)
         if v is None:
             if k == "type":
-                out[k] = "mcq"
+                out[k] = qtype
             elif k == "difficulty":
                 out[k] = "medium"
             else:
@@ -192,15 +226,19 @@ def normalize_for_inceptbench(question_data: Dict[str, Any]) -> Dict[str, Any]:
             if k in "ABCD":
                 normalized_opts[k] = str(o.get("text", ""))
         out["answer_options"] = normalized_opts
-    ans = str(out.get("answer", "")).upper().strip()
-    out["answer"] = ans if ans in ("A", "B", "C", "D") else "A"
 
-    # clarity_precision 修复：题干用 "Which word" 但正确答案为多词时，InceptBench 会扣分
-    correct_text = (out.get("answer_options") or {}).get(out["answer"], "")
-    if correct_text and " " in str(correct_text).strip():
-        q = out.get("question", "")
-        if q and "which word" in q.lower():
-            out["question"] = q.replace("Which word", "Which choice").replace("which word", "which choice")
+    if qtype == "msq":
+        ans = str(out.get("answer", "")).upper().strip()
+        ans_letters = sorted(set(l.strip() for l in ans.replace(" ", "").split(",") if l.strip() and l.strip() in "ABCD"))
+        out["answer"] = ",".join(ans_letters) if len(ans_letters) >= 2 else "A,B"
+    else:
+        ans = str(out.get("answer", "")).upper().strip()
+        out["answer"] = ans if ans in ("A", "B", "C", "D") else "A"
+        correct_text = (out.get("answer_options") or {}).get(out["answer"], "")
+        if correct_text and " " in str(correct_text).strip():
+            q = out.get("question", "")
+            if q and "which word" in q.lower():
+                out["question"] = q.replace("Which word", "Which choice").replace("which word", "which choice")
     return out
 
 

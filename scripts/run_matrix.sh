@@ -18,8 +18,14 @@
 #   # 5. 先试水后全量
 #   ROUNDS=10 PILOT=50 bash scripts/run_matrix.sh
 #
-#   # 6. 全部跑完后汇总矩阵
+#   # 6. 只跑指定题型（默认 all = 同时生成 mcq+msq+fill-in）
+#   QTYPE=mcq bash scripts/run_matrix.sh
+#
+#   # 7. 全部跑完后汇总矩阵
 #   python scripts/summarize_matrix.py
+#
+# 默认行为:
+#   每个 (模型,年级) 组合同时生成 MCQ + MSQ + FILL-IN 三种题型。
 #
 # 闭环流程（ROUNDS>1 时）:
 #   每个 (模型,年级) 组合独立执行:
@@ -38,6 +44,7 @@ cd "$(dirname "$0")/.."
 MODELS="${MODELS:-fw/deepseek-v3.2 fw/kimi-k2.5 fw/glm-5 fw/gpt-oss-120b}"
 GRADES="${GRADES:-1 2 3 4 5 6 7 8 9 10 11 12}"
 SUBJECT="${SUBJECT:-ELA}"
+QTYPE="${QTYPE:-all}"           # 题型：all（默认，同时生成 mcq+msq+fill-in） / mcq / msq / fill-in
 N="${N:-50}"                    # 单轮模式：--diverse N 采样题数
 MODE="${MODE:-diverse}"         # 单轮模式：diverse / all
 WORKERS="${WORKERS:-50}"        # 并发线程数（Fireworks 企业账户默认 50）
@@ -54,6 +61,7 @@ echo "  矩阵批量运行配置"
 echo "  模型: $MODELS"
 echo "  年级: $GRADES"
 echo "  学科: $SUBJECT"
+echo "  题型: $QTYPE"
 if [ "$ROUNDS" -gt 1 ]; then
   echo "  策略: 闭环改进 $ROUNDS 轮（生成→评估→补范例→改prompt→重复）"
   if [ -n "$PILOT" ]; then
@@ -84,14 +92,14 @@ for MODEL in $MODELS; do
 
     echo ""
     echo "────────────────────────────────────────────────────────────"
-    echo "  [$TOTAL] Model=$MODEL  Grade=$GRADE  Subject=$SUBJECT  Rounds=$ROUNDS"
+    echo "  [$TOTAL] Model=$MODEL  Grade=$GRADE  Subject=$SUBJECT  Type=$QTYPE  Rounds=$ROUNDS"
     echo "────────────────────────────────────────────────────────────"
 
     if [ "$ROUNDS" -gt 1 ]; then
       # ========================================
       # 闭环改进模式：main.py closed-loop
       # ========================================
-      LOOP_ARGS="--model $MODEL --grade $GRADE --subject $SUBJECT"
+      LOOP_ARGS="--model $MODEL --grade $GRADE --subject $SUBJECT --type $QTYPE"
       LOOP_ARGS="$LOOP_ARGS --max-rounds $ROUNDS --pass-rate-target $PASS_TARGET"
       LOOP_ARGS="$LOOP_ARGS --run-id $RUN_ID"
       if [ -n "$PILOT" ]; then
@@ -112,21 +120,18 @@ for MODEL in $MODELS; do
       fi
 
       # 闭环完成后，找到 best 结果文件并复制到 matrix 目录
-      # 文件名格式：results_{grade}_{subject}_{model_slug}_{run_id}_best_{rate}.json
       SCOPE_TAG="${GRADE}_${SUBJECT}"
       BEST_PATTERN="evaluation_output/results_${SCOPE_TAG}_${MNAME}_${RUN_ID}_best_*.json"
       BEST_FILE=$(ls $BEST_PATTERN 2>/dev/null | head -1 || true)
 
       if [ -n "$BEST_FILE" ] && [ -f "$BEST_FILE" ]; then
         cp "$BEST_FILE" "$OUTDIR/results_${TAG}.json"
-        # 也复制对应的 mcqs
         BEST_MCQS=$(echo "$BEST_FILE" | sed 's/results_/mcqs_/')
         [ -f "$BEST_MCQS" ] && cp "$BEST_MCQS" "$OUTDIR/mcqs_${TAG}.json"
         RATE=$(python3 -c "import json; print(json.load(open('$BEST_FILE')).get('pass_rate', 0))")
         echo "  [最佳结果] pass_rate=${RATE}% → $OUTDIR/results_${TAG}.json"
         OK=$((OK + 1))
       else
-        # fallback: 尝试不带 _best_ 的普通文件
         FALLBACK="evaluation_output/results_${SCOPE_TAG}_${MNAME}_${RUN_ID}_round1.json"
         if [ -f "$FALLBACK" ]; then
           cp "$FALLBACK" "$OUTDIR/results_${TAG}.json"
@@ -146,14 +151,14 @@ for MODEL in $MODELS; do
       MCQS="$OUTDIR/mcqs_${TAG}.json"
       RESULT="$OUTDIR/results_${TAG}.json"
 
-      GEN_ARGS="--model $MODEL --grade $GRADE --subject $SUBJECT --workers $WORKERS --output $MCQS"
+      GEN_ARGS="--model $MODEL --grade $GRADE --subject $SUBJECT --type $QTYPE --workers $WORKERS --output $MCQS"
       if [ "$MODE" = "all" ]; then
         GEN_ARGS="$GEN_ARGS --all-combinations"
       else
         GEN_ARGS="$GEN_ARGS --diverse $N"
       fi
 
-      if python scripts/generate_mcq.py $GEN_ARGS; then
+      if python scripts/generate_questions.py $GEN_ARGS; then
         echo "  [生成完成] $MCQS"
       else
         echo "  [生成失败] Model=$MODEL Grade=$GRADE"

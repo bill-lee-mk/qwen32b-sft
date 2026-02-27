@@ -9,7 +9,10 @@ import random
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
-MCQ_REQUIRED_FIELDS = ["id", "type", "question", "answer", "answer_options", "answer_explanation", "difficulty"]
+MCQ_REQUIRED_FIELDS = ["id", "type", "question", "answer", "answer_explanation", "difficulty"]
+MCQ_OPTION_FIELDS = ["answer_options"]
+MSQ_REQUIRED_FIELDS = ["id", "type", "question", "answer", "answer_options", "answer_explanation", "difficulty"]
+FILLIN_REQUIRED_FIELDS = ["id", "type", "question", "answer", "answer_explanation", "difficulty"]
 
 
 def extract_json_from_text(text: str) -> Optional[Dict]:
@@ -32,10 +35,49 @@ def extract_json_from_text(text: str) -> Optional[Dict]:
 
 
 def is_valid_mcq(mcq: Dict) -> Tuple[bool, str]:
-    """校验 MCQ 是否符合 InceptBench 要求"""
+    """校验题目是否符合 InceptBench 要求（支持 mcq/msq/fill-in）"""
     if not isinstance(mcq, dict):
         return False, "not a dict"
-    missing = [k for k in MCQ_REQUIRED_FIELDS if k not in mcq]
+    qtype = str(mcq.get("type", "mcq")).lower().strip()
+
+    if qtype == "fill-in":
+        missing = [k for k in FILLIN_REQUIRED_FIELDS if k not in mcq]
+        if missing:
+            return False, f"missing fields: {missing}"
+        answer = str(mcq.get("answer", "")).strip()
+        if not answer:
+            return False, "answer must not be empty for fill-in"
+        question = str(mcq.get("question", ""))
+        if "___" not in question and "blank" not in question.lower():
+            return False, "fill-in question should contain a blank (______ or mention 'blank')"
+        return True, ""
+
+    if qtype == "msq":
+        missing = [k for k in MSQ_REQUIRED_FIELDS if k not in mcq]
+        if missing:
+            return False, f"missing fields: {missing}"
+        opts = mcq.get("answer_options")
+        if not isinstance(opts, dict):
+            return False, "answer_options must be dict"
+        keys = set(str(k).upper().strip() for k in opts.keys())
+        if keys != {"A", "B", "C", "D"}:
+            return False, f"answer_options keys must be A,B,C,D, got {keys}"
+        ans_raw = str(mcq.get("answer", "")).upper().strip()
+        ans_letters = sorted(set(l.strip() for l in ans_raw.replace(" ", "").split(",") if l.strip()))
+        if len(ans_letters) < 2:
+            return False, f"msq answer must have at least 2 correct options, got {ans_raw}"
+        if len(ans_letters) > 3:
+            return False, f"msq answer should have at most 3 correct options, got {ans_raw}"
+        for l in ans_letters:
+            if l not in ("A", "B", "C", "D"):
+                return False, f"msq answer letters must be A/B/C/D, got {l}"
+            if l not in opts:
+                return False, f"answer {l} not in answer_options"
+        return True, ""
+
+    # MCQ (default)
+    required = MCQ_REQUIRED_FIELDS + MCQ_OPTION_FIELDS
+    missing = [k for k in required if k not in mcq]
     if missing:
         return False, f"missing fields: {missing}"
     opts = mcq.get("answer_options")

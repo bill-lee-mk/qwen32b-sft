@@ -112,19 +112,19 @@ def _call_api(messages, model: str, api_key: str, base_url: str | None, max_retr
 
 
 def _parse_mcq(text: str) -> dict | None:
-    """优先使用 generate_mcq 的解析逻辑（更健壮），否则用内置 fallback。"""
+    """优先使用 generate_questions 的解析逻辑（更健壮），否则用内置 fallback。"""
     if not (text or "").strip():
         return None
-    # 本仓库内运行时复用 generate_mcq 的完整解析
+    # 本仓库内运行时复用 generate_questions 的完整解析
     try:
         if str(PROJECT_ROOT) not in sys.path:
             sys.path.insert(0, str(PROJECT_ROOT))
         from data_processing.select_examples import extract_json_from_text, is_valid_mcq
-        from scripts.generate_mcq import parse_mcq as _parse_impl
+        from scripts.generate_questions import parse_mcq as _parse_impl
         return _parse_impl(text)
     except ImportError:
         pass
-    # 独立运行时的 fallback：与 generate_mcq 逻辑对齐
+    # 独立运行时的 fallback：与 generate_questions 逻辑对齐
     s = text.strip()
     if s.startswith("<think>") and "</think>" in s:
         s = s[s.index("</think>") + 7 :].strip()
