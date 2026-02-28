@@ -1,78 +1,83 @@
-# 环境变量（含 API Key/Token），勿提交
+# ===== 环境变量（含 API Key/Token），勿提交 =====
 .env
 .env.*
 !.env.example
 
-#OS junk files
-[Tt]humbs.db
+# ===== OS / IDE 临时文件 =====
 .DS_Store
 **/.DS_Store
+[Tt]humbs.db
 
-# data folder
-#raw_data/*
-#!raw_data/
+# ===== Python =====
+__pycache__/
+**/__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+*.egg
+dist/
+*.whl
+venv/
+.venv/
 
-docs/
-!docs/.gitignore
-!docs/*.md
+# ===== 大型数据 / 模型文件（本地保留，不跟踪）=====
 
-# evaluation_output: 仅保留最佳结果（*_best_*.json），忽略 round 文件等
+# models: 忽略所有文件，仅保留目录结构
+models/**
+!models/**/.gitignore
+!models/**/.gitkeep
+
+# raw_data: 由子目录 .gitignore 自行管理（默认全部忽略）
+
+# training.log (也被下方 *.log 规则覆盖)
+
+# ===== evaluation_output: 仅保留最佳结果 =====
 evaluation_output/*
 !evaluation_output/
 !evaluation_output/.gitignore
 !evaluation_output/*_best_*.json
 
-# 忽略数据文件，保留目录与 .gitignore
-processed_training_data/*
-!processed_training_data/
-!processed_training_data/.gitignore
-# 保留 cache 空目录结构（.gitkeep），便于 git pull 后直接使用
-!processed_training_data/cache/
-!processed_training_data/cache/.gitkeep
+# ===== processed_training_data: 由子目录 .gitignore 管理 =====
+# 不在此处阻止，让 processed_training_data/.gitignore 精确控制
+# API 服务需要的文件：{N}_ELA_examples.json + {N}_ELA_prompt_rules_*_matrix.json
 
-# models: 忽略所有文件，仅保留目录结构（.gitignore + .gitkeep）
-models/**
-!models/**/.gitignore
-!models/**/.gitkeep
+# ===== docs =====
+docs/
+!docs/.gitignore
+!docs/*.md
 
-#Visual Studio files
-*.[Oo]bj
+# ===== 构建产物 =====
+[Bb]uild/
+[Bb]in
+[Dd]ebug*/
+[Rr]elease*/
+*.bak
+*.log
+*.ilk
+*.lib
+*.sbr
+*.sdf
+obj/
+ipch/
+
+# ===== 其他 IDE / 工具 =====
+_ReSharper*/
+*.resharper
+[Tt]est[Rr]esult*
 *.user
 *.aps
 *.pch
 *.vspscc
 *.vssscc
-*_i.c
-*_p.c
 *.ncb
 *.suo
 *.tlb
 *.tlh
-*.bak
 *.[Cc]ache
-*.ilk
-*.log
-*.lib
-*.sbr
-*.sdf
-*.pyc
-*.xml
-ipch/
-obj/
-[Bb]in
-[Dd]ebug*/
-[Rr]elease*/
+*.[Oo]bj
+*_i.c
+*_p.c
 Ankh.NoLoad
-
-#Tooling
-_ReSharper*/
-*.resharper
-[Tt]est[Rr]esult*
-
-#Project files
-[Bb]uild/
-
-#Subversion files
 .svn
 
 # Office Temp Files

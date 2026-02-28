@@ -1,9 +1,27 @@
-# 忽略此目录下所有数据文件
+# 默认忽略此目录下所有文件
 *
+
 # 保留目录结构
 !*/
 !.gitignore
 
-# cache 目录：忽略缓存文件（.arrow 等），保留 .gitkeep 以在 git pull 时维持目录结构
+# ===== API 服务必需文件（需要被 git 跟踪）=====
+
+# 各年级 few-shot 示例（1-12年级）
+!*_ELA_examples.json
+
+# 各年级各模型的 prompt 规则
+!*_ELA_prompt_rules_*_matrix.json
+
+# ===== 以下文件保留在本地但不跟踪 =====
+
+# 闭环运行时的按模型复制的示例（工作副本，非 API 所需）
+*_ELA_examples_fw_*_matrix.json
+
+# 旧格式实验文件（无年级前缀）
+# examples.json, examples_*.json, prompt_rules.json, prompt_rules_*.json
+# dpo_data.jsonl, sft_data.jsonl — 训练数据
+
+# cache 目录：忽略缓存文件（.arrow 等），保留 .gitkeep
 cache/*
 !cache/.gitkeep
