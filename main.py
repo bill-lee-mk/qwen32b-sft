@@ -248,7 +248,7 @@ def _run_closed_loop_one_model(project_root, model, args, use_model_specific_pat
                            "--type", qtype]
                 if getattr(args, "workers", None) is not None:
                     gen_cmd.extend(["--workers", str(args.workers)])
-                _log(f"  [1/4] 生成: {' '.join(gen_cmd)}")
+                _log(f"  [1/3] 生成: {' '.join(gen_cmd)}")
                 gen_env = {**os.environ, "PROMPT_RULES_PATH": prompt_rules_path} if use_model_specific_paths else {**os.environ}
                 r = _run_with_log_stream(gen_cmd, project_root, gen_env)
                 if r != 0:
@@ -273,7 +273,7 @@ def _run_closed_loop_one_model(project_root, model, args, use_model_specific_pat
                 except Exception:
                     pass
                 eval_cmd = [sys.executable, os.path.join(project_root, "main.py"), "evaluate", "--input", mcqs_path, "--output", results_path, "--parallel", str(parallel)]
-                _log(f"  [2/4] 评估: ... --parallel {parallel}")
+                _log(f"  [2/3] 评估: ... --parallel {parallel}")
                 r = _run_with_log_stream(eval_cmd, project_root)
                 if r != 0:
                     result["error"] = f"评估失败 exit={r}"
@@ -414,11 +414,8 @@ def _run_closed_loop_one_model(project_root, model, args, use_model_specific_pat
                                 pass
                     _print_summary()
                     break
-                imp_cmd = [sys.executable, os.path.join(project_root, "main.py"), "improve-examples", "--results", results_path, "--mcqs", mcqs_path, "--output", examples_path, "--raw-data-dir", args.raw_data_dir, "--parallel", str(parallel)]
-                _log(f"  [3/4] 补示例: ... --parallel {parallel}")
-                _run_with_log_stream(imp_cmd, project_root)
                 imp_prompt_cmd = [sys.executable, os.path.join(project_root, "scripts", "improve_prompt.py"), "--results", results_path, "--mcqs", mcqs_path, "--output", prompt_rules_path, "--examples", examples_path]
-                _log(f"  [4/4] 改 prompt 规则")
+                _log(f"  [3/3] 改 prompt 规则")
                 _run_with_log_stream(imp_prompt_cmd, project_root)
                 # 删除中间暂存文件，仅保留最佳题目与结果
                 for p in [mcqs_path, results_path]:
@@ -709,8 +706,8 @@ def main():
     improve_parser.add_argument("--retry-delay", type=int, default=60, help="服务端错误时等待秒数后再重试")
     improve_parser.add_argument("--max-retries", type=int, default=3, help="服务端错误最大重试次数")
 
-    # 闭环自动化：生成 → 评估 → 若通过率 < 目标则 improve-examples → 重复直到达标或达最大轮数
-    loop_parser = subparsers.add_parser("closed-loop", help="闭环：生成→评估→未达标则补示例/改prompt→重复")
+    # 闭环自动化：生成 → 评估 → 若通过率 < 目标则改 prompt 规则 → 重复直到达标或达最大轮数
+    loop_parser = subparsers.add_parser("closed-loop", help="闭环：生成→评估→未达标则改prompt规则→重复")
     loop_parser.add_argument("--model", default="deepseek-chat", help="生成 MCQ 使用的模型：API 模型名（deepseek-chat/kimi-latest/gpt-4o）或 local/本地路径（如 models/qwen3-32B/final_model，需先启动 serve-api）")
     loop_parser.add_argument("--mcqs", default="evaluation_output/mcqs_237.json", help="MCQ 输出路径（默认会改为 evaluation_output/mcqs_237_<model>.json，79 标准×3 难度=237 题）")
     loop_parser.add_argument("--results", default="evaluation_output/results_237.json", help="评估结果路径（默认会改为 evaluation_output/results_237_<model>.json）")

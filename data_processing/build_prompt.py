@@ -94,14 +94,19 @@ def get_global_rules() -> List[str]:
     return list(rules.get("global_rules") or [])
 
 
-def get_targeted_rules(standard: str, difficulty: str) -> List[str]:
-    """返回针对 (standard, difficulty) 的规则：by_standard[standard] + by_standard_difficulty['std|diff']"""
+def get_targeted_rules(standard: str, difficulty: str, question_type: str = "mcq") -> List[str]:
+    """返回针对 (standard, difficulty, type) 的规则。
+
+    查找：
+    1. by_standard[standard]
+    2. by_standard_difficulty['std|diff|type']
+    """
     rules = load_prompt_rules()
     out: List[str] = []
     by_std = rules.get("by_standard") or {}
     by_key = rules.get("by_standard_difficulty") or {}
     out.extend(by_std.get(standard) or [])
-    key = f"{standard}|{difficulty}"
+    key = f"{standard}|{difficulty}|{question_type}"
     out.extend(by_key.get(key) or [])
     return out
 
@@ -390,7 +395,7 @@ def build_full_prompt(
     system = build_system_prompt(grade=grade, subject=subject,
                                 include_think_chain=include_think_chain,
                                 question_type=qtype)
-    targeted = get_targeted_rules(standard, difficulty)
+    targeted = get_targeted_rules(standard, difficulty, question_type=qtype)
     user = build_user_prompt(
         grade=grade,
         standard=standard,

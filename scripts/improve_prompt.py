@@ -44,9 +44,10 @@ def extract_failure_feedback(
     results_path: str,
     mcqs_path: str,
     threshold: float = 0.85,
-) -> list[tuple[str, str, str | None, str | None]]:
+) -> list[tuple[str, str, str, str | None, str | None]]:
     """
-    返回 [(standard, difficulty, suggested_improvements, reasoning), ...] 仅对得分 < threshold 的题目。
+    返回 [(standard, difficulty, qtype, suggested_improvements, reasoning), ...]
+    仅对得分 < threshold 的题目。qtype 为 mcq/msq/fill-in。
     """
     with open(results_path, "r", encoding="utf-8") as f:
         results = json.load(f)
@@ -65,15 +66,16 @@ def extract_failure_feedback(
         m = items[i]
         std = m.get("standard", "unknown")
         diff = m.get("difficulty", "medium")
+        qtype = m.get("type", "mcq")
         ov = _get_overall(result_list[i]) if i < len(result_list) else {}
         sug = ov.get("suggested_improvements")
         reason = ov.get("reasoning") or ov.get("internal_reasoning") or ""
         if isinstance(sug, str) and sug.strip():
-            out.append((std, diff, sug.strip(), reason[:500] if reason else None))
+            out.append((std, diff, qtype, sug.strip(), reason[:500] if reason else None))
         elif reason:
-            out.append((std, diff, None, reason[:500]))
+            out.append((std, diff, qtype, None, reason[:500]))
         else:
-            out.append((std, diff, None, None))
+            out.append((std, diff, qtype, None, None))
     return out
 
 
@@ -141,27 +143,25 @@ def load_example_keys(examples_path: str | Path) -> set[tuple[str, str]]:
 
 
 def aggregate_rules(
-    feedback_list: list[tuple[str, str, str | None, str | None]],
+    feedback_list: list[tuple[str, str, str, str | None, str | None]],
     max_global: int = 5,
     max_per_standard: int = 2,
     max_per_standard_difficulty: int = 3,
     only_targeted_keys: set[tuple[str, str]] | None = None,
 ) -> tuple[list[str], dict[str, list[str]], dict[str, list[str]]]:
     """
-    将 (std, diff, suggested_improvements, reasoning) 聚合成：
+    将 (std, diff, qtype, suggested_improvements, reasoning) 聚合成：
     - global_rules: 列表（来自所有失败反馈的主题）
-    - by_standard / by_standard_difficulty: 仅当 only_targeted_keys 为 None 或 (std,diff) 在 only_targeted_keys 时加入
+    - by_standard / by_standard_difficulty_type: key 为 'std|diff|type'，
+      仅当 only_targeted_keys 为 None 或 (std,diff) 在 only_targeted_keys 时加入
     """
     global_rules: list[str] = []
     by_standard: dict[str, list[str]] = defaultdict(list)
     by_standard_difficulty: dict[str, list[str]] = defaultdict(list)
 
-    # 收集所有失败片段用于全局主题检测
-    # by_standard: 始终加入所有失败标准的反馈（最大化利用低分建议）
-    # by_standard_difficulty: 仅当 only_targeted_keys 为 None 或 (std,diff) 在 examples 中时加入
     all_snippets: list[str] = []
     failed_standards: set[str] = set()
-    for std, diff, sug, reason in feedback_list:
+    for std, diff, qtype, sug, reason in feedback_list:
         if std == "unknown":
             continue
         failed_standards.add(std)
@@ -172,11 +172,9 @@ def aggregate_rules(
         else:
             continue
         all_snippets.append(snip)
-        key = f"{std}|{diff}"
-        # by_standard: 始终加入（不论是否有 examples）
+        key = f"{std}|{diff}|{qtype}"
         if snip not in by_standard[std]:
             by_standard[std].append(snip)
-        # by_standard_difficulty: 仅对已有示例的组合加入（避免无示例时规则过于泛化）
         if only_targeted_keys is None or (std, diff) in only_targeted_keys:
             if snip not in by_standard_difficulty[key]:
                 by_standard_difficulty[key].append(snip)

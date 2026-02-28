@@ -25,6 +25,7 @@ DB_CONFIG = {
 }
 
 MIN_SCORE = 0.85
+MAX_PER_COMBO = 2
 
 # 数据库中 ELA 内容分布在这几个 subject 下
 ELA_SUBJECTS = ("ela", "language", "reading")
@@ -98,13 +99,14 @@ def load_existing_examples(grade):
 
 
 def build_existing_index(examples):
-    """建立 (standard, difficulty, type) -> (score, index) 的索引"""
+    """建立 (standard, difficulty, type) -> [(score, index), ...] 的索引，按分数降序"""
     idx = {}
     for i, item in enumerate(examples):
         key = (item.get("standard", ""), item.get("difficulty", ""), item.get("type", "mcq"))
         score = item.get("score", 0) or 0
-        if key not in idx or score > idx[key][0]:
-            idx[key] = (score, i)
+        idx.setdefault(key, []).append((score, i))
+    for key in idx:
+        idx[key].sort(key=lambda x: -x[0])
     return idx
 
 
@@ -118,7 +120,7 @@ def get_all_combos(grade):
 
 
 def query_db_best(conn, grade):
-    """从数据库查询该年级每个 (standard, difficulty, type) 的最高分题目"""
+    """从数据库查询该年级每个 (standard, difficulty, type) 的 top-N 最高分题目"""
     cur = conn.cursor()
     cur.execute(QUERY_BEST_PER_COMBO, (ELA_SUBJECTS, str(grade), MIN_SCORE))
     columns = [desc[0] for desc in cur.description]
@@ -127,15 +129,18 @@ def query_db_best(conn, grade):
     for row_tuple in cur.fetchall():
         row = dict(zip(columns, row_tuple))
         key = (row["standard"], row["difficulty"], row["question_type"])
-        if key not in best or row["score"] > best[key]["score"]:
-            best[key] = row
+        best.setdefault(key, []).append(row)
+
+    for key in best:
+        best[key].sort(key=lambda r: -r["score"])
+        best[key] = best[key][:MAX_PER_COMBO]
 
     cur.close()
     return best
 
 
 def process_grade(conn, grade):
-    """处理单个年级"""
+    """处理单个年级，每组合保留 top MAX_PER_COMBO 条示例"""
     examples = load_existing_examples(grade)
     existing_idx = build_existing_index(examples)
     all_combos = get_all_combos(grade)
@@ -150,22 +155,32 @@ def process_grade(conn, grade):
     for s, d in all_combos:
         for t in types:
             key = (s, d, t)
-            db_row = db_best.get(key)
+            db_rows = db_best.get(key, [])
+            cur_entries = existing_idx.get(key, [])
 
-            if key in existing_idx:
-                cur_score = existing_idx[key][0]
-                cur_idx = existing_idx[key][1]
-                if db_row and db_row["score"] > cur_score:
-                    new_item = _db_item_to_example(db_row, grade)
-                    examples[cur_idx] = new_item
-                    replaced += 1
-            else:
-                if db_row and db_row["score"] >= MIN_SCORE:
+            if not db_rows:
+                if not cur_entries:
+                    skipped_low += 1
+                continue
+
+            for rank, db_row in enumerate(db_rows):
+                db_score = db_row["score"]
+                if db_score < MIN_SCORE:
+                    continue
+
+                if rank < len(cur_entries):
+                    cur_score, cur_i = cur_entries[rank]
+                    if db_score > cur_score:
+                        examples[cur_i] = _db_item_to_example(db_row, grade)
+                        cur_entries[rank] = (db_score, cur_i)
+                        replaced += 1
+                else:
                     new_item = _db_item_to_example(db_row, grade)
                     examples.append(new_item)
+                    cur_entries.append((db_score, len(examples) - 1))
                     filled += 1
-                else:
-                    skipped_low += 1
+
+            existing_idx[key] = cur_entries
 
     out_path = RAW_DATA_DIR / f"inceptbench_highscore_grade{grade}_ela.json"
     with open(out_path, "w", encoding="utf-8") as f:

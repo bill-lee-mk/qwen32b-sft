@@ -22,6 +22,7 @@ from data_processing.build_prompt import build_user_prompt, get_standard_descrip
 RAW_DATA_DIR = PROJECT_ROOT / "raw_data"
 SEED_DIR = PROJECT_ROOT / "processed_training_data"
 MIN_SCORE = 0.85
+MAX_PER_COMBO = 2
 
 
 def _raw_to_mcq_json(item: dict) -> dict:
@@ -75,18 +76,19 @@ def _raw_to_pipeline(item: dict, grade: str) -> dict:
 
 
 def _build_index(items: list) -> dict:
-    """建立 (standard, difficulty, type) → (score, index) 的索引"""
+    """建立 (standard, difficulty, type) → [(score, index), ...] 的索引，按分数降序"""
     idx = {}
     for i, item in enumerate(items):
         key = (item.get("standard", ""), item.get("difficulty", ""), item.get("type", "mcq"))
         score = item.get("score", 0) or 0
-        if key not in idx or score > idx[key][0]:
-            idx[key] = (score, i)
+        idx.setdefault(key, []).append((score, i))
+    for key in idx:
+        idx[key].sort(key=lambda x: -x[0])
     return idx
 
 
 def process_grade(grade: int) -> tuple:
-    """处理单个年级，返回 (final_count, replaced, filled, skipped)"""
+    """处理单个年级，每组合保留 top MAX_PER_COMBO 条，返回 (final_count, replaced, filled, skipped)"""
     grade_str = str(grade)
     raw_path = RAW_DATA_DIR / f"inceptbench_highscore_grade{grade}_ela.json"
     seed_path = SEED_DIR / f"{grade}_ELA_examples.json"
@@ -96,15 +98,16 @@ def process_grade(grade: int) -> tuple:
 
     raw_data = json.load(open(raw_path, encoding="utf-8"))
 
-    # 按 (standard, difficulty, type) 取 raw_data 中的最高分
-    raw_best = {}
+    raw_by_combo = {}
     for item in raw_data:
         key = (item.get("standard", ""), item.get("difficulty", ""), item.get("type", "mcq"))
         score = item.get("score", 0) or 0
         if score < MIN_SCORE:
             continue
-        if key not in raw_best or score > (raw_best[key].get("score", 0) or 0):
-            raw_best[key] = item
+        raw_by_combo.setdefault(key, []).append(item)
+    for key in raw_by_combo:
+        raw_by_combo[key].sort(key=lambda x: -(x.get("score", 0) or 0))
+        raw_by_combo[key] = raw_by_combo[key][:MAX_PER_COMBO]
 
     if seed_path.exists():
         seed_data = json.load(open(seed_path, encoding="utf-8"))
@@ -117,20 +120,25 @@ def process_grade(grade: int) -> tuple:
     filled = 0
     skipped = 0
 
-    for key, raw_item in raw_best.items():
-        raw_score = raw_item.get("score", 0) or 0
-        new_entry = _raw_to_pipeline(raw_item, grade_str)
+    for key, raw_items in raw_by_combo.items():
+        cur_entries = seed_idx.get(key, [])
 
-        if key in seed_idx:
-            cur_score, cur_i = seed_idx[key]
-            if raw_score > cur_score:
-                seed_data[cur_i] = new_entry
-                seed_idx[key] = (raw_score, cur_i)
-                replaced += 1
-        else:
-            seed_data.append(new_entry)
-            seed_idx[key] = (raw_score, len(seed_data) - 1)
-            filled += 1
+        for rank, raw_item in enumerate(raw_items):
+            raw_score = raw_item.get("score", 0) or 0
+            new_entry = _raw_to_pipeline(raw_item, grade_str)
+
+            if rank < len(cur_entries):
+                cur_score, cur_i = cur_entries[rank]
+                if raw_score > cur_score:
+                    seed_data[cur_i] = new_entry
+                    cur_entries[rank] = (raw_score, cur_i)
+                    replaced += 1
+            else:
+                seed_data.append(new_entry)
+                cur_entries.append((raw_score, len(seed_data) - 1))
+                filled += 1
+
+        seed_idx[key] = cur_entries
 
     with open(seed_path, "w", encoding="utf-8") as f:
         json.dump(seed_data, f, ensure_ascii=False, indent=2)

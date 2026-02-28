@@ -29,7 +29,7 @@
 #
 # 闭环流程（ROUNDS>1 时）:
 #   每个 (模型,年级) 组合独立执行:
-#     Round 1: 生成 → 评估 → 补高分范例 → 改进 prompt 规则
+#     Round 1: 生成 → 评估 → 改进 prompt 规则
 #     Round 2: 用改进后的 prompt 生成 → 评估 → 继续改进
 #     ...
 #     Round N: 最终生成 → 评估
@@ -109,7 +109,6 @@ for MODEL in $MODELS; do
       if [ -n "$WORKERS" ]; then
         LOOP_ARGS="$LOOP_ARGS --workers $WORKERS"
       fi
-
       echo "  执行: python main.py closed-loop $LOOP_ARGS"
 
       if python main.py closed-loop $LOOP_ARGS; then
