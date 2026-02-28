@@ -358,7 +358,7 @@ class InceptBenchEvaluator:
     def evaluate_mcq(
         self,
         question_data: Dict[str, Any] | List[Dict[str, Any]],
-        max_retries: int = 2,
+        max_retries: int = 3,
     ) -> Dict[str, Any]:
         """
         评估 MCQ（支持单个或批量）。
@@ -381,13 +381,17 @@ class InceptBenchEvaluator:
                     return result
                 last_err = result
                 msg = str(result.get("message", "")).lower()
-                is_retryable = any(k in msg for k in ("timeout", "timed out", "connection", "502", "503", "504"))
+                is_retryable = any(k in msg for k in (
+                    "timeout", "timed out", "connection", "reset",
+                    "500", "502", "503", "504", "429",
+                    "could not save", "save evaluation", "internal",
+                ))
                 if is_retryable:
                     if attempt < max_retries:
                         import time as _time
-                        wait = min(10 * (attempt + 1), 30)
+                        wait = min(10 * (attempt + 1), 60)
                         _time.sleep(wait)
-                        break  # break endpoint loop → retry from first endpoint
+                        break
                     return last_err
                 if idx < len(self.endpoints) - 1:
                     continue

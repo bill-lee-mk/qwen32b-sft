@@ -1050,39 +1050,43 @@ def main():
                     msg = str(result.get("message", "")).lower()
                     return any(k in msg for k in ("timeout", "timed out"))
 
+                _ZERO_SCORE_MAX_RETRIES = 3
+
                 def _eval_one(idx_item):
                     idx, item = idx_item
                     t0 = time.time()
                     retry_info = ""
-                    r = evaluator.evaluate_mcq(item)
-
-                    if _is_timeout_error(r):
-                        for attempt in range(2, 4):
-                            time.sleep(10)
-                            r = evaluator.evaluate_mcq(item)
-                            if not _is_timeout_error(r):
-                                retry_info = f"→重评{attempt}次成功"
-                                break
-                        else:
-                            retry_info = "API超时 3 次"
-                    else:
+                    attempt = 0
+                    zero_score_attempts = 0
+                    while True:
+                        attempt += 1
+                        r = evaluator.evaluate_mcq(item)
                         is_server_err = (r.get("status") == "error")
                         s = r.get("overall_score")
-                        need_retry = is_server_err or (isinstance(s, (int, float)) and float(s) == 0.0)
-                        if need_retry:
-                            time.sleep(5)
-                            r2 = evaluator.evaluate_mcq(item)
-                            s2 = r2.get("overall_score")
-                            if r2.get("status") == "error":
-                                if is_server_err:
-                                    retry_info = "服务端错误(重评失败)"
-                                else:
-                                    retry_info = "→重评失败(服务端错误)"
-                            elif isinstance(s2, (int, float)) and float(s2) > 0:
-                                r = r2
-                                retry_info = "→重评成功" if not is_server_err else "服务端错误→重评成功"
-                            else:
-                                retry_info = "→重评仍0分" if not is_server_err else "服务端错误(重评仍0分)"
+                        has_score = isinstance(s, (int, float))
+
+                        if not is_server_err and has_score and float(s) > 0:
+                            if attempt > 1:
+                                retry_info = f"第{attempt}次成功"
+                            break
+
+                        std = (item.get("standard") or "").replace("CCSS.ELA-LITERACY.", "")
+                        diff = item.get("difficulty") or "medium"
+
+                        if is_server_err:
+                            wait = min(10 * attempt, 120)
+                            print(f"  [重评] {std} {diff}: 服务端错误，第{attempt}次失败，{wait}s后重试", flush=True)
+                            time.sleep(wait)
+                            continue
+
+                        # 非服务端错误但 score==0：可能是题目质量问题，有限重试
+                        zero_score_attempts += 1
+                        if zero_score_attempts >= _ZERO_SCORE_MAX_RETRIES:
+                            retry_info = f"0分(确认×{zero_score_attempts})"
+                            break
+                        wait = min(10 * zero_score_attempts, 30)
+                        print(f"  [重评] {std} {diff}: 0分(第{zero_score_attempts}次)，{wait}s后确认", flush=True)
+                        time.sleep(wait)
 
                     r["_retry_info"] = retry_info
                     return idx, r, time.time() - t0
