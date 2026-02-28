@@ -103,6 +103,7 @@ def _run_closed_loop_one_model(project_root, model, args, use_model_specific_pat
     target = getattr(args, "pass_rate_target", 95.0)
     pilot_batch = getattr(args, "pilot_batch", None)
     max_rounds = getattr(args, "max_rounds", 10)
+    start_round = getattr(args, "start_round", 1) or 1
     patience = getattr(args, "patience", 5)
     parallel = getattr(args, "parallel", 25)
     no_target = (target is None or target <= 0)  # 不设目标时跑满 max_rounds，取最终/最高通过率
@@ -147,6 +148,19 @@ def _run_closed_loop_one_model(project_root, model, args, use_model_specific_pat
     no_improve_count = 0
     rounds_data = []  # 供综合 JSON 日志使用
     total_start = time.time()
+
+    # --start-round 续跑：从 progress 文件恢复历史最高分，避免 best 跟踪丢失
+    if start_round > 1 and os.path.exists(progress_path):
+        try:
+            prev = json.load(open(progress_path, encoding="utf-8"))
+            prev_best = prev.get("best_pass_rate", -1.0) or -1.0
+            prev_round = prev.get("best_round", 0) or 0
+            if prev_best > best_pass_rate_seen:
+                best_pass_rate_seen = prev_best
+                best_round_seen = prev_round
+                _log(f"  [续跑] 从 round {start_round} 继续，历史最高 {best_pass_rate_seen:.1f}% @ R{best_round_seen}")
+        except Exception:
+            pass
 
     def _write_progress(rnd, pr, br, bpr, m_path, r_path):
         best_m = current_best_mcqs_path
@@ -211,7 +225,7 @@ def _run_closed_loop_one_model(project_root, model, args, use_model_specific_pat
 
     try:
         try:
-            for round_num in range(1, max_rounds + 1):
+            for round_num in range(start_round, max_rounds + 1):
                 mcqs_path = f"{base_mcqs}_round{round_num}.json"
                 results_path = f"{base_results}_round{round_num}.json"
                 result["round_reached"] = round_num
@@ -703,6 +717,7 @@ def main():
     loop_parser.add_argument("--examples", default="processed_training_data/examples.json", help="few-shot 示例路径（每轮 improve 会更新）")
     loop_parser.add_argument("--pass-rate-target", type=float, default=95.0, help="通过率目标（百分数，默认 95）；设为 0 表示不设目标，跑满 --max-rounds 后取最终/最高通过率")
     loop_parser.add_argument("--max-rounds", type=int, default=10, help="最大循环轮数")
+    loop_parser.add_argument("--start-round", type=int, default=1, help="从第几轮开始（默认 1）；续跑时设为已完成轮数+1，自动恢复历史最高分")
     loop_parser.add_argument("--patience", type=int, default=5, help="连续 N 轮未刷新最佳通过率则提前终止（0=不启用，默认 5）")
     loop_parser.add_argument("--raw-data-dir", default="raw_data", help="improve-examples 使用的 raw_data 目录")
     loop_parser.add_argument("--workers", type=int, default=None, help="生成阶段并行数（DeepSeek/API 默认 10，本地 8，Kimi 10）")

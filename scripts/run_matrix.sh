@@ -51,6 +51,7 @@ WORKERS="${WORKERS:-}"          # 并发线程数（空=按模型自动检测：
 ROUNDS="${ROUNDS:-1}"           # 1=单轮快速对比，>1=闭环改进轮数
 PILOT="${PILOT:-}"              # 闭环试水：先用小批量跑，最后全量（如 PILOT=50）
 PASS_TARGET="${PASS_TARGET:-0}" # 闭环目标通过率（0=不设目标，跑满 ROUNDS 轮）
+START_ROUND="${START_ROUND:-1}" # 从第几轮开始（默认 1）；续跑时设为已完成轮数+1
 OUTDIR="${OUTDIR:-evaluation_output/matrix}"
 RUN_ID="${RUN_ID:-matrix}"      # 闭环 run-id，隔离不同批次的 examples/rules
 
@@ -100,7 +101,7 @@ for MODEL in $MODELS; do
       # 闭环改进模式：main.py closed-loop
       # ========================================
       LOOP_ARGS="--model $MODEL --grade $GRADE --subject $SUBJECT --type $QTYPE"
-      LOOP_ARGS="$LOOP_ARGS --max-rounds $ROUNDS --pass-rate-target $PASS_TARGET"
+      LOOP_ARGS="$LOOP_ARGS --max-rounds $ROUNDS --start-round $START_ROUND --pass-rate-target $PASS_TARGET"
       LOOP_ARGS="$LOOP_ARGS --run-id $RUN_ID"
       if [ -n "$PILOT" ]; then
         LOOP_ARGS="$LOOP_ARGS --pilot-batch $PILOT"
