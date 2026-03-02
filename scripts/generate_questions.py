@@ -73,7 +73,8 @@ def _extract_kimi_429_message(err_str: str) -> str:
 
 
 def call_openai(messages: list, api_key: str, model: str = "gpt-4o", base_url: str | None = None, temperature: float = 0.7, max_tokens: int = 1024) -> tuple[str, dict | None]:
-    """调用 OpenAI 兼容 API，返回 (content, usage_dict)。Kimi 等 OpenAI 兼容接口均返回 usage。"""
+    """调用 OpenAI 兼容 API，返回 (content, usage_dict)。Kimi 等 OpenAI 兼容接口均返回 usage。
+    Fireworks 要求 max_tokens > 4096 时使用 stream=true，自动处理。"""
     try:
         from openai import OpenAI
     except ImportError:
@@ -82,6 +83,37 @@ def call_openai(messages: list, api_key: str, model: str = "gpt-4o", base_url: s
     if base_url:
         kwargs["base_url"] = base_url
     client = OpenAI(**kwargs)
+
+    need_stream = (base_url and "fireworks" in base_url and max_tokens > 4096)
+    if need_stream:
+        content_parts = []
+        reasoning_parts = []
+        stream = client.chat.completions.create(
+            model=model, messages=messages,
+            temperature=temperature, max_tokens=max_tokens, stream=True,
+            stream_options={"include_usage": True},
+        )
+        usage = None
+        for chunk in stream:
+            if chunk.choices:
+                delta = chunk.choices[0].delta
+                if delta.content:
+                    content_parts.append(delta.content)
+                rc = getattr(delta, "reasoning_content", None)
+                if rc:
+                    reasoning_parts.append(rc)
+            if getattr(chunk, "usage", None):
+                u = chunk.usage
+                usage = {
+                    "prompt_tokens": getattr(u, "prompt_tokens", 0) or 0,
+                    "completion_tokens": getattr(u, "completion_tokens", 0) or 0,
+                    "total_tokens": getattr(u, "total_tokens", 0) or 0,
+                }
+        content = "".join(content_parts)
+        if not content and reasoning_parts:
+            content = "".join(reasoning_parts)
+        return content, usage
+
     response = client.chat.completions.create(
         model=model,
         messages=messages,
@@ -269,7 +301,8 @@ def _get_generation_params(provider: str, model: str) -> dict:
     m = (model or "").strip().lower()
     if provider == "fireworks":
         temp = 1.0 if "kimi" in m and "k2" in m else 0.7
-        return {"temperature": temp, "max_tokens": 4096}
+        mt = 16384 if "glm" in m else 4096
+        return {"temperature": temp, "max_tokens": mt}
     if provider == "deepseek":
         return {"temperature": 0.7, "max_tokens": 8192}
     if provider == "kimi":
@@ -674,7 +707,10 @@ def _generate_one(
                     print(f"  [OK] {standard} {difficulty} {question_type}: 第{attempt+1}次尝试成功 (耗时{elapsed:.0f}s)", flush=True)
                 return (out, elapsed, None, usage)
             wait_s = min(5 * (attempt + 1), 30)
+            raw_preview = (raw or "")[:300].replace("\n", "\\n")
             print(f"  [解析失败] {standard} {difficulty}: 返回内容无法解析为{question_type}  (第{attempt+1}次，{wait_s}s后重试)", flush=True)
+            if attempt < 2:
+                print(f"    raw前300字: {raw_preview}", flush=True)
             time.sleep(wait_s)
             last_err = f"解析失败: 返回内容无法解析为{question_type}"
         except Exception as e:
