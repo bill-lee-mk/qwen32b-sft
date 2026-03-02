@@ -31,11 +31,11 @@ models/**
 
 # training.log (也被下方 *.log 规则覆盖)
 
-# ===== evaluation_output: 仅保留最佳结果 =====
+# ===== evaluation_output: 仅跟踪 API 服务模型(kimi-k2.5)的最佳结果 =====
 evaluation_output/*
 !evaluation_output/
 !evaluation_output/.gitignore
-!evaluation_output/*_best_*.json
+!evaluation_output/*_fw_kimi-k2_5_*_best_*.json
 
 # ===== processed_training_data: 由子目录 .gitignore 管理 =====
 # 不在此处阻止，让 processed_training_data/.gitignore 精确控制

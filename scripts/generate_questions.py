@@ -20,6 +20,7 @@
 import argparse
 import json
 import os
+import random
 import re
 import sys
 import threading
@@ -198,6 +199,38 @@ KIMI_429_WAIT_SECONDS = 120
 _kimi_rate_lock = threading.Lock()
 _kimi_last_call_time = 0.0
 _kimi_sem = threading.Semaphore(max(1, KIMI_MAX_CONCURRENT))
+
+# ── 自适应 429 限流：跟踪近期 429 频率，触发冷却期暂停新请求 ──
+_429_lock = threading.Lock()
+_429_timestamps: list[float] = []
+_429_WINDOW = 60          # 滑动窗口（秒）
+_429_THRESHOLD = 3        # 窗口内 >= 3 次 429 触发冷却
+_429_COOLDOWN = 30        # 冷却期（秒）：所有新请求排队等待
+_429_cooldown_until = 0.0
+
+
+def _record_429():
+    """记录一次 429 事件，若窗口内频率过高则自动激活冷却。"""
+    global _429_cooldown_until
+    now = time.time()
+    with _429_lock:
+        _429_timestamps.append(now)
+        cutoff = now - _429_WINDOW
+        while _429_timestamps and _429_timestamps[0] < cutoff:
+            _429_timestamps.pop(0)
+        if len(_429_timestamps) >= _429_THRESHOLD:
+            _429_cooldown_until = now + _429_COOLDOWN + random.uniform(0, 10)
+            print(f"  [限流冷却] 近{_429_WINDOW}s内{len(_429_timestamps)}次429，暂停新请求{_429_COOLDOWN}s", flush=True)
+
+
+def _wait_if_cooling():
+    """若处于冷却期则阻塞等待。在每次发送请求前调用。"""
+    while True:
+        with _429_lock:
+            remaining = _429_cooldown_until - time.time()
+        if remaining <= 0:
+            return
+        time.sleep(min(remaining, 5) + random.uniform(0, 2))
 
 
 def _is_local_model(model: str) -> bool:
@@ -607,6 +640,7 @@ def _generate_one(
     last_err = None
     attempt = 0
     while True:
+        _wait_if_cooling()
         has_budget = (max_retries == 0) or (attempt < max_retries)
         try:
             usage = None
@@ -651,14 +685,17 @@ def _generate_one(
                 print(f"  [FAIL] {standard} {difficulty}: {reason}（不可重试）: {err_str[:100]}", flush=True)
                 return (None, elapsed, f"{reason}: {err_str[:200]}", None)
             if reason == "429/限流":
+                _record_429()
                 if provider == "kimi":
                     wait_s = KIMI_429_WAIT_SECONDS
                 elif provider == "fireworks":
                     wait_s = min(30 * (attempt + 1), 120)
                 else:
                     wait_s = _parse_retry_seconds(err_str)
+                jitter = random.uniform(0, wait_s * 0.3)
+                wait_s = wait_s + jitter
                 msg = _extract_kimi_429_message(err_str) if provider == "kimi" else err_str[:120]
-                print(f"  [429] {standard} {difficulty}: {msg}  (第{attempt+1}次，等{wait_s}s后重试)", flush=True)
+                print(f"  [429] {standard} {difficulty}: {msg}  (第{attempt+1}次，等{wait_s:.0f}s后重试)", flush=True)
             elif reason == "上游不可用":
                 wait_s = min(30 * (attempt + 1), 120)
                 print(f"  [上游不可用] {standard} {difficulty}: (第{attempt+1}次，等{wait_s}s后重试)", flush=True)
@@ -834,7 +871,7 @@ def main():
             if provider == "fireworks":
                 fw_model = (model or "").lower()
                 if "kimi" in fw_model:
-                    workers = 10                           # Fireworks kimi 系列后端容量极有限，10 并发防 429
+                    workers = 5                            # Fireworks kimi 后端容量有限，多终端并行时需低并发防 429
                 else:
                     workers = 50                           # 其他 Fireworks 模型 50 并发
             elif provider == "deepseek":
