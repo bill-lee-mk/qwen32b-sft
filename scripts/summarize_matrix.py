@@ -302,10 +302,11 @@ def print_unified_matrix(data: dict, metric: str = "pass_rate", subject: str = "
                     row += f"{'--':>{CW}} "
             print(row)
 
-        _best_row("★Best", ft, None)
-        for di, diff in enumerate(DIFF_ORDER):
-            prefix = "└" if di == len(DIFF_ORDER) - 1 else "├"
-            _best_row(f"{prefix}★{diff[0].upper()}", ft, diff)
+        if len(models) > 1:
+            _best_row("★Best", ft, None)
+            for di, diff in enumerate(DIFF_ORDER):
+                prefix = "└" if di == len(DIFF_ORDER) - 1 else "├"
+                _best_row(f"{prefix}★{diff[0].upper()}", ft, diff)
 
     print(f'  {"═" * table_w}')
 
@@ -383,6 +384,7 @@ def main():
     p.add_argument("--subject", default="ELA", help="学科")
     p.add_argument("--metric", default="pass_rate", choices=["pass_rate", "avg_score"], help="展示指标")
     p.add_argument("--output", default=None, help="矩阵 JSON 输出路径（默认 <dir>/score_matrix.json）")
+    p.add_argument("--model", default=None, help="只显示指定模型（模型名片段匹配，如 kimi / deepseek-v3 / glm-5）")
     args = p.parse_args()
 
     if not os.path.isdir(args.dir):
@@ -391,6 +393,13 @@ def main():
         sys.exit(1)
 
     data = scan_results(args.dir, args.subject)
+    if args.model:
+        pattern = args.model.lower().replace(".", "_").replace("/", "_")
+        filtered = {m: v for m, v in data.items() if pattern in m.lower().replace(".", "_")}
+        if not filtered:
+            print(f"错误: 未找到匹配 '{args.model}' 的模型，可用模型: {', '.join(sorted(data.keys()))}")
+            sys.exit(1)
+        data = filtered
     print_unified_matrix(data, args.metric, args.subject)
 
     out_path = args.output or os.path.join(args.dir, "score_matrix.json")
