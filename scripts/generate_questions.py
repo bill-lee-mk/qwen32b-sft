@@ -673,6 +673,59 @@ def _generate_one(
         attempt += 1
 
 
+def _load_weak_combos(results_path, threshold):
+    """从已有结果文件加载低于 threshold 的 (type, difficulty) 组合。
+    返回 [(type, difficulty, pass_rate), ...] 或 None（无法加载时）。
+    """
+    try:
+        with open(results_path, "r", encoding="utf-8") as f:
+            res = json.load(f)
+    except Exception as e:
+        print(f"  警告: 无法加载弱项结果文件 {results_path}: {e}")
+        return None
+    bd = res.get("breakdown", {})
+    by_td = bd.get("by_type_difficulty", {})
+    by_type = bd.get("by_type", {})
+    by_diff = bd.get("by_difficulty", {})
+    weak = []
+    if by_td:
+        for key, info in by_td.items():
+            parts = key.split("|")
+            if len(parts) >= 2:
+                qtype, diff = parts[0], parts[1]
+                pr = info.get("pass_rate", 100)
+                if pr < threshold:
+                    weak.append((qtype, diff, pr))
+    elif by_type and by_diff:
+        for qtype, t_info in by_type.items():
+            for diff, d_info in by_diff.items():
+                avg_pr = (t_info.get("pass_rate", 100) + d_info.get("pass_rate", 100)) / 2
+                if avg_pr < threshold:
+                    weak.append((qtype, diff, avg_pr))
+    if not weak:
+        mcqs_path = results_path.replace("results_", "mcqs_")
+        try:
+            with open(mcqs_path, "r", encoding="utf-8") as f:
+                mcq_items = json.load(f)
+            scores = res.get("scores", [])
+            from collections import defaultdict
+            buckets = defaultdict(list)
+            for i, q in enumerate(mcq_items):
+                s = scores[i] if i < len(scores) else None
+                if s is None or not isinstance(s, (int, float)):
+                    continue
+                qt = q.get("type", "mcq")
+                df = q.get("difficulty", "medium")
+                buckets[(qt, df)].append(s)
+            for (qt, df), vals in buckets.items():
+                pr = 100.0 * sum(1 for v in vals if v >= 0.85) / len(vals) if vals else 0
+                if pr < threshold:
+                    weak.append((qt, df, pr))
+        except Exception:
+            pass
+    return weak if weak else None
+
+
 def main():
     parser = argparse.ArgumentParser(description="生成题目（支持 mcq/msq/fill-in，默认同时生成三种题型）")
     parser.add_argument("--model", default="deepseek-chat", help="模型名：deepseek-chat / deepseek-reasoner / kimi-k2.5 / fw/deepseek-r1 / fw/kimi-k2.5（fw/ 前缀走 Fireworks）")
@@ -681,8 +734,8 @@ def main():
     parser.add_argument("--grade", default="3", help="年级（1-12）")
     parser.add_argument("--subject", default="ELA", help="学科缩写（ELA, MATH, SCI, USHIST 等）")
     parser.add_argument("--standard", default="CCSS.ELA-LITERACY.L.3.1.E", help="标准 ID")
-    parser.add_argument("--difficulty", default="medium", help="难度")
-    parser.add_argument("--type", default="all", dest="question_type", help="题型：all / mcq / msq / fill-in（默认 all = 同时生成三种题型）")
+    parser.add_argument("--difficulty", default=None, help="难度（单题模式: easy/medium/hard，默认 medium；多样化模式: 逗号分隔筛选如 easy,medium,hard，默认全部难度）")
+    parser.add_argument("--type", default="all", dest="question_type", help="题型：all / mcq / msq / fill-in（逗号分隔多选，如 msq,fill-in；默认 all = 同时生成三种题型）")
     parser.add_argument("--output", default=None, help="输出 JSON 路径（--all-combinations 未指定时默认 evaluation_output/mcqs_237_<model>.json）")
     parser.add_argument("--batch", type=int, default=1, help="生成条数（同参数重复）")
     parser.add_argument("--diverse", type=int, default=None, help="多样化生成 N 条，覆盖不同难度/标准")
@@ -690,10 +743,18 @@ def main():
     parser.add_argument("--workers", type=int, default=None, help="并行线程数（Fireworks 50/kimi系20、Kimi 50、DeepSeek-reasoner 20、DeepSeek-chat 30、Gemini 2、本地 8）")
     parser.add_argument("--input-dir", default="raw_data", help="--diverse 时分析 raw_data 的目录")
     parser.add_argument("--include-think-chain", action="store_true", help="是否要求输出 <think>")
+    parser.add_argument("--weak-threshold", type=float, default=None, help="弱项阈值（百分数，如 90）：仅生成 pass_rate 低于此值的 (type,difficulty) 组合，需配合 --weak-results 指向已有结果文件")
+    parser.add_argument("--weak-results", default=None, help="已有评估结果 JSON 路径（含 breakdown），配合 --weak-threshold 使用")
     args = parser.parse_args()
     question_type = (args.question_type or "all").lower().strip()
     ALL_QUESTION_TYPES = ["mcq", "msq", "fill-in"]
-    types_to_gen = ALL_QUESTION_TYPES if question_type == "all" else [question_type]
+    if question_type == "all":
+        types_to_gen = ALL_QUESTION_TYPES
+    else:
+        types_to_gen = [t.strip() for t in question_type.split(",") if t.strip() in ALL_QUESTION_TYPES]
+        if not types_to_gen:
+            print(f"错误: 无效题型 '{question_type}'，支持: {', '.join(ALL_QUESTION_TYPES)} 或 all")
+            sys.exit(1)
 
     model = (args.model or "deepseek-chat").strip()
     provider = _model_to_provider(model)
@@ -739,11 +800,34 @@ def main():
             dims = analyze_dimensions(input_dir=str(input_dir))
         n = args.diverse if args.diverse else None
         base_plan = build_diverse_plan(dims, n=n or 9999, all_combinations=args.all_combinations)
+        # --difficulty 筛选（多样化模式下按逗号分隔过滤难度，None=全部）
+        ALL_DIFFICULTIES = {"easy", "medium", "hard"}
+        if args.difficulty is not None:
+            diff_arg = args.difficulty.lower().strip()
+            diff_filter = {d.strip() for d in diff_arg.split(",") if d.strip() in ALL_DIFFICULTIES}
+            if diff_filter and diff_filter != ALL_DIFFICULTIES:
+                before = len(base_plan)
+                base_plan = [(s, d) for s, d in base_plan if d in diff_filter]
+                print(f"  难度筛选: {', '.join(sorted(diff_filter))}（{before} → {len(base_plan)} 组合）")
+        # --weak-threshold: 仅生成低于阈值的 (type, difficulty) 组合
+        weak_combos = None
+        if args.weak_threshold is not None and args.weak_results:
+            weak_combos = _load_weak_combos(args.weak_results, args.weak_threshold)
+            if weak_combos is not None:
+                print(f"  弱项筛选 (pass_rate < {args.weak_threshold}%): {len(weak_combos)} 个 (type,difficulty) 组合需改进")
+                for wt, wd, wr in sorted(weak_combos, key=lambda x: x[2]):
+                    print(f"    {wt}×{wd}: {wr:.1f}%")
         # Expand plan: each (standard, difficulty) × types_to_gen
         plan = []
         for qtype in types_to_gen:
             for s, d in base_plan:
+                if weak_combos is not None:
+                    if not any(wt == qtype and wd == d for wt, wd, _ in weak_combos):
+                        continue
                 plan.append((s, d, qtype))
+        if not plan:
+            print("筛选后无需生成的组合（所有 type×difficulty 均已达标），跳过生成")
+            sys.exit(0)
         n = len(plan)
         workers = args.workers
         if workers is None:
@@ -908,11 +992,12 @@ def main():
     else:
         # 单参数模式（原有逻辑）；单题时 all 降级为 mcq
         single_type = "mcq" if question_type == "all" else question_type
-        filtered = _filter_examples_for_standard_difficulty(examples, args.standard, args.difficulty, question_type=single_type)
+        single_difficulty = args.difficulty or "medium"
+        filtered = _filter_examples_for_standard_difficulty(examples, args.standard, single_difficulty, question_type=single_type)
         system, user = build_full_prompt(
             grade=args.grade,
             standard=args.standard,
-            difficulty=args.difficulty,
+            difficulty=single_difficulty,
             examples=filtered,
             subject=args.subject,
             include_think_chain=args.include_think_chain,

@@ -25,6 +25,45 @@ _DEFAULT_MCQS = "evaluation_output/mcqs_237.json"
 _DEFAULT_RESULTS = "evaluation_output/results_237.json"
 
 
+def _compute_breakdown(items, scores):
+    """按 (题型, 难度) 拆解分数，返回 dict 包含 by_type / by_difficulty / by_type_difficulty。
+    items: 原始题目列表, scores: 与 items 等长的分数列表（None 表示无分数）。
+    """
+    from collections import defaultdict
+    buckets_type = defaultdict(list)
+    buckets_diff = defaultdict(list)
+    buckets_td = defaultdict(list)
+    for i, q in enumerate(items):
+        s = scores[i] if i < len(scores) else None
+        if s is None:
+            continue
+        qtype = q.get("type", "mcq")
+        diff = q.get("difficulty", "medium")
+        buckets_type[qtype].append(s)
+        buckets_diff[diff].append(s)
+        buckets_td[f"{qtype}|{diff}"].append(s)
+
+    def _summarize(bucket):
+        out = {}
+        for key in sorted(bucket.keys()):
+            vals = bucket[key]
+            n = len(vals)
+            passed = sum(1 for v in vals if v >= 0.85)
+            out[key] = {
+                "count": n,
+                "pass_count": passed,
+                "pass_rate": round(100 * passed / n, 1) if n else 0,
+                "avg_score": round(sum(vals) / n, 4) if n else 0,
+            }
+        return out
+
+    return {
+        "by_type": _summarize(buckets_type),
+        "by_difficulty": _summarize(buckets_diff),
+        "by_type_difficulty": _summarize(buckets_td),
+    }
+
+
 def _count_json_items(path: str) -> int:
     """快速计算 JSON 数组文件的元素数量。"""
     try:
@@ -35,12 +74,13 @@ def _count_json_items(path: str) -> int:
         return 0
 
 
-def _run_closed_loop_one_model(project_root, model, args, use_model_specific_paths=False, run_id=None):
+def _run_closed_loop_one_model(project_root, model, args, use_model_specific_paths=False, run_id=None, rules_run_id=None):
     """
     对单个模型跑闭环：生成 → 评估 → 未达标则补示例/改 prompt → 重复至达标或达最大轮数。
     use_model_specific_paths=True 时使用 examples_<model_slug>.json 与 prompt_rules_<model_slug>.json，避免多模型闭环时互相覆盖、提示词撕裂。
     每轮保存到 mcqs_237_<model>_roundN.json / results_237_<model>_roundN.json；刷新历史最高时复制到 _best_{rate}.json（如 best_94_5.json 表示 94.5% 通过率）。
     run_id 不为空时，所有路径加上 _<run_id> 后缀，实现不同批次完全隔离（示例、提示词、题目、结果互不覆盖）。
+    rules_run_id 不为空时，prompt_rules 和 examples 使用 rules_run_id 的路径（用于针对性改进时复用已有规则），输出文件仍用 run_id。
     每轮结束后写入 evaluation_output/closed_loop_progress_<model>.json，便于中断后查看汇总。
     返回 dict: model, model_slug, final_pass_rate, best_pass_rate, best_round, pass_count, n_valid, n_submitted, round_reached, target_reached, error
     """
@@ -67,9 +107,19 @@ def _run_closed_loop_one_model(project_root, model, args, use_model_specific_pat
     _existing_results = glob.glob(f"{base_results}_best_*.json")
     current_best_mcqs_path = _existing_mcqs[0] if _existing_mcqs else (f"{base_mcqs}_best.json" if os.path.exists(f"{base_mcqs}_best.json") else None)
     current_best_results_path = _existing_results[0] if _existing_results else (f"{base_results}_best.json" if os.path.exists(f"{base_results}_best.json") else None)
+    # --rules-run-id 指定时，若本 run 无 best 结果，回退到 rules_run_id 的 best 结果（用于首轮 weak-threshold 筛选）
+    if current_best_results_path is None and rules_run_id and use_default_paths:
+        _rules_base_results = os.path.join(project_root, "evaluation_output", f"results_{scope_tag}_{model_slug}_{rules_run_id}")
+        _fallback_results = glob.glob(f"{_rules_base_results}_best_*.json")
+        if _fallback_results:
+            current_best_results_path = _fallback_results[0]
+            print(f"  弱项筛选回退: 使用 {os.path.relpath(current_best_results_path, project_root)} 作为基准", flush=True)
     if use_model_specific_paths:
-        examples_path = os.path.join(project_root, "processed_training_data", f"{scope_prefix}examples_{model_slug}{run_suffix}.json")
-        prompt_rules_path = os.path.join(project_root, "processed_training_data", f"{scope_prefix}prompt_rules_{model_slug}{run_suffix}.json")
+        rules_suffix = f"_{rules_run_id}" if rules_run_id else run_suffix
+        examples_path = os.path.join(project_root, "processed_training_data", f"{scope_prefix}examples_{model_slug}{rules_suffix}.json")
+        prompt_rules_path = os.path.join(project_root, "processed_training_data", f"{scope_prefix}prompt_rules_{model_slug}{rules_suffix}.json")
+        if rules_run_id and rules_run_id != run_id:
+            print(f"  规则共享: 使用 {rules_run_id} 的 prompt_rules 和 examples，输出隔离到 {run_id or '默认'}", flush=True)
         _seed_examples = os.path.join(project_root, "processed_training_data", f"{scope_prefix}examples.json")
         _seed_rules = os.path.join(project_root, "processed_training_data", f"{scope_prefix}prompt_rules.json")
         _legacy_examples = os.path.join(project_root, "processed_training_data", "examples.json")
@@ -145,6 +195,8 @@ def _run_closed_loop_one_model(project_root, model, args, use_model_specific_pat
     }
     best_pass_rate_seen = -1.0
     best_round_seen = 0
+    best_breakdown = {}
+    round_breakdown = {}
     no_improve_count = 0
     rounds_data = []  # 供综合 JSON 日志使用
     total_start = time.time()
@@ -212,6 +264,15 @@ def _run_closed_loop_one_model(project_root, model, args, use_model_specific_pat
         _log(f"当前轮次: {result.get('round_reached', 0)}")
         _log(f"本轮通过率: {result.get('final_pass_rate')}%")
         _log(f"历史最高: {result.get('best_pass_rate')}% @ 第{result.get('best_round', 0)}轮")
+        bbt = best_breakdown.get("by_type", {})
+        bbd = best_breakdown.get("by_difficulty", {})
+        if len(bbt) > 1:
+            parts = [f"{t}:{bbt[t]['pass_rate']}%" for t in sorted(bbt)]
+            _log(f"  按题型: {' | '.join(parts)}")
+        if len(bbd) > 1:
+            d_order = [d for d in ["easy", "medium", "hard"] if d in bbd]
+            parts = [f"{d}:{bbd[d]['pass_rate']}%" for d in d_order]
+            _log(f"  按难度: {' | '.join(parts)}")
         _log(f"总耗时: {elapsed_str}")
         _log(f"总估算费用: {cost_str}")
         if current_best_mcqs_path and current_best_results_path:
@@ -248,6 +309,12 @@ def _run_closed_loop_one_model(project_root, model, args, use_model_specific_pat
                            "--type", qtype]
                 if getattr(args, "workers", None) is not None:
                     gen_cmd.extend(["--workers", str(args.workers)])
+                difficulty_filter = getattr(args, "difficulty", None)
+                if difficulty_filter:
+                    gen_cmd.extend(["--difficulty", difficulty_filter])
+                weak_threshold = getattr(args, "weak_threshold", None)
+                if weak_threshold is not None and current_best_results_path and os.path.exists(current_best_results_path):
+                    gen_cmd.extend(["--weak-threshold", str(weak_threshold), "--weak-results", current_best_results_path])
                 _log(f"  [1/3] 生成: {' '.join(gen_cmd)}")
                 gen_env = {**os.environ, "PROMPT_RULES_PATH": prompt_rules_path} if use_model_specific_paths else {**os.environ}
                 r = _run_with_log_stream(gen_cmd, project_root, gen_env)
@@ -325,6 +392,7 @@ def _run_closed_loop_one_model(project_root, model, args, use_model_specific_pat
                 if pass_rate > best_pass_rate_seen:
                     best_pass_rate_seen = pass_rate
                     best_round_seen = round_num
+                    best_breakdown = round_breakdown or {}
                     no_improve_count = 0
                 else:
                     no_improve_count += 1
@@ -358,6 +426,24 @@ def _run_closed_loop_one_model(project_root, model, args, use_model_specific_pat
                 round_cost_str = token_obj.get("estimated_cost", "$0")
                 cost_disp = f"  估算: {round_cost_str}" if round_cost_str not in ("$0", "¥0") else ""
                 _log(f"  通过率(>=0.85): {pass_count}/{n_valid} ({pass_rate:.1f}%)（总提交 {n_submitted}）  本轮耗时: {round_elapsed_min}min{cost_disp}" + (f"  历史最高: {best_pass_rate_seen:.1f}% @ 第{best_round_seen}轮" if best_round_seen != round_num else ""))
+                # 按题型和难度拆解
+                round_breakdown = out_data.get("breakdown")
+                if not round_breakdown:
+                    try:
+                        with open(mcqs_path, "r", encoding="utf-8") as f:
+                            mcq_items = json.load(f)
+                        round_breakdown = _compute_breakdown(mcq_items, scores)
+                    except Exception:
+                        round_breakdown = {}
+                bt = (round_breakdown or {}).get("by_type", {})
+                bd = (round_breakdown or {}).get("by_difficulty", {})
+                if len(bt) > 1:
+                    parts = [f"{t}:{bt[t]['pass_rate']}%" for t in sorted(bt)]
+                    _log(f"    按题型: {' | '.join(parts)}")
+                if len(bd) > 1:
+                    diff_order = [d for d in ["easy", "medium", "hard"] if d in bd]
+                    parts = [f"{d}:{bd[d]['pass_rate']}%" for d in diff_order]
+                    _log(f"    按难度: {' | '.join(parts)}")
                 _write_progress(round_num, round(pass_rate, 2), best_round_seen, round(best_pass_rate_seen, 2), mcqs_path, results_path)
                 total_tokens = (token_obj.get("prompt_tokens", 0) or 0) + (token_obj.get("completion_tokens", 0) or 0)
                 avg_tokens = round(total_tokens / n_valid, 1) if n_valid and total_tokens else 0
@@ -369,6 +455,7 @@ def _run_closed_loop_one_model(project_root, model, args, use_model_specific_pat
                         "pass_count": pass_count,
                         "n_valid": n_valid,
                         "round_elapsed_min": round_elapsed_min,
+                        "breakdown": round_breakdown or {},
                         "token": {
                             "prompt_tokens": token_obj.get("prompt_tokens", 0),
                             "completion_tokens": token_obj.get("completion_tokens", 0),
@@ -724,7 +811,10 @@ def main():
     loop_parser.add_argument("--pilot-batch", type=int, default=None, help="试水批量：先用小批量跑闭环积累范例和规则，最后自动全量生成（如 --pilot-batch 50 表示每轮试水 50 题）；不设则每轮全量")
     loop_parser.add_argument("--grade", default="3", help="年级（1-12），默认 3")
     loop_parser.add_argument("--subject", default="ELA", help="学科缩写（ELA, MATH, SCI, USHIST 等），默认 ELA")
-    loop_parser.add_argument("--type", default="all", dest="question_type", help="题型：all / mcq / msq / fill-in（默认 all = 同时生成三种题型）")
+    loop_parser.add_argument("--type", default="all", dest="question_type", help="题型：all / mcq / msq / fill-in（逗号分隔多选，如 msq,fill-in；默认 all = 同时生成三种题型）")
+    loop_parser.add_argument("--difficulty", default=None, help="难度筛选（逗号分隔，如 easy,medium,hard；默认全部）")
+    loop_parser.add_argument("--weak-threshold", type=float, default=None, help="弱项阈值（百分数，如 90）：仅生成 pass_rate 低于此值的 (type,difficulty) 组合")
+    loop_parser.add_argument("--rules-run-id", default=None, help="规则共享 run-id：使用该 ID 的 prompt_rules 和 examples，输出文件仍用 --run-id 隔离（用于针对性改进时复用已有规则）")
 
     # 多模型闭环：对多个模型分别跑闭环，最后汇总各模型通过率并保存 JSON
     multi_parser = subparsers.add_parser("closed-loop-multi", help="多模型闭环：对多个模型分别跑闭环，汇总通过率并保存 JSON")
@@ -744,7 +834,7 @@ def main():
     multi_parser.add_argument("--pilot-batch", type=int, default=None, help="试水批量：先用小批量跑闭环积累范例和规则，最后自动全量生成（如 --pilot-batch 50）；不设则每轮全量")
     multi_parser.add_argument("--grade", default="3", help="年级（1-12），默认 3")
     multi_parser.add_argument("--subject", default="ELA", help="学科缩写（ELA, MATH, SCI, USHIST 等），默认 ELA")
-    multi_parser.add_argument("--type", default="all", dest="question_type", help="题型：all / mcq / msq / fill-in（默认 all = 同时生成三种题型）")
+    multi_parser.add_argument("--type", default="all", dest="question_type", help="题型：all / mcq / msq / fill-in（逗号分隔多选，如 msq,fill-in；默认 all = 同时生成三种题型）")
 
     # 从失败组合改进 prompt 规则（全局 + 按 standard / (standard,difficulty)）
     improve_prompt_parser = subparsers.add_parser("improve-prompt", help="从评估结果提取失败反馈，更新全局/针对性 prompt 规则")
@@ -1203,6 +1293,20 @@ def main():
                     if n_submitted > n_valid:
                         print(f"[评估] 若将无分数题按不通过计: {passed}/{n_submitted} ({100*passed/n_submitted:.1f}%)", flush=True)
                     print(f"[评估] 平均分: {avg:.2f}", flush=True)
+                    breakdown = _compute_breakdown(items, scores)
+                    bt = breakdown["by_type"]
+                    bd = breakdown["by_difficulty"]
+                    if len(bt) > 1:
+                        print(f"[评估] --- 按题型 ---", flush=True)
+                        for t in sorted(bt):
+                            b = bt[t]
+                            print(f"[评估]   {t:<8}: {b['pass_count']}/{b['count']} ({b['pass_rate']}%)  avg={b['avg_score']:.2f}", flush=True)
+                    if len(bd) > 1:
+                        print(f"[评估] --- 按难度 ---", flush=True)
+                        for d in ["easy", "medium", "hard"]:
+                            if d in bd:
+                                b = bd[d]
+                                print(f"[评估]   {d:<8}: {b['pass_count']}/{b['count']} ({b['pass_rate']}%)  avg={b['avg_score']:.2f}", flush=True)
                     if error_details:
                         print(f"\n[评估] 无分数题目明细（建议先排查「服务端」再重试或联系评分方）:", flush=True)
                         for e in error_details:
@@ -1220,18 +1324,22 @@ def main():
                         diff = q.get("difficulty") or "medium"
                         s = scores[i]
                         elapsed = elapsed_by_idx.get(i, 0)
+                        qtype = q.get("type", "mcq")
                         evaluation_details.append({
                             "index": i + 1,
                             "standard": std_short,
                             "difficulty": diff,
+                            "type": qtype,
                             "score": round(s, 2) if s is not None else None,
                             "elapsed_s": round(elapsed, 1),
                         })
+                    breakdown = _compute_breakdown(items, scores)
                     out_data = {
                         "total": n_submitted,
                         "total_submitted": n_submitted,
                         "valid_score_count": n_valid,
                         "error_count": n_error,
+                        "breakdown": breakdown,
                         "scores": scores,
                         "results": [results_by_idx.get(i) for i in range(len(items))],
                         "evaluation_details": evaluation_details,
@@ -1266,7 +1374,7 @@ def main():
             print_available_options()
             sys.exit(1)
         print(f"  Grade: {grade}, Subject: {subject}")
-        _run_closed_loop_one_model(project_root, getattr(args, "model", "deepseek-chat"), args, use_model_specific_paths=True, run_id=getattr(args, "run_id", None))
+        _run_closed_loop_one_model(project_root, getattr(args, "model", "deepseek-chat"), args, use_model_specific_paths=True, run_id=getattr(args, "run_id", None), rules_run_id=getattr(args, "rules_run_id", None))
 
     elif args.command == "closed-loop-multi":
         project_root = os.path.dirname(os.path.abspath(__file__))
