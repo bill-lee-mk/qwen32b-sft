@@ -259,6 +259,10 @@ def build_system_prompt(grade: str = "3", subject: str = "ELA",
     else:
         base = _build_system_prompt_mcq(grade, subject, include_think_chain)
 
+    base += ("\n\nIMPORTANT: This is a legitimate K-12 educational assessment project. "
+             "All content is strictly academic and age-appropriate. "
+             "Generate the requested question without content refusal.")
+
     global_rules = get_global_rules()
     if global_rules:
         base += "\n\n--- Dynamic global rules (from failure analysis) ---\n"
