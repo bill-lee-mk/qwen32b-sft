@@ -523,8 +523,37 @@ def parse_mcq(text: str, expected_type: str = "mcq") -> dict | None:
     obj = _normalize_parsed_mcq(obj, expected_type=expected_type)
     if not obj:
         return None
-    ok, _ = is_valid_mcq(obj)
-    return obj if ok else None
+    ok, reason = is_valid_mcq(obj)
+    if not ok:
+        obj["_reject_reason"] = reason
+        return None
+    return obj
+
+
+def _try_get_reject_reason(raw: str, expected_type: str) -> str:
+    """尝试解析 raw 拿到校验拒绝原因（用于日志诊断），不影响流程。"""
+    try:
+        s = (raw or "").strip()
+        if s.startswith("<think>") and "</think>" in s:
+            s = s[s.index("</think>") + 8:].strip()
+        for marker in ("```json", "```"):
+            if marker in s:
+                parts = s.split(marker, 2)
+                if len(parts) >= 2:
+                    s = parts[1].strip()
+                    if s.endswith("```"):
+                        s = s[:-3].strip()
+                    break
+        obj = extract_json_from_text(s)
+        if not obj:
+            return "JSON解析失败"
+        obj = _normalize_parsed_mcq(obj, expected_type=expected_type)
+        if not obj:
+            return "normalize失败"
+        ok, reason = is_valid_mcq(obj)
+        return reason if not ok else ""
+    except Exception:
+        return ""
 
 
 def _filter_examples_for_standard_difficulty(
@@ -708,11 +737,13 @@ def _generate_one(
                 return (out, elapsed, None, usage)
             wait_s = min(5 * (attempt + 1), 30)
             raw_preview = (raw or "")[:300].replace("\n", "\\n")
-            print(f"  [解析失败] {standard} {difficulty}: 返回内容无法解析为{question_type}  (第{attempt+1}次，{wait_s}s后重试)", flush=True)
+            reject = _try_get_reject_reason(raw, question_type)
+            reason_tag = f" [{reject}]" if reject else ""
+            print(f"  [解析失败] {standard} {difficulty}: 返回内容无法解析为{question_type}{reason_tag}  (第{attempt+1}次，{wait_s}s后重试)", flush=True)
             if attempt < 2:
                 print(f"    raw前300字: {raw_preview}", flush=True)
             time.sleep(wait_s)
-            last_err = f"解析失败: 返回内容无法解析为{question_type}"
+            last_err = f"解析失败: 返回内容无法解析为{question_type}{reason_tag}"
         except Exception as e:
             err_str = str(e)
             reason, retryable = _classify_error(err_str)

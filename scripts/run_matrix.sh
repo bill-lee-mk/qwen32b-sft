@@ -129,6 +129,7 @@ for MODEL in $MODELS; do
       fi
       echo "  执行: python main.py closed-loop $LOOP_ARGS"
 
+      # shellcheck disable=SC2086
       if python main.py closed-loop $LOOP_ARGS; then
         echo "  [闭环完成] Model=$MODEL Grade=$GRADE"
       else
@@ -140,11 +141,12 @@ for MODEL in $MODELS; do
       # 闭环完成后，找到 best 结果文件并复制到 matrix 目录
       SCOPE_TAG="${GRADE}_${SUBJECT}"
       BEST_PATTERN="evaluation_output/results_${SCOPE_TAG}_${MNAME}_${RUN_ID}_best_*.json"
+      # shellcheck disable=SC2012,SC2086
       BEST_FILE=$(ls $BEST_PATTERN 2>/dev/null | head -1 || true)
 
       if [ -n "$BEST_FILE" ] && [ -f "$BEST_FILE" ]; then
         cp "$BEST_FILE" "$OUTDIR/results_${TAG}.json"
-        BEST_MCQS=$(echo "$BEST_FILE" | sed 's/results_/mcqs_/')
+        BEST_MCQS="${BEST_FILE/results_/mcqs_}"
         [ -f "$BEST_MCQS" ] && cp "$BEST_MCQS" "$OUTDIR/mcqs_${TAG}.json"
         RATE=$(python3 -c "import json; print(json.load(open('$BEST_FILE')).get('pass_rate', 0))")
         echo "  [最佳结果] pass_rate=${RATE}% → $OUTDIR/results_${TAG}.json"
@@ -179,6 +181,7 @@ for MODEL in $MODELS; do
         GEN_ARGS="$GEN_ARGS --diverse $N"
       fi
 
+      # shellcheck disable=SC2086
       if python scripts/generate_questions.py $GEN_ARGS; then
         echo "  [生成完成] $MCQS"
       else
