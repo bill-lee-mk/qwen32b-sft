@@ -19,8 +19,9 @@ _EVALUATOR_FALLBACK_URL = "https://api.inceptbench.com/evaluate"
 def _get_evaluator_endpoints() -> List[Tuple[str, str]]:
     """
     解析多套 (url, token) 配置，全部从环境变量读取。
-    主配置: INCEPTBENCH_API_KEY 或 INCEPTBENCH_TOKEN
-    第二套: EVALUATOR_TOKEN（URL 固定为 api.inceptbench.com，主配置失败时自动切换）
+    优先使用 EVALUATOR_TOKEN（api.inceptbench.com，速度更快）；
+    INCEPTBENCH_API_KEY/INCEPTBENCH_TOKEN 作为备用。
+    可通过 EVALUATOR_PRIMARY=inceptlabs 强制主端点优先。
     """
     def _pair(url: str, token: Optional[str]) -> Optional[Tuple[str, str]]:
         if not token or not token.strip():
@@ -29,17 +30,24 @@ def _get_evaluator_endpoints() -> List[Tuple[str, str]]:
 
     pairs: List[Tuple[str, str]] = []
 
-    # 主配置
-    tok1 = os.environ.get("INCEPTBENCH_API_KEY") or os.environ.get("INCEPTBENCH_TOKEN")
-    p1 = _pair(_PRIMARY_URL, tok1)
-    if p1:
-        pairs.append(p1)
+    tok_eval = os.environ.get("EVALUATOR_TOKEN")
+    p_eval = _pair(_EVALUATOR_FALLBACK_URL, tok_eval)
 
-    # 第二套（主配置失败时降级，如 429 配额超限等）
-    tok2 = os.environ.get("EVALUATOR_TOKEN")
-    p2 = _pair(_EVALUATOR_FALLBACK_URL, tok2)
-    if p2 and p2 not in pairs:
-        pairs.append(p2)
+    tok_main = os.environ.get("INCEPTBENCH_API_KEY") or os.environ.get("INCEPTBENCH_TOKEN")
+    p_main = _pair(_PRIMARY_URL, tok_main)
+
+    prefer_main = (os.environ.get("EVALUATOR_PRIMARY", "").lower() == "inceptlabs")
+
+    if prefer_main:
+        if p_main:
+            pairs.append(p_main)
+        if p_eval and p_eval not in pairs:
+            pairs.append(p_eval)
+    else:
+        if p_eval:
+            pairs.append(p_eval)
+        if p_main and p_main not in pairs:
+            pairs.append(p_main)
 
     return pairs
 
