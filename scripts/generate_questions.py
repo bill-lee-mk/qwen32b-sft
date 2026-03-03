@@ -84,15 +84,17 @@ def call_openai(messages: list, api_key: str, model: str = "gpt-4o", base_url: s
         kwargs["base_url"] = base_url
     client = OpenAI(**kwargs)
 
-    need_stream = (base_url and "fireworks" in base_url and max_tokens > 4096)
+    _m_lower = model.lower()
+    _skip_temp = any(k in _m_lower for k in ("/o3", "/o4", "/o1", "o3-", "o4-", "o1-"))
+
+    need_stream = (base_url and ("fireworks" in base_url or "openrouter" in base_url) and max_tokens > 4096)
     if need_stream:
         content_parts = []
         reasoning_parts = []
-        stream = client.chat.completions.create(
-            model=model, messages=messages,
-            temperature=temperature, max_tokens=max_tokens, stream=True,
-            stream_options={"include_usage": True},
-        )
+        create_kwargs: dict = dict(model=model, messages=messages, max_tokens=max_tokens, stream=True, stream_options={"include_usage": True})
+        if not _skip_temp:
+            create_kwargs["temperature"] = temperature
+        stream = client.chat.completions.create(**create_kwargs)
         usage = None
         for chunk in stream:
             if chunk.choices:
@@ -114,12 +116,10 @@ def call_openai(messages: list, api_key: str, model: str = "gpt-4o", base_url: s
             content = "".join(reasoning_parts)
         return content, usage
 
-    response = client.chat.completions.create(
-        model=model,
-        messages=messages,
-        temperature=temperature,
-        max_tokens=max_tokens,
-    )
+    create_kwargs_sync: dict = dict(model=model, messages=messages, max_tokens=max_tokens)
+    if not _skip_temp:
+        create_kwargs_sync["temperature"] = temperature
+    response = client.chat.completions.create(**create_kwargs_sync)
     content = response.choices[0].message.content or ""
     usage = None
     if getattr(response, "usage", None):
@@ -208,6 +208,11 @@ def _estimate_cost(provider: str, model: str, hit: int, miss: int, out: int) -> 
         p = FIREWORKS_PRICING.get(short, (0.28, 0.56, 1.68))
         cost = (hit * p[0] + miss * p[1] + out * p[2]) / 1e6
         return cost, f"${cost:.2f}" if cost > 0 else "$0"
+    if provider == "openrouter":
+        short = m.replace("or/", "").replace("openrouter/", "")
+        p = OPENROUTER_PRICING.get(short, (0.20, 0.40, 1.00))
+        cost = (hit * p[0] + miss * p[1] + out * p[2]) / 1e6
+        return cost, f"${cost:.2f}" if cost > 0 else "$0"
     if provider == "deepseek":
         is_reasoner = "reasoner" in m
         h_y, m_y = (1.0, 4.0) if is_reasoner else (0.5, 2.0)
@@ -218,6 +223,54 @@ def _estimate_cost(provider: str, model: str, hit: int, miss: int, out: int) -> 
         cost = (hit * 1.0 + miss * 4.0 + out * 16.0) / 1e6
         return cost, f"¥{cost:.2f}" if cost > 0 else "¥0"
     return 0.0, "$0"
+
+
+# OpenRouter: https://openrouter.ai ，OpenAI 兼容，聚合多家模型
+OPENROUTER_API_BASE = "https://openrouter.ai/api/v1"
+OPENROUTER_MODEL_MAP = {
+    # 当前项目已有模型
+    "glm-5":             "z-ai/glm-5",
+    "kimi-k2.5":         "moonshotai/kimi-k2.5",
+    "deepseek-v3.2":     "deepseek/deepseek-v3.2",
+    "deepseek-r1":       "deepseek/deepseek-r1",
+    "qwen3-235b":        "qwen/qwen3-235b-a22b",
+    # 最新顶级闭源模型
+    "gpt-5.2":           "openai/gpt-5.2",
+    "gpt-4.1":           "openai/gpt-4.1",
+    "gpt-4.1-mini":      "openai/gpt-4.1-mini",
+    "o3":                "openai/o3",
+    "o4-mini":           "openai/o4-mini",
+    "claude-sonnet":     "anthropic/claude-sonnet-4.6",
+    "claude-opus":       "anthropic/claude-opus-4.6",
+    "gemini-3-pro":      "google/gemini-3-pro-preview",
+    "gemini-3-flash":    "google/gemini-3-flash-preview",
+    "gemini-2.5-pro":    "google/gemini-2.5-pro",
+    "gemini-2.5-flash":  "google/gemini-2.5-flash",
+    "grok-4":            "x-ai/grok-4",
+    "grok-4-fast":       "x-ai/grok-4-fast",
+    "llama-4-maverick":  "meta-llama/llama-4-maverick",
+}
+OPENROUTER_PRICING = {
+    "glm-5":             (0.40, 0.80, 2.56),
+    "kimi-k2.5":         (0.22, 0.45, 2.20),
+    "deepseek-v3.2":     (0.12, 0.25, 0.40),
+    "deepseek-r1":       (0.22, 0.45, 1.80),
+    "qwen3-235b":        (0.27, 0.55, 3.50),
+    "gpt-5.2":           (0.87, 1.75, 14.00),
+    "gpt-4.1":           (1.00, 2.00, 8.00),
+    "gpt-4.1-mini":      (0.20, 0.40, 1.60),
+    "o3":                (1.00, 2.00, 8.00),
+    "o4-mini":           (0.55, 1.10, 4.40),
+    "claude-sonnet":     (1.50, 3.00, 15.00),
+    "claude-opus":       (2.50, 5.00, 25.00),
+    "gemini-3-pro":      (1.00, 2.00, 12.00),
+    "gemini-3-flash":    (0.25, 0.50, 3.00),
+    "gemini-2.5-pro":    (0.62, 1.25, 10.00),
+    "gemini-2.5-flash":  (0.15, 0.30, 2.50),
+    "grok-4":            (1.50, 3.00, 15.00),
+    "grok-4-fast":       (0.10, 0.20, 0.50),
+    "llama-4-maverick":  (0.07, 0.15, 0.60),
+}
 
 
 # Kimi (Moonshot) 官方 API：https://platform.moonshot.cn ，OpenAI 兼容，需配置 API Key
@@ -281,12 +334,14 @@ def _is_local_model(model: str) -> bool:
 
 
 def _model_to_provider(model: str) -> str:
-    """从模型名推断 API 提供商：local / fireworks / deepseek / kimi / gemini / openai"""
+    """从模型名推断 API 提供商：local / fireworks / openrouter / deepseek / kimi / gemini / openai"""
     if _is_local_model(model):
         return "local"
     m = (model or "").strip().lower()
     if m.startswith("fw/") or m.startswith("fireworks/"):
         return "fireworks"
+    if m.startswith("or/") or m.startswith("openrouter/"):
+        return "openrouter"
     if m.startswith("deepseek-") or m == "deepseek":
         return "deepseek"
     if m.startswith("kimi-") or m.startswith("moonshot-") or m == "kimi":
@@ -297,11 +352,17 @@ def _model_to_provider(model: str) -> str:
 
 
 def _get_generation_params(provider: str, model: str) -> dict:
-    """按 provider 和 model 返回生成参数。Fireworks 经由的底层模型也需区分温度。"""
+    """按 provider 和 model 返回生成参数。Fireworks/OpenRouter 经由的底层模型也需区分温度。"""
     m = (model or "").strip().lower()
     if provider == "fireworks":
         temp = 1.0 if "kimi" in m and "k2" in m else 0.7
         mt = 16384 if ("glm" in m or "kimi" in m) else 4096
+        return {"temperature": temp, "max_tokens": mt}
+    if provider == "openrouter":
+        _reasoning_models = ("o3", "o4", "gpt-5", "deepseek-r1")
+        is_reasoning = any(k in m for k in _reasoning_models)
+        temp = 1.0 if ("kimi" in m and "k2" in m) or is_reasoning else 0.7
+        mt = 16384 if ("glm" in m or "kimi" in m or is_reasoning) else 4096
         return {"temperature": temp, "max_tokens": mt}
     if provider == "deepseek":
         return {"temperature": 0.7, "max_tokens": 8192}
@@ -319,12 +380,18 @@ def _resolve_fireworks_model(model: str) -> str:
     return FIREWORKS_MODEL_MAP.get(short, f"accounts/fireworks/models/{short}")
 
 
+def _resolve_openrouter_model(model: str) -> str:
+    """将 or/xxx 模型名解析为 OpenRouter API 的完整 model ID。"""
+    short = model.replace("or/", "").replace("openrouter/", "").strip()
+    return OPENROUTER_MODEL_MAP.get(short, short)
+
+
 def _get_api_key_for_model(model: str) -> str | None:
     """根据模型名返回对应环境变量中的 API Key；本地模型返回 dummy。"""
     provider = _model_to_provider(model)
     if provider == "local":
         return "dummy"
-    env_map = {"deepseek": "DEEPSEEK_API_KEY", "kimi": "KIMI_API_KEY", "gemini": "GEMINI_API_KEY", "openai": "OPENAI_API_KEY", "fireworks": "FIREWORKS_API_KEY"}
+    env_map = {"deepseek": "DEEPSEEK_API_KEY", "kimi": "KIMI_API_KEY", "gemini": "GEMINI_API_KEY", "openai": "OPENAI_API_KEY", "fireworks": "FIREWORKS_API_KEY", "openrouter": "OPENROUTER_API_KEY"}
     return os.environ.get(env_map[provider])
 
 
@@ -459,6 +526,12 @@ def _normalize_parsed_mcq(obj: dict, expected_type: str = "mcq") -> dict | None:
                 d[k] = str(t)
         if set(d.keys()) == {"A", "B", "C", "D"}:
             obj = {**obj, "answer_options": d}
+    # 兼容 answer_explanation 别名
+    if "answer_explanation" not in obj:
+        for alias in ("explanation", "rationale", "solution", "answer_rationale"):
+            if alias in obj:
+                obj["answer_explanation"] = obj.pop(alias)
+                break
     # 兼容 answer 别名
     if "answer" not in obj and "correct_answer" in obj:
         obj["answer"] = obj.pop("correct_answer", "")
@@ -685,6 +758,7 @@ def _validate_and_repair_keep_all(
 
 
 _parse_fail_lock = threading.Lock()
+_parse_fail_counter: dict[str, int] = {}
 
 
 def _log_parse_failure(model: str, standard: str, difficulty: str,
@@ -706,6 +780,26 @@ def _log_parse_failure(model: str, standard: str, difficulty: str,
     with _parse_fail_lock:
         with open(log_path, "a", encoding="utf-8") as f:
             f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+        short_reason = reason[:60] if reason else "unknown"
+        _parse_fail_counter[short_reason] = _parse_fail_counter.get(short_reason, 0) + 1
+
+
+def _print_parse_failure_summary(model: str) -> None:
+    """在批量生成完成后，打印本次运行的解析失败摘要。"""
+    with _parse_fail_lock:
+        counts = dict(_parse_fail_counter)
+        _parse_fail_counter.clear()
+    if not counts:
+        return
+    total = sum(counts.values())
+    print(f"\n[监控] 本批次解析失败摘要 ({model}): 共 {total} 次失败（均已重试成功或构造替代）", flush=True)
+    for reason, cnt in sorted(counts.items(), key=lambda x: -x[1]):
+        print(f"  · {reason}: {cnt} 次", flush=True)
+    safe_model = model.replace("/", "_")
+    log_path = Path("evaluation_output") / f"parse_failures_{safe_model}.jsonl"
+    if log_path.exists():
+        print(f"  详细日志: {log_path}", flush=True)
+    print(flush=True)
 
 
 def _classify_error(err_str: str) -> tuple[str, bool]:
@@ -767,6 +861,10 @@ def _generate_one(
                 p = _get_generation_params(provider, model)
                 fw_model = _resolve_fireworks_model(model)
                 raw, usage = call_openai(messages, api_key, fw_model, base_url=FIREWORKS_API_BASE, temperature=p["temperature"], max_tokens=p["max_tokens"])
+            elif provider == "openrouter":
+                p = _get_generation_params(provider, model)
+                or_model = _resolve_openrouter_model(model)
+                raw, usage = call_openai(messages, api_key, or_model, base_url=OPENROUTER_API_BASE, temperature=p["temperature"], max_tokens=p["max_tokens"])
             elif provider == "deepseek":
                 raw, usage = call_deepseek(messages, api_key, model)
             elif provider == "kimi":
@@ -811,7 +909,7 @@ def _generate_one(
                 _record_429()
                 if provider == "kimi":
                     wait_s = KIMI_429_WAIT_SECONDS
-                elif provider == "fireworks":
+                elif provider in ("fireworks", "openrouter"):
                     wait_s = min(30 * (attempt + 1), 120)
                 else:
                     wait_s = _parse_retry_seconds(err_str)
@@ -994,9 +1092,11 @@ def main():
             if provider == "fireworks":
                 fw_model = (model or "").lower()
                 if "kimi" in fw_model:
-                    workers = 5                            # Fireworks kimi 后端容量有限，多终端并行时需低并发防 429
+                    workers = 5
                 else:
-                    workers = 50                           # 其他 Fireworks 模型 50 并发
+                    workers = 50
+            elif provider == "openrouter":
+                workers = 30
             elif provider == "deepseek":
                 workers = 20 if "reasoner" in (model or "").lower() else 30  # DeepSeek 无硬性 RPM 限制
             elif provider == "kimi":
@@ -1018,6 +1118,8 @@ def main():
             print("  提示: 本地默认 8 并发（8 卡机可保持队列）；单进程 serve-api 串行推理仅用 1–2 卡，若需用满 8 卡可起 8 个 serve-api 实例并做负载均衡")
         if provider == "fireworks":
             print(f"  提示: Fireworks {workers} 并发；遇 429 可降低 --workers")
+        elif provider == "openrouter":
+            print(f"  提示: OpenRouter {workers} 并发；遇 429 可降低 --workers")
         elif provider == "gemini" and workers > 2:
             print("  提示: Gemini 免费版约 5 次/分钟，建议 --workers 2；遇 429 会自动重试")
         elif provider == "kimi":
@@ -1052,7 +1154,7 @@ def main():
         generation_details = [None] * n  # 供 usage 文件写入（闭环综合日志使用）
         usage_agg = {"prompt_tokens": 0, "completion_tokens": 0, "prompt_cache_hit_tokens": 0, "prompt_cache_miss_tokens": 0, "n_calls": 0}
         # 渐进启动：前 workers 个任务分批提交（间隔 ramp_delay），避免瞬间洪峰触发 429
-        ramp_delay = 1.0 if provider == "fireworks" and "kimi" in (model or "").lower() else 0.1
+        ramp_delay = 1.0 if (provider in ("fireworks", "openrouter") and "kimi" in (model or "").lower()) else 0.1
         with ThreadPoolExecutor(max_workers=workers) as ex:
             futures = {}
             for i, (s, d, qt) in enumerate(plan):
@@ -1108,6 +1210,9 @@ def main():
                     label = f"题{i+1:>3} ({std_short}, {d}{type_tag})".ljust(label_width)
                     print(f"[生成] 异常: {label}  {'—':>{time_width}}  {str(e)[:40]}…，将修复或构造", flush=True)
 
+        # 本批生成完毕后，自动输出解析失败摘要
+        _print_parse_failure_summary(model)
+
         # 校验不通过则修复或构造，保证输出题目数 = n、组合与 plan 一致
         results, validated_stats = _validate_and_repair_keep_all(
             results_by_index, plan, grade=args.grade, subject=args.subject
@@ -1118,7 +1223,8 @@ def main():
             print(f"[生成] [校验] 激进修复后通过: {validated_stats['repaired']} 题")
         if validated_stats.get("constructed"):
             print(f"[生成] [校验] 未通过则构造最小合法题: {validated_stats['constructed']} 题（保持组合与总数一致）")
-        if usage_agg["n_calls"] > 0 and provider in ("deepseek", "kimi", "fireworks", "openai"):
+        _cost_providers = ("deepseek", "kimi", "fireworks", "openai", "openrouter")
+        if usage_agg["n_calls"] > 0 and provider in _cost_providers:
             hit = usage_agg["prompt_cache_hit_tokens"]
             miss = usage_agg["prompt_cache_miss_tokens"]
             out = usage_agg["completion_tokens"]
@@ -1131,7 +1237,7 @@ def main():
         if usage_out:
             est_cost = 0.0
             cost_display = "$0"
-            if usage_agg["n_calls"] > 0 and provider in ("deepseek", "kimi", "fireworks", "openai"):
+            if usage_agg["n_calls"] > 0 and provider in _cost_providers:
                 hit = usage_agg["prompt_cache_hit_tokens"]
                 miss = usage_agg["prompt_cache_miss_tokens"]
                 out = usage_agg["completion_tokens"]
@@ -1174,6 +1280,10 @@ def main():
                 p = _get_generation_params(provider, model)
                 fw_model = _resolve_fireworks_model(model)
                 raw, _ = call_openai(messages, api_key, fw_model, base_url=FIREWORKS_API_BASE, temperature=p["temperature"], max_tokens=p["max_tokens"])
+            elif provider == "openrouter":
+                p = _get_generation_params(provider, model)
+                or_model = _resolve_openrouter_model(model)
+                raw, _ = call_openai(messages, api_key, or_model, base_url=OPENROUTER_API_BASE, temperature=p["temperature"], max_tokens=p["max_tokens"])
             elif provider == "deepseek":
                 raw, _ = call_deepseek(messages, api_key, model)
             elif provider == "kimi":

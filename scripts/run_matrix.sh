@@ -43,7 +43,13 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 # === 可配置参数 ===
+# Fireworks 前缀 fw/，OpenRouter 前缀 or/，可混用：
 #MODELS="${MODELS:-fw/deepseek-r1 fw/deepseek-v3.2 fw/kimi-k2.5 fw/glm-5 fw/gpt-oss-120b fw/qwen3-235b}"
+#MODELS="${MODELS:-or/deepseek-v3.2 or/kimi-k2.5 or/glm-5}"  # OpenRouter（通常更快更便宜）
+# OpenRouter 新增顶级闭源模型（or/前缀）:
+#   or/gpt-5.2        or/gpt-4.1        or/gpt-4.1-mini   or/o3  or/o4-mini
+#   or/claude-sonnet   or/claude-opus    or/gemini-3-pro   or/gemini-3-flash
+#   or/gemini-2.5-pro  or/gemini-2.5-flash  or/grok-4  or/grok-4-fast  or/llama-4-maverick
 MODELS="${MODELS:-fw/deepseek-v3.2 fw/kimi-k2.5 fw/glm-5 fw/gpt-oss-120b}"
 GRADES="${GRADES:-1 2 3 4 5 6 7 8 9 10 11 12}"
 SUBJECT="${SUBJECT:-ELA}"
