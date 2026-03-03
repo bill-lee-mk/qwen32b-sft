@@ -1087,15 +1087,15 @@ def main():
                 # 多题：一次只能提交一题，--parallel 个进程并行
                 from concurrent.futures import ThreadPoolExecutor, as_completed
                 n_total = len(items)
-                # 按本题集最大「题号+(标准,难度,题型)」长度固定 label 宽度，使 score/error 列对齐
+                # 按本题集最大「题号+(年级,标准,难度,题型)」长度固定 label 宽度，使 score/error 列对齐
                 _has_multi_types = len({q.get("type", "mcq") for q in items}) > 1
+                _eval_grade = getattr(args, "grade", "3")
                 def _eval_label(i, q):
                     std = (q.get("standard") or "").replace("CCSS.ELA-LITERACY.", "")
                     diff = q.get("difficulty") or "medium"
                     qtype = q.get("type", "mcq")
-                    if _has_multi_types:
-                        return f"题{i+1:>3} ({std}, {diff}, {qtype})"
-                    return f"题{i+1:>3} ({std}, {diff})"
+                    type_tag = f", {qtype}" if _has_multi_types else ""
+                    return f"题{i+1:>3} (G{_eval_grade:<2}, {std}, {diff}{type_tag})"
                 label_width = max(len(_eval_label(i, q)) for i, q in enumerate(items))
                 print(f"[评估] {n_total} 题，每次 1 题，{parallel} 并行，超时 {timeout}s/题", flush=True)
                 evaluator = InceptBenchEvaluator(timeout=timeout)
@@ -1276,6 +1276,7 @@ def main():
                         error_details.append({
                             "index": i,
                             "question_id": q.get("id"),
+                            "grade": _eval_grade,
                             "standard": q.get("standard"),
                             "difficulty": q.get("difficulty"),
                             "type": q.get("type", "mcq"),

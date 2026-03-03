@@ -1144,12 +1144,14 @@ def main():
             model_slug = model.replace(".", "_").replace("/", "_")
             args.output = str(PROJECT_ROOT / "evaluation_output" / f"mcqs_237_{model_slug}.json")
 
-        # 与评估一致：按本题集最大「题号+(标准,难度,题型)」长度固定 label 宽度；耗时列固定宽度对齐
+        # 与评估一致：按本题集最大「题号+(年级,标准,难度,题型)」长度固定 label 宽度；耗时列固定宽度对齐
         multi_type = len(types_to_gen) > 1
-        label_width = max(
-            len(f"题{i+1:>3} ({(s or '').replace('CCSS.ELA-LITERACY.', '')}, {d}" + (f", {qt}" if multi_type else "") + ")")
-            for i, (s, d, qt) in enumerate(plan)
-        )
+        _gen_grade = args.grade
+        def _gen_label(i, s, d, qt):
+            std_short = (s or "").replace("CCSS.ELA-LITERACY.", "")
+            type_tag = f", {qt}" if multi_type else ""
+            return f"题{i+1:>3} (G{_gen_grade:<2}, {std_short}, {d}{type_tag})"
+        label_width = max(len(_gen_label(i, s, d, qt)) for i, (s, d, qt) in enumerate(plan))
         time_width = 8  # 耗时列宽度，如 "  12.3s"、" 120.5s"
         # 按组合下标存储，保证题目总数与 plan 一致；未生成或校验不通过则修复或构造，不丢弃
         results_by_index = [None] * n
@@ -1188,11 +1190,10 @@ def main():
                         usage_agg["prompt_cache_hit_tokens"] += usage.get("prompt_cache_hit_tokens", 0) or 0
                         usage_agg["prompt_cache_miss_tokens"] += usage.get("prompt_cache_miss_tokens", 0) or 0
                     std_short = (s or "").replace("CCSS.ELA-LITERACY.", "")
-                    type_tag = f", {qt}" if multi_type else ""
                     tokens = (usage.get("prompt_tokens", 0) or 0) + (usage.get("completion_tokens", 0) or 0) if usage else 0
                     generation_details[i] = {"index": i + 1, "standard": std_short, "difficulty": d, "type": qt, "tokens": tokens, "elapsed_s": round(elapsed, 1)}
                     elapsed_s = f"{elapsed:.1f}s".rjust(time_width)
-                    label = f"题{i+1:>3} ({std_short}, {d}{type_tag})".ljust(label_width)
+                    label = _gen_label(i, s, d, qt).ljust(label_width)
                     tok = ""
                     if usage:
                         pt = (usage.get("prompt_tokens") or 0) + (usage.get("completion_tokens") or 0)
@@ -1207,9 +1208,7 @@ def main():
                     else:
                         print(f"[生成] 失败: {label}  {elapsed_s}{tok}，将修复或构造", flush=True)
                 except Exception as e:
-                    std_short = (s or "").replace("CCSS.ELA-LITERACY.", "")
-                    type_tag = f", {qt}" if multi_type else ""
-                    label = f"题{i+1:>3} ({std_short}, {d}{type_tag})".ljust(label_width)
+                    label = _gen_label(i, s, d, qt).ljust(label_width)
                     print(f"[生成] 异常: {label}  {'—':>{time_width}}  {str(e)[:40]}…，将修复或构造", flush=True)
 
         # 本批生成完毕后，自动输出解析失败摘要
