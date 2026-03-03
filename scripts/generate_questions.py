@@ -468,6 +468,27 @@ def _normalize_parsed_mcq(obj: dict, expected_type: str = "mcq") -> dict | None:
         if isinstance(o, dict) and set(str(k).upper()[:1] for k in o) >= {"A", "B", "C", "D"}:
             obj["answer_options"] = {k: str(v) for k, v in o.items()}
 
+    # 规范化 answer_options 的 dict key: "A." → "A", "(C)" → "C", "1" → "A" 等
+    opts = obj.get("answer_options")
+    if isinstance(opts, dict) and len(opts) >= 4:
+        _num_to_letter = {"1": "A", "2": "B", "3": "C", "4": "D"}
+        cleaned: dict[str, str] = {}
+        ans_remap: dict[str, str] = {}
+        for k, v in opts.items():
+            raw_k = str(k).strip()
+            letter = re.sub(r"[^A-Da-d]", "", raw_k).upper()[:1]
+            if not letter and raw_k in _num_to_letter:
+                letter = _num_to_letter[raw_k]
+                ans_remap[raw_k] = letter
+            if letter and letter not in cleaned:
+                cleaned[letter] = str(v)
+                ans_remap[raw_k] = letter
+        if set(cleaned) >= {"A", "B", "C", "D"}:
+            obj["answer_options"] = {k: cleaned[k] for k in "ABCD"}
+            ans = str(obj.get("answer", "")).strip()
+            if ans in ans_remap and ans not in "ABCDabcd":
+                obj["answer"] = ans_remap[ans]
+
     # MCQ: normalize answer — strip non-letter noise (e.g. "A/B/C/D" or Chinese instructions)
     if qtype != "msq":
         ans_raw = str(obj.get("answer", "")).strip()
@@ -663,6 +684,30 @@ def _validate_and_repair_keep_all(
     return out, {"fixed": fixed_count, "repaired": repaired_count, "constructed": constructed_count}
 
 
+_parse_fail_lock = threading.Lock()
+
+
+def _log_parse_failure(model: str, standard: str, difficulty: str,
+                       qtype: str, reason: str, raw: str) -> None:
+    """将解析失败写入持久化日志文件，便于离线分析。"""
+    safe_model = model.replace("/", "_")
+    log_dir = Path("evaluation_output")
+    log_dir.mkdir(exist_ok=True)
+    log_path = log_dir / f"parse_failures_{safe_model}.jsonl"
+    entry = {
+        "ts": time.strftime("%Y-%m-%dT%H:%M:%S"),
+        "model": model,
+        "standard": standard,
+        "difficulty": difficulty,
+        "type": qtype,
+        "reason": reason,
+        "raw_preview": (raw or "")[:500],
+    }
+    with _parse_fail_lock:
+        with open(log_path, "a", encoding="utf-8") as f:
+            f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+
+
 def _classify_error(err_str: str) -> tuple[str, bool]:
     """分类错误类型，返回 (简短原因, 是否可重试)。"""
     low = err_str.lower()
@@ -752,6 +797,7 @@ def _generate_one(
             print(f"  [解析失败] {standard} {difficulty}: 返回内容无法解析为{question_type}{reason_tag}  (第{attempt+1}次，{wait_s}s后重试)", flush=True)
             if attempt < 2:
                 print(f"    raw前300字: {raw_preview}", flush=True)
+            _log_parse_failure(model, standard, difficulty, question_type, reject or "unknown", raw or "")
             time.sleep(wait_s)
             last_err = f"解析失败: 返回内容无法解析为{question_type}{reason_tag}"
         except Exception as e:
