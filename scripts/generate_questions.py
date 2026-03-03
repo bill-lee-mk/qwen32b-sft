@@ -301,7 +301,7 @@ def _get_generation_params(provider: str, model: str) -> dict:
     m = (model or "").strip().lower()
     if provider == "fireworks":
         temp = 1.0 if "kimi" in m and "k2" in m else 0.7
-        mt = 16384 if "glm" in m else 4096
+        mt = 16384 if ("glm" in m or "kimi" in m) else 4096
         return {"temperature": temp, "max_tokens": mt}
     if provider == "deepseek":
         return {"temperature": 0.7, "max_tokens": 8192}
@@ -468,13 +468,23 @@ def _normalize_parsed_mcq(obj: dict, expected_type: str = "mcq") -> dict | None:
         if isinstance(o, dict) and set(str(k).upper()[:1] for k in o) >= {"A", "B", "C", "D"}:
             obj["answer_options"] = {k: str(v) for k, v in o.items()}
 
+    # MCQ: normalize answer — strip non-letter noise (e.g. "A/B/C/D" or Chinese instructions)
+    if qtype != "msq":
+        ans_raw = str(obj.get("answer", "")).strip()
+        import re as _re
+        m = _re.match(r"^([A-Da-d])", ans_raw)
+        if m:
+            obj["answer"] = m.group(1).upper()
+
     # MSQ: normalize answer to sorted comma-separated letters
     if qtype == "msq":
         ans = obj.get("answer", "")
         if isinstance(ans, list):
-            ans = ",".join(str(a).upper().strip() for a in ans)
+            ans = ",".join(str(a).upper().strip()[:1] for a in ans if str(a).strip())
         elif isinstance(ans, str):
-            ans = ",".join(sorted(set(l.strip().upper() for l in ans.replace(" ", "").split(",") if l.strip())))
+            import re as _re
+            letters = _re.findall(r"[A-Da-d]", ans)
+            ans = ",".join(sorted(set(l.upper() for l in letters)))
         obj["answer"] = ans
 
     return obj

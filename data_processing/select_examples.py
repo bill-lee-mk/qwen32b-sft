@@ -15,22 +15,66 @@ MSQ_REQUIRED_FIELDS = ["id", "type", "question", "answer", "answer_options", "an
 FILLIN_REQUIRED_FIELDS = ["id", "type", "question", "answer", "answer_explanation", "difficulty"]
 
 
+def _repair_json_control_chars(s: str) -> str:
+    """转义 JSON 字符串值内的非法控制字符（如 LLM 输出的真实换行/制表符）。"""
+    out = []
+    in_str = False
+    i = 0
+    while i < len(s):
+        c = s[i]
+        if c == '\\' and in_str and i + 1 < len(s):
+            out.append(c)
+            out.append(s[i + 1])
+            i += 2
+            continue
+        if c == '"':
+            in_str = not in_str
+        if in_str:
+            if c == '\n':
+                out.append('\\n')
+            elif c == '\r':
+                out.append('\\r')
+            elif c == '\t':
+                out.append('\\t')
+            else:
+                out.append(c)
+        else:
+            out.append(c)
+        i += 1
+    return ''.join(out)
+
+
 def extract_json_from_text(text: str) -> Optional[Dict]:
-    """从文本中提取第一个完整 JSON 对象"""
-    start = text.find("{")
-    if start == -1:
-        return None
-    depth = 0
-    for i in range(start, len(text)):
-        if text[i] == "{":
-            depth += 1
-        elif text[i] == "}":
-            depth -= 1
-            if depth == 0:
-                try:
-                    return json.loads(text[start : i + 1])
-                except json.JSONDecodeError:
-                    return None
+    """从文本中提取第一个可解析的完整 JSON 对象。
+
+    跳过思考链等非 JSON 文本中的花括号，持续扫描直到找到有效 JSON。
+    自动修复字符串内的非法控制字符（换行等）。
+    """
+    pos = 0
+    while pos < len(text):
+        start = text.find("{", pos)
+        if start == -1:
+            return None
+        depth = 0
+        for i in range(start, len(text)):
+            if text[i] == "{":
+                depth += 1
+            elif text[i] == "}":
+                depth -= 1
+                if depth == 0:
+                    raw = text[start : i + 1]
+                    try:
+                        return json.loads(raw)
+                    except json.JSONDecodeError:
+                        pass
+                    try:
+                        return json.loads(_repair_json_control_chars(raw))
+                    except json.JSONDecodeError:
+                        pass
+                    pos = i + 1
+                    break
+        else:
+            return None
     return None
 
 
