@@ -24,6 +24,10 @@ WINNER_ABBR = {
     "fw/deepseek-r1": "R1", "fw/deepseek-v3.2": "V3.2", "fw/deepseek-v3_2": "DSv3",
     "fw/kimi-k2.5": "Kimi", "fw/kimi-k2_5": "Kimi",
     "fw/glm-5": "GLM5", "fw/gpt-oss-120b": "GPT", "fw/qwen3-235b": "Qwen",
+    "or/gpt-5.2": "G5.2", "or/gpt-5_2": "G5.2",
+    "or/gemini-3-pro": "Gm3P", "or/gpt-4.1": "G4.1",
+    "or/claude-sonnet": "CSon", "or/claude-opus": "COpu",
+    "or/grok-4": "Grk4",
 }
 
 
@@ -45,6 +49,8 @@ def _pad(s: str, width: int, align: str = "left") -> str:
 
 
 def _short_model(name: str) -> str:
+    if name.startswith("or_"):
+        return "or/" + name[3:]
     return name.replace("fw_", "fw/")
 
 

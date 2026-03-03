@@ -396,9 +396,11 @@ def _run_closed_loop_one_model(project_root, model, args, use_model_specific_pat
                     no_improve_count = 0
                 else:
                     no_improve_count += 1
-                    rate_str = str(round(pass_rate, 1)).replace(".", "_")
-                    new_mcqs_best = f"{base_mcqs}_best_{rate_str}.json"
-                    new_results_best = f"{base_results}_best_{rate_str}.json"
+                # 每次刷新最佳或首次产出时，都保存 best 文件（用最佳通过率命名）
+                rate_str = str(round(best_pass_rate_seen, 1)).replace(".", "_")
+                new_mcqs_best = f"{base_mcqs}_best_{rate_str}.json"
+                new_results_best = f"{base_results}_best_{rate_str}.json"
+                if pass_rate >= best_pass_rate_seen:
                     for old in glob.glob(f"{base_mcqs}_best_*.json"):
                         if old != new_mcqs_best and os.path.exists(old):
                             os.remove(old)
@@ -501,22 +503,30 @@ def _run_closed_loop_one_model(project_root, model, args, use_model_specific_pat
                                 pass
                     _print_summary()
                     break
-                imp_prompt_cmd = [sys.executable, os.path.join(project_root, "scripts", "improve_prompt.py"), "--results", results_path, "--mcqs", mcqs_path, "--output", prompt_rules_path, "--examples", examples_path]
-                _log(f"  [3/3] 改 prompt 规则")
-                _run_with_log_stream(imp_prompt_cmd, project_root)
-                # 删除中间暂存文件，仅保留最佳题目与结果
-                for p in [mcqs_path, results_path]:
-                    if os.path.exists(p):
-                        try:
-                            os.remove(p)
-                        except Exception:
-                            pass
                 if round_num == max_rounds:
                     if pilot_batch:
                         _log(f"\n  试水 {max_rounds} 轮完成，历史最高 {best_pass_rate_seen:.1f}%，进入全量生成")
                     else:
                         _log(f"\n  已达最大轮数 {max_rounds}，最终通过率 {pass_rate:.1f}%，历史最高 {best_pass_rate_seen:.1f}% @ 第{best_round_seen}轮")
+                        # 删除最后一轮的中间文件（best 已保存）
+                        for p in [mcqs_path, results_path]:
+                            if os.path.exists(p):
+                                try:
+                                    os.remove(p)
+                                except Exception:
+                                    pass
                         _print_summary()
+                else:
+                    imp_prompt_cmd = [sys.executable, os.path.join(project_root, "scripts", "improve_prompt.py"), "--results", results_path, "--mcqs", mcqs_path, "--output", prompt_rules_path, "--examples", examples_path]
+                    _log(f"  [3/3] 改 prompt 规则")
+                    _run_with_log_stream(imp_prompt_cmd, project_root)
+                    # 删除中间暂存文件，仅保留最佳题目与结果
+                    for p in [mcqs_path, results_path]:
+                        if os.path.exists(p):
+                            try:
+                                os.remove(p)
+                            except Exception:
+                                pass
             # ── Phase 2: 全量生成（仅 pilot 模式） ──
             if pilot_batch:
                 pilot_rounds_done = result["round_reached"]
@@ -1089,7 +1099,13 @@ def main():
                 n_total = len(items)
                 # 按本题集最大「题号+(年级,标准,难度,题型)」长度固定 label 宽度，使 score/error 列对齐
                 _has_multi_types = len({q.get("type", "mcq") for q in items}) > 1
-                _eval_grade = getattr(args, "grade", "3")
+                _eval_grade = getattr(args, "grade", None)
+                if not _eval_grade and args.input:
+                    import re as _re
+                    _m = _re.search(r'(?:mcqs|results)_(\d+)_', os.path.basename(args.input))
+                    if _m:
+                        _eval_grade = _m.group(1)
+                _eval_grade = _eval_grade or "?"
                 def _eval_label(i, q):
                     std = (q.get("standard") or "").replace("CCSS.ELA-LITERACY.", "")
                     diff = q.get("difficulty") or "medium"
