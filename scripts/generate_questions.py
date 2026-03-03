@@ -362,7 +362,9 @@ def _get_generation_params(provider: str, model: str) -> dict:
         _reasoning_models = ("o3", "o4", "gpt-5", "deepseek-r1")
         is_reasoning = any(k in m for k in _reasoning_models)
         temp = 1.0 if ("kimi" in m and "k2" in m) or is_reasoning else 0.7
-        mt = 16384 if ("glm" in m or "kimi" in m or is_reasoning) else 4096
+        _needs_high_mt = ("glm" in m or "kimi" in m or is_reasoning)
+        _needs_mid_mt = ("gemini" in m or "claude" in m or "grok" in m)
+        mt = 16384 if _needs_high_mt else (8192 if _needs_mid_mt else 4096)
         return {"temperature": temp, "max_tokens": mt}
     if provider == "deepseek":
         return {"temperature": 0.7, "max_tokens": 8192}

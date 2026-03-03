@@ -1087,11 +1087,16 @@ def main():
                 # 多题：一次只能提交一题，--parallel 个进程并行
                 from concurrent.futures import ThreadPoolExecutor, as_completed
                 n_total = len(items)
-                # 按本题集最大「题号+(标准,难度)」长度固定 label 宽度，使 score/error 列对齐
-                label_width = max(
-                    len(f"题{i+1:>3} ({(q.get('standard') or '').replace('CCSS.ELA-LITERACY.', '')}, {q.get('difficulty') or 'medium'})")
-                    for i, q in enumerate(items)
-                )
+                # 按本题集最大「题号+(标准,难度,题型)」长度固定 label 宽度，使 score/error 列对齐
+                _has_multi_types = len({q.get("type", "mcq") for q in items}) > 1
+                def _eval_label(i, q):
+                    std = (q.get("standard") or "").replace("CCSS.ELA-LITERACY.", "")
+                    diff = q.get("difficulty") or "medium"
+                    qtype = q.get("type", "mcq")
+                    if _has_multi_types:
+                        return f"题{i+1:>3} ({std}, {diff}, {qtype})"
+                    return f"题{i+1:>3} ({std}, {diff})"
+                label_width = max(len(_eval_label(i, q)) for i, q in enumerate(items))
                 print(f"[评估] {n_total} 题，每次 1 题，{parallel} 并行，超时 {timeout}s/题", flush=True)
                 evaluator = InceptBenchEvaluator(timeout=timeout)
 
@@ -1200,7 +1205,7 @@ def main():
                                     s = (ev.get("overall") or {}).get("score")  # 第二套格式
                             done += 1
                             progress = f"{done:>3}/{n_total}"
-                            label = f"题{i_actual+1:>3} ({std}, {diff})".ljust(label_width)
+                            label = _eval_label(i_actual, items[i_actual]).ljust(label_width)
                             dur_str = f"  {elapsed:.1f}s"
                             retry_info = r.pop("_retry_info", "")
                             if isinstance(s, (int, float)):
@@ -1238,7 +1243,7 @@ def main():
                             elapsed_by_idx[i] = 0.0
                             done += 1
                             progress = f"{done:>3}/{n_total}"
-                            label = f"题{i+1:>3} ({std}, {diff})".ljust(label_width)
+                            label = _eval_label(i, items[i]).ljust(label_width)
                             print(f"[评估] [{progress}] {label}: error (原因: {e})  —", flush=True)
 
                 # 总评估数 = 提交的题目数；有效题目数 = 拿到数值分数的题目数；无分数题 = 总评估数 - 有效题目数
@@ -1273,6 +1278,7 @@ def main():
                             "question_id": q.get("id"),
                             "standard": q.get("standard"),
                             "difficulty": q.get("difficulty"),
+                            "type": q.get("type", "mcq"),
                             "reason": reason[:300],
                             "classification": classification,
                         })
@@ -1311,8 +1317,10 @@ def main():
                         print(f"\n[评估] 无分数题目明细（建议先排查「服务端」再重试或联系评分方）:", flush=True)
                         for e in error_details:
                             std_short = (e.get("standard") or "").replace("CCSS.ELA-LITERACY.", "")
+                            qtype = e.get("type", "mcq")
                             kind = "服务端" if e.get("classification") == "service" else "题目/请求"
-                            print(f"[评估]   题{e['index']+1:>3} ({std_short}, {e.get('difficulty','')}): {e.get('reason','')[:80]}... 判定: {kind}", flush=True)
+                            type_tag = f", {qtype}" if _has_multi_types else ""
+                            print(f"[评估]   题{e['index']+1:>3} ({std_short}, {e.get('difficulty','')}{type_tag}): {e.get('reason','')[:80]}... 判定: {kind}", flush=True)
                 else:
                     print("\n[评估] 无有效分数", flush=True)
 
