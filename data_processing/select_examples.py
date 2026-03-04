@@ -92,8 +92,22 @@ def is_valid_mcq(mcq: Dict) -> Tuple[bool, str]:
         if not answer:
             return False, "answer must not be empty for fill-in"
         question = str(mcq.get("question", ""))
-        if "___" not in question and "blank" not in question.lower():
-            return False, "fill-in question should contain a blank (______ or mention 'blank')"
+        q_lower = question.lower()
+        has_blank_indicator = (
+            "___" in question
+            or "blank" in q_lower
+            or "type the" in q_lower
+            or "type a " in q_lower
+            or "type your" in q_lower
+            or "write the" in q_lower
+            or "write a " in q_lower
+            or "enter the" in q_lower
+            or "fill in" in q_lower
+            or "identify the" in q_lower
+            or "identify and type" in q_lower
+        )
+        if not has_blank_indicator:
+            return False, "fill-in question should contain a blank (______ or mention 'blank') or a typing instruction (e.g. 'Type the...')"
         return True, ""
 
     if qtype == "msq":

@@ -66,6 +66,7 @@ RUN_ID="${RUN_ID:-matrix}"      # 闭环 run-id，隔离不同批次的 examples
 RULES_RUN_ID="${RULES_RUN_ID:-}"  # 规则共享 run-id：指定后 prompt_rules/examples 用该 ID 的文件（用于针对性改进时复用已有规则）
 DIFFICULTY="${DIFFICULTY:-}"      # 难度筛选（逗号分隔，如 medium,hard；空=全部难度）
 WEAK_THRESHOLD="${WEAK_THRESHOLD:-}"  # 弱项阈值（百分数，如 90）：仅生成低于此值的 type×difficulty 组合
+PATIENCE="${PATIENCE:-5}"             # 连续 N 轮未刷新最佳则 early-stop（0=不启用）
 
 mkdir -p "$OUTDIR"
 
@@ -132,6 +133,9 @@ for MODEL in $MODELS; do
       fi
       if [ -n "$WORKERS" ]; then
         LOOP_ARGS="$LOOP_ARGS --workers $WORKERS"
+      fi
+      if [ -n "$PATIENCE" ] && [ "$PATIENCE" != "0" ]; then
+        LOOP_ARGS="$LOOP_ARGS --patience $PATIENCE"
       fi
       echo "  执行: python main.py closed-loop $LOOP_ARGS"
 
