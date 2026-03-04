@@ -1,0 +1,856 @@
+{
+  "global_rules": [
+    "Use only plausible, real-word distractors; avoid non-words or invented forms.",
+    "Ensure all four options A/B/C/D have different text; no duplicate options.",
+    "answer_explanation must describe only the correct option and must not reference or contradict wrong options.",
+    "For single-answer MCQs use singular wording (e.g. 'Which choice...'), not 'Which choices/options'.",
+    "Keep tense and time cues consistent between stem and options.",
+    "If the stem has a blank, each option must be a phrase that fits the blank grammatically; avoid full clauses as options for a single blank.",
+    "Ensure all passage content is factually accurate; avoid false or misleading claims in stems or passages.",
+    "For peer feedback/editing items: ensure the feedback describes an actual error present in the draft; avoid describing errors that don't exist."
+  ],
+  "by_standard": {
+    "CCSS.ELA-LITERACY.L.4.2.B": [
+      "Revise the stem to remove ambiguity, for example: “Which sentence is punctuated correctly?” or “Which sentence correctly punctuates the entire sentence, including the dialogue?”..."
+    ],
+    "CCSS.ELA-LITERACY.L.4.2.D+1": [
+      "Clarify the stem to specify conventional/correct English spelling and remove the misleading ai example. For example: “Which choice is the correct English spelling for the sounds..."
+    ],
+    "CCSS.ELA-LITERACY.L.4.3.A+1": [
+      "Revise distractors B and C to be more plausible near-synonyms that students might confuse with the target meaning (e.g., “was exhausted,” “was out of breath,” “was short of brea...",
+      "Revise either the stem or option B to avoid duplication under literal substitution. For example: change the sentence to “Mia did a good job” (remove “on her science project”); o...",
+      "- Fix the correctness/fit issue: Either change option C to “whistled” (so “the wind whistled against the windows” fits), or change the sentence to “…the wind made a loud sound t...",
+      "Update acceptable_answers to only include correct variants that meet the instruction and idiom standard form, e.g., [\"at the crack of dawn\", \"At the crack of dawn\"]. Remove nons..."
+    ],
+    "CCSS.ELA-LITERACY.L.4.3.B+2": [
+      "Revise the stem’s quotation punctuation to avoid US-style ambiguity, for example: The student says, \"Well, that was helpful\". Then ask: Which end punctuation would make the stud...",
+      "Revise option C to avoid context-conflicting examples, e.g., \"The exclamation point in Version 3 makes Ms. Rivera sound strongly emotional, such as surprised or frustrated.\" Alt..."
+    ],
+    "CCSS.ELA-LITERACY.L.4.4.A": [
+      "Revise option D to a more plausible but still incorrect interpretation based on the context clues. For example: \"worried and anxious about her project\" (students might link chec...",
+      "Remove or neutralize the bold formatting for the context-clue phrases in the passage (keep only the target word \"reluctant\" bolded if desired). Alternatively, ensure formatting ...",
+      "Expand acceptable answers to include more precise one-word synonyms supported by the context, such as calm, reassured, relaxed, comforted, untroubled, or unworried. Alternativel..."
+    ],
+    "CCSS.ELA-LITERACY.L.4.4.B+2": [
+      "- Replace or revise distractors to align with known misconceptions. For example: add “able to be heard” to target ignoring the in- prefix; include a sound-related but incorrect ...",
+      "To strengthen mastery learning, add context requiring application of the root (e.g., “Based on the sentence, what does ‘telegraph’ most likely mean?”) or ask students to use tel..."
+    ],
+    "CCSS.ELA-LITERACY.L.4.4.C+3": [
+      "To improve mastery, include a brief glossary entry for \"erosion\" and ask students to select the correct definition based on that entry, or ask them to choose which part of the g...",
+      "Correct the glossary entry for charge (SCIENCE) to an age-appropriate but accurate definition, e.g.: “charge (SCIENCE): a property of tiny particles (like electrons and protons)...",
+      "Fix grading key consistency: include both \"insulator\" and \"Insulator\" (and consider case-insensitive matching). Optionally, reduce the vowel cue by revising the sentence to avoi..."
+    ],
+    "CCSS.ELA-LITERACY.L.4.5.A": [
+      "Improve distractor plausibility by targeting common misconceptions. For example, replace C and D with choices like: “Her fingers literally turned into ice” (literal interpretati...",
+      "Revise acceptable_answers to exclude “many.” Keep only grammatically appropriate completions such as “a lot,” “a lot of water,” “a large amount (of water),” “lots of water,” or ..."
+    ],
+    "CCSS.ELA-LITERACY.L.4.5.A+2": [
+      "Replace Option D with a more plausible, misconception-based distractor (e.g., “The simile just means Ben was reading, not how he sounded.”) to improve diagnostic value and align..."
+    ],
+    "CCSS.ELA-LITERACY.RF.4.4.A": [
+      "Either relabel the item as Medium (or Easy) or increase difficulty by making distractors more plausible (e.g., academic purposes such as “to compare beaver dams with human-made ...",
+      "Remove “to persuade” from acceptable_answers to match the instruction exactly. Optionally clarify grading to be case-insensitive and to ignore trailing punctuation if you intend...",
+      "- Remove the “ONE word” constraint or change it to “word or words.” Example: “fill in the blank with the words that tell what Mia finally used…” - Keep the sentence frame as is:..."
+    ],
+    "CCSS.ELA-LITERACY.RI.4.3": [
+      "Revise Option D to a plausible misconception tied to heat transfer, e.g., “The vacuum is filled with warm air that keeps heat inside,” or “The shiny walls reflect heat back to t...",
+      "To better match a Hard difficulty label, require integrating multiple steps or sentences (e.g., ask students to explain both lifting and lowering processes, or synthesize why ma...",
+      "Make grading consistent with the instruction: either (a) keep the exact-phrase requirement and remove alternative acceptable answers, allowing only “prevent cracking,” or (b) ch..."
+    ],
+    "CCSS.ELA-LITERACY.RI.4.5+4": [
+      "To enhance mastery learning, add brief context that requires applying the feature’s function (e.g., show a mock book page with multiple features—index snippet, glossary entry bo..."
+    ],
+    "CCSS.ELA-LITERACY.RI.4.6": [
+      "Revise the answer_explanation to accurately reflect Account 2: replace “a quote from the principal” with “attribution to the principal” or “information from the principal,” and ...",
+      "Clarify the target phrase to eliminate multiple plausible answers. For example: “Copy the exact three words at the start of Account B that name the publication reporting the eve...",
+      "Clarify the prompt or broaden grading: e.g., change the stem to “...gives more numerical details about the event” or accept additional correct responses like “facts,” “objective..."
+    ],
+    "CCSS.ELA-LITERACY.RI.4.7": [
+      "Replace option D with a more plausible but still incorrect reason a table might help, such as: “It helps the reader quickly find each food in an organized list,” or “It shows se..."
+    ],
+    "CCSS.ELA-LITERACY.RL.4.10": [
+      "Revise choice D to be a more text-plausible misconception. For example: \"She is relieved the box wasn’t empty,\" or \"She is surprised the box wasn’t for someone else.\" These keep...",
+      "Remove “shines” from acceptable_answers (keep only “shine”; allow case-insensitive matching if desired). If you wish to accept inflected forms, revise the prompt to remove the r...",
+      "Make acceptable answers consistent with the stem’s grammar: either (a) keep the stem as “about a ______” and accept only “flood,” removing “flooding,” or (b) change the stem to ..."
+    ],
+    "CCSS.ELA-LITERACY.RL.4.3": [
+      "- Revise distractors to be closer to the passage’s surface cues while still incorrect, and balance length/specificity across options. Examples: • “A street festival with tents a...",
+      "Align acceptable_answers with the two-word requirement. Remove longer variants and accept only capitalization/punctuation variants of “backing up” (e.g., allow “Backing up” and ..."
+    ],
+    "CCSS.ELA-LITERACY.RL.4.4": [
+      "Replace option D with a more plausible misconception-based distractor, e.g., “Lena is very lucky and succeeds without trying,” or “Lena literally turns things into gold,” to bet...",
+      "Remove the explicit adjective from the sentence so students must infer the meaning of the allusion. For example: “After finishing the long race without stopping, Kai felt like M...",
+      "Remove “trouble” from acceptable answers or revise the stem’s quantifier (e.g., change “many” to “much” or remove the quantifier) so that “trouble” would be grammatical. Optiona..."
+    ],
+    "CCSS.ELA-LITERACY.RL.4.5": [
+      "To better support mastery learning while staying MCQ, add a short excerpt mixing stage directions, stanza lines, and paragraph text and ask which feature shows it’s a drama. Alt..."
+    ],
+    "CCSS.ELA-LITERACY.SL.4.1.C": [
+      "Revise distractors to be grammatically parallel (all as questions) without connecting specifically to Mateo’s idea. For example: A) “Why is brushing your teeth important?” (not ...",
+      "Align acceptable answers with the stated constraints or relax the constraints explicitly. Options: - Enforce strict grading: Remove acceptable variants that lack the comma after...",
+      "Resolve the two-word requirement mismatch: either remove “Following up on” from acceptable answers or change the instruction to allow a short phrase (e.g., “Write a short phrase..."
+    ],
+    "CCSS.ELA-LITERACY.W.4.2.A": [
+      "Reduce the length/detail gap between options to avoid telegraphing the correct choice. For example, slightly condense Option C or expand A, B, and D with comparable detail so th...",
+      "- Remove the plural “sections” from acceptable_answers; keep “section” (and case-insensitive variants) to fit the sentence grammar. - To justify a “hard” label, increase cogniti...",
+      "Strengthen mastery by requiring application. Examples: provide a short paragraph and ask the student to write an appropriate heading; or present several text features (e.g., a t..."
+    ],
+    "CCSS.ELA-LITERACY.W.4.2.C": [
+      "Revise the correct option or the sentence structure so the linking phrase is grammatically correct: 1) Change option C to an adverbial linker like “Also” or “Additionally,” so t...",
+      "Add the labeled correct answer \"For example\" (capitalized, no comma) to acceptable_answers to remove the field mismatch. Optionally, also accept \"For instance\"/\"For instance,\". ...",
+      "Resolve punctuation ambiguity. Options: (a) Keep the comma after the blank and restrict accepted answers to versions without a comma (“For example”, “for example”); or (b) remov...",
+      "Fix acceptable_answers to match the stem’s punctuation. Options: (a) Keep the comma in the stem and allow only answers without a trailing comma (e.g., “For example”, “For instan..."
+    ],
+    "CCSS.ELA-LITERACY.W.4.3.D": [
+      "Revise distractors to be closer in length and structure to option B while still lacking sensory details. For example: A) The bakery looked clean and bright with rows of bread on..."
+    ],
+    "CCSS.ELA-LITERACY.W.4.6": [
+      "Reduce length imbalance by tightening Option B and/or adding comparable detail to distractors. Aim for parallel structure and similar length across options so correctness isn’t ...",
+      "To better support mastery, reframe to require application. For example: present short scenarios and ask which student meets W.4.6 (e.g., Student A typed 3/4 page, Student B type..."
+    ],
+    "CCSS.ELA-LITERACY.W.4.7": [
+      "Reduce answer B’s length or increase specificity in other options to balance length and detail. For example, shorten B by removing parenthetical examples or add parallel detail ...",
+      "Remove “researching” from acceptable_answers (keep only “research”). Optionally, adjust the stem if you want to accept gerunds (e.g., “…is called short ______.”), but as written..."
+    ],
+    "CCSS.ELA-LITERACY.W.4.9.B": [
+      "Revise either the stem or options to ensure a single correct answer: 1) Change the stem to “Which sentence provides the strongest evidence (a specific fact or data) that school ...",
+      "Make acceptable_answers strictly match verbatim text spans from the paragraph. For example, allow: (1) “trash cans held 25% less leftover food each day” and/or (2) “trash cans h..."
+    ],
+    "CCSS.ELA-LITERACY.L.4.1.G": [
+      "Correct the explanation for A to accurately describe “to” as an infinitive marker (e.g., “to bring,” “to see”), not direction. Example: “In A, ‘They’re’ means ‘they are’; ‘two’ ...",
+      "Revise the sentence or the word pair so the correct answer is grammatically sound: - Option A (keep there/their): “The dogs wagged ______ tails when they saw their owner. (their...",
+      "Remove \"theyre\" from acceptable_answers or change the prompt/scoring to explicitly indicate that missing apostrophes will not be accepted. Best fix: require the correct contract...",
+      "Add lowercase \"two\" to acceptable_answers (and consider case-insensitive grading) to ensure correct responses are accepted; e.g., acceptable_answers: [\"two\", \"Two\"]."
+    ],
+    "CCSS.ELA-LITERACY.L.4.2.A+3": [
+      "Correct the explanation for option C. Example: “C is correct because important words are capitalized, the short word ‘to’ is lowercase, and the first word after the colon is cap...",
+      "Remove the quoted variant from acceptable_answers (\"Secrets of the Ocean: A Guide for Young Explorers\") or revise the stem to allow quotation marks. Keep the unquoted, correctly..."
+    ],
+    "CCSS.ELA-LITERACY.L.4.5.B+2": [
+      "Revise option D to a more plausible, misconception-aligned distractor. Examples: 1) “Make plans as if everything will definitely work out.” 2) “It’s fine to celebrate success be...",
+      "Revise acceptable_answers to match the sentence frame: keep “looks” (correct), keep “appears,” add “seems.” Remove “look.” Remove “appearance,” or change the stem to “...based o..."
+    ],
+    "CCSS.ELA-LITERACY.RF.4.3.A": [
+      "Revise option C to avoid the inaccurate example. For example: “Use what you know about letter sounds to sound out the parts (the y makes the long i sound, and c before y says /s...",
+      "Fix the explanation: “Combine un- + forget + -able to make unforgettable. In ‘forgettable,’ the final consonant t is doubled before the vowel suffix -able; the e in ‘forget’ is ..."
+    ],
+    "CCSS.ELA-LITERACY.RI.4.5+2": [
+      "Clarify the scope of “effects” or rephrase D to avoid implying it is a consequence of the low battery. Examples: (a) Revise stem to “Which sentences describe effects that direct...",
+      "Clarify the stem to match the intended scoring. For example: “Which sentences primarily state a cause (in the main clause) rather than an effect? Select ALL that apply.” Alterna...",
+      "- Correct the answer key to the immediate cause: “This extra time.” - Update acceptable_answers to variants that still match the exact phrasing rule (e.g., “This extra time,” po...",
+      "Clarify which effect to name. For example: “Identify the effect introduced by the signal phrase ‘As a result’” or “What happened as a result of the branches being knocked down?”..."
+    ],
+    "CCSS.ELA-LITERACY.RI.4.9": [
+      "Correct the key to A and C only, or revise option B to explicitly incorporate information unique to Text 2 (e.g., mention the loss of wildflower fields or the reasons for bee de..."
+    ],
+    "CCSS.ELA-LITERACY.SL.4.1.D": [
+      "Revise option D to be parallel to the others by including only the student comment, e.g., “I agree with what everyone said.” Consider another plausible non-example (e.g., restat...",
+      "Revise the stem to fit the keyed verb: either add the preposition or shift it into the blank. For example: “Maya is ________ on the key ideas from the discussion…” (expecting “r..."
+    ],
+    "CCSS.ELA-LITERACY.W.4.10": [
+      "- Fix explanation for C: note it represents a shorter time frame (a day or two) with reflection/revision for a science audience. - Clarify stem to avoid ambiguity, e.g., “Which ...",
+      "To resolve the format mismatch: either (a) update metadata to type “mcq” to match the presented A–D options, or (b) convert to a true fill-in format by removing the A–D options ..."
+    ],
+    "CCSS.ELA-LITERACY.W.4.3.B+1": [
+      "Clarify the criterion so D is unambiguously excluded, or revise D. For example: change stem to “Which sentences use dialogue to clearly develop the event or to reveal a specific...",
+      "To comply with the requested fill-in format, remove the A–D answer options and prompt students to write a one- or two-sentence dialogue revision that shows the character’s respo...",
+      "Fix answer key consistency: remove punctuation from acceptable answers so they match the stem’s existing comma. For example, acceptable_answers should include [\"whispered\"] only..."
+    ],
+    "CCSS.ELA-LITERACY.W.4.9.A": [
+      "Revise option C to remove the unsupported term “rehearsal.” For example: “During the play, Mina steps onto a taped line for her cue and then fixes a problem by picking up a fall..."
+    ],
+    "CCSS.ELA-LITERACY.L.4.1.B": [
+      "- Remove unacceptable entries from acceptable_answers so only entries that fit the blank remain (e.g., accept only “am reading”; handle capitalization via case-insensitive gradi...",
+      "Remove the incorrect acceptable answer “will be practiseing.” If allowing UK spelling, add the correct British form “will be practising” (with s and without the e); otherwise, k..."
+    ],
+    "CCSS.ELA-LITERACY.L.4.1.C": [
+      "Align accepted answers: include both \"must\" and \"Must\" (or use case-insensitive grading). Optionally clarify with “Type one word” to discourage responses like “has to.”",
+      "- Accept both “may” and “can” as correct answers, or - Revise the stem to reduce ambiguity, e.g., “Complete the sentence with the BEST modal to show formal permission,” and then..."
+    ],
+    "CCSS.ELA-LITERACY.L.4.1.C+1": [
+      "- Fix grading consistency: add \"may\" (lowercase) to acceptable_answers or use case-insensitive grading. - Remove ambiguity by constraining choices to the targeted set (e.g., \"Us..."
+    ],
+    "CCSS.ELA-LITERACY.L.4.1.D": [
+      "Revise acceptable_answers to align with the instructions and sentence frame. Suggested list: [\"delightful small blue ceramic\"]. Remove entries that include the noun (\"... bowl\")...",
+      "Align acceptable answers with the instruction: remove the comma-separated variant (\"small, round, red, rubber\") or revise the instruction to allow commas. Optionally, reinforce ..."
+    ],
+    "CCSS.ELA-LITERACY.L.4.1.D+1": [
+      "Update acceptable_answers to align with the instructions and conventional punctuation for cumulative adjectives: remove “small, green” and the double-space “small green.” Keep o..."
+    ],
+    "CCSS.ELA-LITERACY.L.4.1.E": [
+      "Expand acceptable answers substantially or switch to rubric-based/manual scoring. Include common correct variants (e.g., on the couch; in the basket; by the window; near the doo..."
+    ],
+    "CCSS.ELA-LITERACY.L.4.1.E+1": [
+      "Broaden the scoring to accept any correctly formed prepositional phrase that: (1) begins with “between”, and (2) includes a clear object (usually two items) indicating location ..."
+    ],
+    "CCSS.ELA-LITERACY.L.4.1.F": [
+      "Clarify the prompt or expand acceptable answers to remove ambiguity. Options: 1) Specify the mark: “Type a period (.) to make this into two complete sentences.” 2) If keeping it..."
+    ],
+    "CCSS.ELA-LITERACY.L.4.1.F+1": [
+      "Tighten grading to accept only a subject pronoun consistent with the context (e.g., “He”), or revise the prompt to “add a subject or subject pronoun.” Optionally note capitaliza...",
+      "Revise acceptable_answers to match the cloze. Suggested set: [\"fragment\", \"Fragment\"]. Alternatively, adjust the stem to remove “sentence” before the blank (e.g., “It is a _____..."
+    ],
+    "CCSS.ELA-LITERACY.L.4.2.A+1": [
+      "- Provide the uncapitalized target within the sentence to truly assess correction, e.g.: “Rewrite the name of the place with correct capitalization: My aunt lives in san francis...",
+      "Remove “the Statue of Liberty” from acceptable_answers (or adjust the sentence to remove the preceding “the,” e.g., “to see ______”). Optionally, clarify in the explanation that..."
+    ],
+    "CCSS.ELA-LITERACY.L.4.2.A+2": [
+      "Clarify the prompt and revise the sentence to remove ambiguity and awkwardness, for example: \"Type the first word that begins this sentence with correct capitalization: ______ s...",
+      "Tighten grading: accept only “After” (capital A + lowercase rest). If multiple formats are allowed, specify in the instructions (e.g., “Capitalize only the first letter”). Remov..."
+    ],
+    "CCSS.ELA-LITERACY.L.4.2.B+1": [
+      "Remove the double prime (″, U+2033) from acceptable answers. Keep the standard keyboard double quote (\") and optionally the proper right double quotation mark (”) as acceptable."
+    ],
+    "CCSS.ELA-LITERACY.L.4.2.B+4": [
+      "To avoid multiple valid answers, either: (a) change the dialogue tag to “Mia said.” or (b) change the stem to say “Add the missing comma …” so only a comma fits the requirement."
+    ],
+    "CCSS.ELA-LITERACY.L.4.2.D": [
+      "- Specify the exact target word in the stem (e.g., “Type the correctly spelled word: play”) and provide the sentence to complete. - Alternatively, present a misspelled version t...",
+      "Correct the letter-count clues and explanation. For example: “has one ‘n,’ two ‘s’ letters, and one ‘c’ letter.” Revise the explanation to: “The correct spelling is ‘necessary’ ..."
+    ],
+    "CCSS.ELA-LITERACY.L.4.2.D+2": [
+      "Add \"less\" to acceptable_answers and/or enforce case-insensitive matching. Optionally accept \"-less\" if your system allows, since the explanation denotes the suffix with a hyphen.",
+      "Align answer fields: include both \"responsibility\" and \"Responsibility\" in acceptable_answers, or set evaluation to be case-insensitive and trim whitespace. Example: acceptable_..."
+    ],
+    "CCSS.ELA-LITERACY.L.4.2.D+5": [
+      "Revise the explanation to match the correct spelling rule for this word. For example: \"The correct spelling is excitement. For the base word excite, keep the final e and add -me..."
+    ],
+    "CCSS.ELA-LITERACY.L.4.3.A": [
+      "- Revise the sentence to match the intended verb: “After running the race, Maya __________ water, breathing hard.” (Remove “for.”) - Clarify tense in the prompt if desired: “Use..."
+    ],
+    "CCSS.ELA-LITERACY.L.4.3.A+2": [
+      "Remove “peeked” from acceptable_answers or revise the stem to target a quick/secretive glance (e.g., change the cue from “trying hard to see in low light” to “took a quick, secr..."
+    ],
+    "CCSS.ELA-LITERACY.L.4.4.B+1": [
+      "Remove the explicit answer from the stem. For example: “Use your knowledge of the prefix re- to complete the sentence: The word ‘replay’ means to play ______.” Or, “What does th...",
+      "Remove the direct disclosure of the root’s meaning or alter the prompt so students must apply both parts without copying. For example: “Use your knowledge of the prefix sub- and..."
+    ],
+    "CCSS.ELA-LITERACY.L.4.4.C+4": [
+      "Align grading fields to avoid mis-marking: add the lowercase form to acceptable_answers (e.g., [\"ancient\", \"Ancient\"]) or ensure case-insensitive evaluation. Optionally, documen..."
+    ],
+    "CCSS.ELA-LITERACY.L.4.5.A+3": [
+      "Fix answer validation to align with the two-word requirement. Either: (a) remove “a heavy stone”/“A heavy stone” from acceptable_answers and keep “heavy stone” (and capitalizati..."
+    ],
+    "CCSS.ELA-LITERACY.L.4.5.A+6": [
+      "- Explicitly underline the entire comparison phrase: his words were sparks. For example: “his words were UNDERLINE his words were sparks UNDERLINE that lit up my thinking.” - Or..."
+    ],
+    "CCSS.ELA-LITERACY.L.4.5.A+7": [
+      "Expand acceptable answers to include lowercase and typical variations to avoid grading errors, e.g., [\"sunshine\",\"Sunshine\"]. Consider case-insensitive grading for this item type.",
+      "- Adjust difficulty labeling to Easy, or increase rigor (e.g., require a full-sentence rewrite that maintains correct grammar: “The storm clouds were angry armies over the town,..."
+    ],
+    "CCSS.ELA-LITERACY.L.4.5.C+1": [
+      "Add \"cold\" (lowercase) to acceptable_answers or enforce case-insensitive normalization. Optionally also accept \"cool\" or \"chilly\" only if your rubric permits broader antonyms th..."
+    ],
+    "CCSS.ELA-LITERACY.L.4.5.C+2": [
+      "Remove \"cold\" from acceptable_answers or revise instructions to allow synonyms beyond the Word Bank (e.g., “Type a word with a similar meaning or choose from the Word Bank”). If..."
+    ],
+    "CCSS.ELA-LITERACY.L.4.6": [
+      "To strengthen mastery learning without changing the fill-in type, add richer context or an example-based clue that requires application (e.g., “We must practice ______ by reduci..."
+    ],
+    "CCSS.ELA-LITERACY.RF.4.4.C": [
+      "Align acceptable answers with the instruction: either remove “sand paper” (two words) from acceptable_answers, or revise the instruction to allow spacing variations (e.g., “Writ..."
+    ],
+    "CCSS.ELA-LITERACY.RI.4.1": [
+      "Expand acceptable_answers to include other plausible synonyms directly supported by the evidence (at minimum add \"consistent\"; optionally consider \"valid\"). Alternatively, rephr..."
+    ],
+    "CCSS.ELA-LITERACY.RI.4.10": [
+      "Align backend acceptance and instructions: (1) Remove “quickly” from acceptable answers; it is ungrammatical in the given frame. (2) Either remove “more quickly” from acceptable..."
+    ],
+    "CCSS.ELA-LITERACY.RI.4.2": [
+      "Resolve the field consistency mismatch: either (a) remove “survival adaptations” from acceptable answers, or (b) change the instruction to allow a word or short phrase (e.g., “F..."
+    ],
+    "CCSS.ELA-LITERACY.RI.4.2+1": [
+      "- Revise acceptable_answers to strictly match the two-word constraint and the sentence frame: e.g., [\"protect coastlines\", \"protect shorelines\", \"protect shores\", \"protect coast..."
+    ],
+    "CCSS.ELA-LITERACY.RI.4.2+2": [
+      "Remove “a butterfly” from acceptable_answers (keep case-insensitive “butterfly”). Alternatively, adjust the stem to remove the article (e.g., “becomes ______”) if you want to ac...",
+      "- Remove “pollinating” from acceptable answers, keeping only “pollinate”; OR - Rephrase the summary so the gerund fits, e.g., “The text explains that bees are important because ...",
+      "Restrict acceptable answers to the single word “recycling” (case-insensitive), e.g., [\"recycling\", \"Recycling\"]. Alternatively, change the prompt to allow a word or phrase (e.g...."
+    ],
+    "CCSS.ELA-LITERACY.RI.4.4": [
+      "To align with a “hard” label, remove the direct restatement or require inference from more indirect clues (e.g., multiple sentences, less explicit wording), or alternatively rel..."
+    ],
+    "CCSS.ELA-LITERACY.RI.4.9+1": [
+      "Make instructions and accepted responses consistent. Either: (a) keep “ONE word” and restrict acceptable answers to “blubber” (case-insensitive), or (b) change the instruction t...",
+      "Fix acceptable_answers to match the ONE-word requirement and the sentence frame. Replace multi-word entries with single-word equivalents that fit: [\"health\", \"quality\", \"fertili...",
+      "Make the item text-dependent for the key term or change the target task: (a) Include the word in one of the texts (e.g., “This process is called composting, and the mixture is c..."
+    ],
+    "CCSS.ELA-LITERACY.RL.4.1+1": [
+      "Revise acceptable_answers to align with the stem. Options: (a) Keep the stem as “They were taking a ______.” and set acceptable_answers to [\"test\"] only; or (b) Change the stem ..."
+    ],
+    "CCSS.ELA-LITERACY.RL.4.2": [
+      "Align grading with the one-word instruction: either (a) change the prompt to “one word or short phrase” and keep multi-word acceptable answers, or (b) keep “ONE word” and remove..."
+    ],
+    "CCSS.ELA-LITERACY.RL.4.6+1": [
+      "Revise the stem to signal the required specificity, e.g., “Which third-person point of view does Passage 2 use (limited or omniscient)?” Alternatively, expand acceptable_answers..."
+    ],
+    "CCSS.ELA-LITERACY.RL.4.7": [
+      "- Revise the stem to remove the uniqueness claim or ensure only one unique shared phrase exists. For example: “Then fill in the blank with a phrase that appears in BOTH versions..."
+    ],
+    "CCSS.ELA-LITERACY.SL.4.1.A": [
+      "Provide a small word bank including “prepared” and plausible distractors, or broaden acceptable answers to include common synonyms like “ready.” Alternatively, rephrase to cue t...",
+      "Either (a) expand acceptable answers to include other valid two-word phrases that meet the intent (e.g., “Based on”), or (b) cue the target function more narrowly (e.g., “Type t..."
+    ],
+    "CCSS.ELA-LITERACY.SL.4.1.B": [
+      "Align grading metadata with instructions. Either (a) keep the instruction as “Type one word” and restrict acceptable_answers to one-word variants only (e.g., [\"rules\"]) or (b) c..."
+    ],
+    "CCSS.ELA-LITERACY.SL.4.2": [
+      "To align with SL.4.2, frame the sentence as having been presented orally or in a short audio/visual clip and ask students to paraphrase the sentence (or portion) in simpler word..."
+    ],
+    "CCSS.ELA-LITERACY.SL.4.4": [
+      "- Clarify the target term to remove ambiguity, e.g., “...to support your main ideas.” with a missing letters cue (i_d__s) or “Complete the phrase used in our standard: main ____..."
+    ],
+    "CCSS.ELA-LITERACY.SL.4.5": [
+      "Remove “sound” from the acceptable answers or revise the stem so either word fits grammatically (e.g., rephrase without a fixed article: “...is adding a ______ recording...” won...",
+      "Resolve ambiguity by either: (a) broadening acceptable answers to include “pie chart,” “pictograph,” “table,” “graph,” and “chart,” or (b) tightening the stem to signal bars/sid..."
+    ],
+    "CCSS.ELA-LITERACY.W.4.1.A": [
+      "To support mastery learning, require application: for example, provide three sample introductory sentences and ask which clearly names the topic and states an opinion; or ask st..."
+    ],
+    "CCSS.ELA-LITERACY.W.4.1.A+1": [
+      "- Make punctuation and phrasing consistent: Either 1) Keep the comma after the blank and limit acceptable answers to introductory phrases that conventionally take a comma (e.g.,..."
+    ],
+    "CCSS.ELA-LITERACY.W.4.1.B": [
+      "To comply with the requested fill-in format, remove labeled choices and prompt a direct fill-in response. For example: present the two sentences without A/B labels and ask stude..."
+    ],
+    "CCSS.ELA-LITERACY.W.4.1.C": [
+      "- Remove comma-including variants from acceptable_answers or remove the comma after the blank in the stem (but not both) to avoid “In addition,, …”. - Broaden acceptable_answers..."
+    ],
+    "CCSS.ELA-LITERACY.W.4.1.D": [
+      "- Broaden acceptable_answers to include other valid two-word concluding phrases that fit the cue (e.g., “To summarize,”). OR revise the stem to say: “Write the phrase ‘In conclu..."
+    ],
+    "CCSS.ELA-LITERACY.W.4.2.B": [
+      "To comply with the requested fill-in format, remove the lettered options and prompt an open response (e.g., ask students to write a supporting sentence that defines composting a...",
+      "Resolve the format mismatch: either convert to a true fill-in item (omit A–D options and require students to supply or select the factual sentence without labeled choices), or r..."
+    ],
+    "CCSS.ELA-LITERACY.W.4.2.C+1": [
+      "Remove comma-terminated variants from acceptable_answers (keep only \"For example\" and \"For instance\") or remove the comma from the stem after the blank and require the comma in ..."
+    ],
+    "CCSS.ELA-LITERACY.W.4.2.D": [
+      "To strengthen mastery learning, add a brief application component, e.g., ask students to choose the precise term and explain why it’s more precise than a general phrase, or prov...",
+      "Adjust acceptable answers to align with the sentence frame. Either: (a) keep the stem as “…called a ________ cloud.” and accept only “cumulonimbus,” or (b) change the stem to “…..."
+    ],
+    "CCSS.ELA-LITERACY.W.4.2.E": [
+      "Match the requested format type. Either: (a) remove labeled options and prompt students to write an appropriate concluding sentence (true fill-in/short answer), or (b) update th..."
+    ],
+    "CCSS.ELA-LITERACY.W.4.3.A": [
+      "Clarify the stem to remove ambiguity, for example: “One character introduced by name is ______.” Alternatively, accept additional correct responses such as “I” or “the narrator...."
+    ],
+    "CCSS.ELA-LITERACY.W.4.3.A+1": [
+      "- Align acceptable_answers with the sentence context and the stated answer: include \"Then\" (capitalized) and remove lowercase \"then\" unless the platform enforces case-insensitiv...",
+      "Fix the inconsistency by removing \"Afterwards\" from acceptable answers (keep case variants of \"afterward\" only), or revise the stem to allow either variant (e.g., remove the 9-l..."
+    ],
+    "CCSS.ELA-LITERACY.W.4.3.B": [
+      "Resolve the format mismatch: either (a) convert this to a true fill-in item (remove options and have students write or select the sentence to insert), or (b) update the item’s m..."
+    ],
+    "CCSS.ELA-LITERACY.W.4.3.C": [
+      "- Clarify the directions: either say “Write one transitional word…” or allow a “word or phrase” and remove the one-word constraint. - Keep the comma after the blank in the sente...",
+      "- Remove ungrammatical variants from acceptable_answers: delete \"By the time,\" and \"by the time,\". - Keep \"By the time\" (case-insensitive) as correct; if the system is case-sens..."
+    ],
+    "CCSS.ELA-LITERACY.W.4.3.E": [
+      "Correct the constraint to avoid the factual mismatch, e.g., change to “Write the 10-letter word that begins with ‘U’,” or simply remove the length cue and keep “Write the transi...",
+      "Align the format with the requested type. Either: (a) update the item’s metadata/type to multiple-choice to match the current A/B/C structure, or (b) remove the labeled options ..."
+    ],
+    "CCSS.ELA-LITERACY.W.4.4+1": [
+      "Align fields to avoid grading mismatches: (1) Ensure the acceptable_answers include \"However\" (capitalized, no comma) to match the 'answer' field. (2) Decide whether the comma i..."
+    ],
+    "CCSS.ELA-LITERACY.W.4.5": [
+      "Remove “edit” (and likely “Edit”) from acceptable answers. Accept “editing” (case-insensitive) to match the given choices and maintain correct grammar in the sentence: “She is e..."
+    ],
+    "CCSS.ELA-LITERACY.W.4.5+4": [
+      "Disambiguate the verb tense or accept both singular forms: - Add a time cue: “Yesterday, each of the students ______ excited to share a poem.” (expects “was”). Or “Each of the s..."
+    ],
+    "CCSS.ELA-LITERACY.W.4.8": [
+      "To support mastery while keeping fill-in format, add a brief application element, e.g., “Besides the title and author, write ONE more detail Noah should record for this website ...",
+      "- Make the requirement unambiguous and align grading with it. For example: “Write only the source name (do not include the URL or date) exactly as it appears on the note cards.”..."
+    ]
+  },
+  "by_standard_difficulty": {
+    "CCSS.ELA-LITERACY.L.4.2.B|hard|mcq": [
+      "Revise the stem to remove ambiguity, for example: “Which sentence is punctuated correctly?” or “Which sentence correctly punctuates the entire sentence, including the dialogue?”..."
+    ],
+    "CCSS.ELA-LITERACY.L.4.2.D+1|easy|mcq": [
+      "Clarify the stem to specify conventional/correct English spelling and remove the misleading ai example. For example: “Which choice is the correct English spelling for the sounds..."
+    ],
+    "CCSS.ELA-LITERACY.L.4.3.A+1|hard|mcq": [
+      "Revise distractors B and C to be more plausible near-synonyms that students might confuse with the target meaning (e.g., “was exhausted,” “was out of breath,” “was short of brea..."
+    ],
+    "CCSS.ELA-LITERACY.L.4.3.B+2|hard|mcq": [
+      "Revise the stem’s quotation punctuation to avoid US-style ambiguity, for example: The student says, \"Well, that was helpful\". Then ask: Which end punctuation would make the stud..."
+    ],
+    "CCSS.ELA-LITERACY.L.4.4.A|hard|mcq": [
+      "Revise option D to a more plausible but still incorrect interpretation based on the context clues. For example: \"worried and anxious about her project\" (students might link chec..."
+    ],
+    "CCSS.ELA-LITERACY.L.4.4.B+2|medium|mcq": [
+      "- Replace or revise distractors to align with known misconceptions. For example: add “able to be heard” to target ignoring the in- prefix; include a sound-related but incorrect ..."
+    ],
+    "CCSS.ELA-LITERACY.L.4.4.C+3|easy|mcq": [
+      "To improve mastery, include a brief glossary entry for \"erosion\" and ask students to select the correct definition based on that entry, or ask them to choose which part of the g..."
+    ],
+    "CCSS.ELA-LITERACY.L.4.5.A|easy|mcq": [
+      "Improve distractor plausibility by targeting common misconceptions. For example, replace C and D with choices like: “Her fingers literally turned into ice” (literal interpretati..."
+    ],
+    "CCSS.ELA-LITERACY.L.4.5.A+2|easy|mcq": [
+      "Replace Option D with a more plausible, misconception-based distractor (e.g., “The simile just means Ben was reading, not how he sounded.”) to improve diagnostic value and align..."
+    ],
+    "CCSS.ELA-LITERACY.RF.4.4.A|hard|mcq": [
+      "Either relabel the item as Medium (or Easy) or increase difficulty by making distractors more plausible (e.g., academic purposes such as “to compare beaver dams with human-made ..."
+    ],
+    "CCSS.ELA-LITERACY.RI.4.3|easy|mcq": [
+      "Revise Option D to a plausible misconception tied to heat transfer, e.g., “The vacuum is filled with warm air that keeps heat inside,” or “The shiny walls reflect heat back to t..."
+    ],
+    "CCSS.ELA-LITERACY.RI.4.3|hard|mcq": [
+      "To better match a Hard difficulty label, require integrating multiple steps or sentences (e.g., ask students to explain both lifting and lowering processes, or synthesize why ma..."
+    ],
+    "CCSS.ELA-LITERACY.RI.4.5+4|easy|mcq": [
+      "To enhance mastery learning, add brief context that requires applying the feature’s function (e.g., show a mock book page with multiple features—index snippet, glossary entry bo..."
+    ],
+    "CCSS.ELA-LITERACY.RI.4.6|hard|mcq": [
+      "Revise the answer_explanation to accurately reflect Account 2: replace “a quote from the principal” with “attribution to the principal” or “information from the principal,” and ..."
+    ],
+    "CCSS.ELA-LITERACY.RI.4.7|easy|mcq": [
+      "Replace option D with a more plausible but still incorrect reason a table might help, such as: “It helps the reader quickly find each food in an organized list,” or “It shows se..."
+    ],
+    "CCSS.ELA-LITERACY.RL.4.10|easy|mcq": [
+      "Revise choice D to be a more text-plausible misconception. For example: \"She is relieved the box wasn’t empty,\" or \"She is surprised the box wasn’t for someone else.\" These keep..."
+    ],
+    "CCSS.ELA-LITERACY.RL.4.3|easy|mcq": [
+      "- Revise distractors to be closer to the passage’s surface cues while still incorrect, and balance length/specificity across options. Examples: • “A street festival with tents a..."
+    ],
+    "CCSS.ELA-LITERACY.RL.4.4|medium|mcq": [
+      "Replace option D with a more plausible misconception-based distractor, e.g., “Lena is very lucky and succeeds without trying,” or “Lena literally turns things into gold,” to bet..."
+    ],
+    "CCSS.ELA-LITERACY.RL.4.5|easy|mcq": [
+      "To better support mastery learning while staying MCQ, add a short excerpt mixing stage directions, stanza lines, and paragraph text and ask which feature shows it’s a drama. Alt..."
+    ],
+    "CCSS.ELA-LITERACY.SL.4.1.C|easy|mcq": [
+      "Revise distractors to be grammatically parallel (all as questions) without connecting specifically to Mateo’s idea. For example: A) “Why is brushing your teeth important?” (not ..."
+    ],
+    "CCSS.ELA-LITERACY.W.4.2.A|hard|mcq": [
+      "Reduce the length/detail gap between options to avoid telegraphing the correct choice. For example, slightly condense Option C or expand A, B, and D with comparable detail so th..."
+    ],
+    "CCSS.ELA-LITERACY.W.4.2.C|hard|mcq": [
+      "Revise the correct option or the sentence structure so the linking phrase is grammatically correct: 1) Change option C to an adverbial linker like “Also” or “Additionally,” so t..."
+    ],
+    "CCSS.ELA-LITERACY.W.4.3.D|easy|mcq": [
+      "Revise distractors to be closer in length and structure to option B while still lacking sensory details. For example: A) The bakery looked clean and bright with rows of bread on..."
+    ],
+    "CCSS.ELA-LITERACY.W.4.6|medium|mcq": [
+      "Reduce length imbalance by tightening Option B and/or adding comparable detail to distractors. Aim for parallel structure and similar length across options so correctness isn’t ..."
+    ],
+    "CCSS.ELA-LITERACY.W.4.7|hard|mcq": [
+      "Reduce answer B’s length or increase specificity in other options to balance length and detail. For example, shorten B by removing parenthetical examples or add parallel detail ..."
+    ],
+    "CCSS.ELA-LITERACY.W.4.9.B|easy|mcq": [
+      "Revise either the stem or options to ensure a single correct answer: 1) Change the stem to “Which sentence provides the strongest evidence (a specific fact or data) that school ..."
+    ],
+    "CCSS.ELA-LITERACY.L.4.1.G|hard|msq": [
+      "Correct the explanation for A to accurately describe “to” as an infinitive marker (e.g., “to bring,” “to see”), not direction. Example: “In A, ‘They’re’ means ‘they are’; ‘two’ ..."
+    ],
+    "CCSS.ELA-LITERACY.L.4.2.A+3|medium|msq": [
+      "Correct the explanation for option C. Example: “C is correct because important words are capitalized, the short word ‘to’ is lowercase, and the first word after the colon is cap..."
+    ],
+    "CCSS.ELA-LITERACY.L.4.3.A+1|easy|msq": [
+      "Revise either the stem or option B to avoid duplication under literal substitution. For example: change the sentence to “Mia did a good job” (remove “on her science project”); o..."
+    ],
+    "CCSS.ELA-LITERACY.L.4.3.A+1|medium|msq": [
+      "- Fix the correctness/fit issue: Either change option C to “whistled” (so “the wind whistled against the windows” fits), or change the sentence to “…the wind made a loud sound t..."
+    ],
+    "CCSS.ELA-LITERACY.L.4.3.B+2|hard|msq": [
+      "Revise option C to avoid context-conflicting examples, e.g., \"The exclamation point in Version 3 makes Ms. Rivera sound strongly emotional, such as surprised or frustrated.\" Alt..."
+    ],
+    "CCSS.ELA-LITERACY.L.4.4.A|medium|msq": [
+      "Remove or neutralize the bold formatting for the context-clue phrases in the passage (keep only the target word \"reluctant\" bolded if desired). Alternatively, ensure formatting ..."
+    ],
+    "CCSS.ELA-LITERACY.L.4.4.C+3|hard|msq": [
+      "Correct the glossary entry for charge (SCIENCE) to an age-appropriate but accurate definition, e.g.: “charge (SCIENCE): a property of tiny particles (like electrons and protons)..."
+    ],
+    "CCSS.ELA-LITERACY.L.4.5.B+2|easy|msq": [
+      "Revise option D to a more plausible, misconception-aligned distractor. Examples: 1) “Make plans as if everything will definitely work out.” 2) “It’s fine to celebrate success be..."
+    ],
+    "CCSS.ELA-LITERACY.RF.4.3.A|easy|msq": [
+      "Revise option C to avoid the inaccurate example. For example: “Use what you know about letter sounds to sound out the parts (the y makes the long i sound, and c before y says /s..."
+    ],
+    "CCSS.ELA-LITERACY.RI.4.5+2|easy|msq": [
+      "Clarify the scope of “effects” or rephrase D to avoid implying it is a consequence of the low battery. Examples: (a) Revise stem to “Which sentences describe effects that direct..."
+    ],
+    "CCSS.ELA-LITERACY.RI.4.5+2|medium|msq": [
+      "Clarify the stem to match the intended scoring. For example: “Which sentences primarily state a cause (in the main clause) rather than an effect? Select ALL that apply.” Alterna..."
+    ],
+    "CCSS.ELA-LITERACY.RI.4.9|hard|msq": [
+      "Correct the key to A and C only, or revise option B to explicitly incorporate information unique to Text 2 (e.g., mention the loss of wildflower fields or the reasons for bee de..."
+    ],
+    "CCSS.ELA-LITERACY.SL.4.1.D|easy|msq": [
+      "Revise option D to be parallel to the others by including only the student comment, e.g., “I agree with what everyone said.” Consider another plausible non-example (e.g., restat..."
+    ],
+    "CCSS.ELA-LITERACY.W.4.10|medium|msq": [
+      "- Fix explanation for C: note it represents a shorter time frame (a day or two) with reflection/revision for a science audience. - Clarify stem to avoid ambiguity, e.g., “Which ..."
+    ],
+    "CCSS.ELA-LITERACY.W.4.3.B+1|medium|msq": [
+      "Clarify the criterion so D is unambiguously excluded, or revise D. For example: change stem to “Which sentences use dialogue to clearly develop the event or to reveal a specific..."
+    ],
+    "CCSS.ELA-LITERACY.W.4.9.A|medium|msq": [
+      "Revise option C to remove the unsupported term “rehearsal.” For example: “During the play, Mina steps onto a taped line for her cue and then fixes a problem by picking up a fall..."
+    ],
+    "CCSS.ELA-LITERACY.L.4.1.B|easy|fill-in": [
+      "- Remove unacceptable entries from acceptable_answers so only entries that fit the blank remain (e.g., accept only “am reading”; handle capitalization via case-insensitive gradi..."
+    ],
+    "CCSS.ELA-LITERACY.L.4.1.B|medium|fill-in": [
+      "Remove the incorrect acceptable answer “will be practiseing.” If allowing UK spelling, add the correct British form “will be practising” (with s and without the e); otherwise, k..."
+    ],
+    "CCSS.ELA-LITERACY.L.4.1.C|hard|fill-in": [
+      "Align accepted answers: include both \"must\" and \"Must\" (or use case-insensitive grading). Optionally clarify with “Type one word” to discourage responses like “has to.”"
+    ],
+    "CCSS.ELA-LITERACY.L.4.1.C|medium|fill-in": [
+      "- Accept both “may” and “can” as correct answers, or - Revise the stem to reduce ambiguity, e.g., “Complete the sentence with the BEST modal to show formal permission,” and then..."
+    ],
+    "CCSS.ELA-LITERACY.L.4.1.C+1|easy|fill-in": [
+      "- Fix grading consistency: add \"may\" (lowercase) to acceptable_answers or use case-insensitive grading. - Remove ambiguity by constraining choices to the targeted set (e.g., \"Us..."
+    ],
+    "CCSS.ELA-LITERACY.L.4.1.D|hard|fill-in": [
+      "Revise acceptable_answers to align with the instructions and sentence frame. Suggested list: [\"delightful small blue ceramic\"]. Remove entries that include the noun (\"... bowl\")..."
+    ],
+    "CCSS.ELA-LITERACY.L.4.1.D|medium|fill-in": [
+      "Align acceptable answers with the instruction: remove the comma-separated variant (\"small, round, red, rubber\") or revise the instruction to allow commas. Optionally, reinforce ..."
+    ],
+    "CCSS.ELA-LITERACY.L.4.1.D+1|easy|fill-in": [
+      "Update acceptable_answers to align with the instructions and conventional punctuation for cumulative adjectives: remove “small, green” and the double-space “small green.” Keep o..."
+    ],
+    "CCSS.ELA-LITERACY.L.4.1.E|medium|fill-in": [
+      "Expand acceptable answers substantially or switch to rubric-based/manual scoring. Include common correct variants (e.g., on the couch; in the basket; by the window; near the doo..."
+    ],
+    "CCSS.ELA-LITERACY.L.4.1.E+1|medium|fill-in": [
+      "Broaden the scoring to accept any correctly formed prepositional phrase that: (1) begins with “between”, and (2) includes a clear object (usually two items) indicating location ..."
+    ],
+    "CCSS.ELA-LITERACY.L.4.1.F|medium|fill-in": [
+      "Clarify the prompt or expand acceptable answers to remove ambiguity. Options: 1) Specify the mark: “Type a period (.) to make this into two complete sentences.” 2) If keeping it..."
+    ],
+    "CCSS.ELA-LITERACY.L.4.1.F+1|hard|fill-in": [
+      "Tighten grading to accept only a subject pronoun consistent with the context (e.g., “He”), or revise the prompt to “add a subject or subject pronoun.” Optionally note capitaliza..."
+    ],
+    "CCSS.ELA-LITERACY.L.4.1.F+1|medium|fill-in": [
+      "Revise acceptable_answers to match the cloze. Suggested set: [\"fragment\", \"Fragment\"]. Alternatively, adjust the stem to remove “sentence” before the blank (e.g., “It is a _____..."
+    ],
+    "CCSS.ELA-LITERACY.L.4.1.G|easy|fill-in": [
+      "Revise the sentence or the word pair so the correct answer is grammatically sound: - Option A (keep there/their): “The dogs wagged ______ tails when they saw their owner. (their..."
+    ],
+    "CCSS.ELA-LITERACY.L.4.1.G|hard|fill-in": [
+      "Remove \"theyre\" from acceptable_answers or change the prompt/scoring to explicitly indicate that missing apostrophes will not be accepted. Best fix: require the correct contract..."
+    ],
+    "CCSS.ELA-LITERACY.L.4.1.G|medium|fill-in": [
+      "Add lowercase \"two\" to acceptable_answers (and consider case-insensitive grading) to ensure correct responses are accepted; e.g., acceptable_answers: [\"two\", \"Two\"]."
+    ],
+    "CCSS.ELA-LITERACY.L.4.2.A+1|easy|fill-in": [
+      "- Provide the uncapitalized target within the sentence to truly assess correction, e.g.: “Rewrite the name of the place with correct capitalization: My aunt lives in san francis..."
+    ],
+    "CCSS.ELA-LITERACY.L.4.2.A+1|medium|fill-in": [
+      "Remove “the Statue of Liberty” from acceptable_answers (or adjust the sentence to remove the preceding “the,” e.g., “to see ______”). Optionally, clarify in the explanation that..."
+    ],
+    "CCSS.ELA-LITERACY.L.4.2.A+2|easy|fill-in": [
+      "Clarify the prompt and revise the sentence to remove ambiguity and awkwardness, for example: \"Type the first word that begins this sentence with correct capitalization: ______ s..."
+    ],
+    "CCSS.ELA-LITERACY.L.4.2.A+2|medium|fill-in": [
+      "Tighten grading: accept only “After” (capital A + lowercase rest). If multiple formats are allowed, specify in the instructions (e.g., “Capitalize only the first letter”). Remov..."
+    ],
+    "CCSS.ELA-LITERACY.L.4.2.A+3|medium|fill-in": [
+      "Remove the quoted variant from acceptable_answers (\"Secrets of the Ocean: A Guide for Young Explorers\") or revise the stem to allow quotation marks. Keep the unquoted, correctly..."
+    ],
+    "CCSS.ELA-LITERACY.L.4.2.B+1|easy|fill-in": [
+      "Remove the double prime (″, U+2033) from acceptable answers. Keep the standard keyboard double quote (\") and optionally the proper right double quotation mark (”) as acceptable."
+    ],
+    "CCSS.ELA-LITERACY.L.4.2.B+4|easy|fill-in": [
+      "To avoid multiple valid answers, either: (a) change the dialogue tag to “Mia said.” or (b) change the stem to say “Add the missing comma …” so only a comma fits the requirement."
+    ],
+    "CCSS.ELA-LITERACY.L.4.2.D|easy|fill-in": [
+      "- Specify the exact target word in the stem (e.g., “Type the correctly spelled word: play”) and provide the sentence to complete. - Alternatively, present a misspelled version t..."
+    ],
+    "CCSS.ELA-LITERACY.L.4.2.D|hard|fill-in": [
+      "Correct the letter-count clues and explanation. For example: “has one ‘n,’ two ‘s’ letters, and one ‘c’ letter.” Revise the explanation to: “The correct spelling is ‘necessary’ ..."
+    ],
+    "CCSS.ELA-LITERACY.L.4.2.D+2|easy|fill-in": [
+      "Add \"less\" to acceptable_answers and/or enforce case-insensitive matching. Optionally accept \"-less\" if your system allows, since the explanation denotes the suffix with a hyphen."
+    ],
+    "CCSS.ELA-LITERACY.L.4.2.D+2|hard|fill-in": [
+      "Align answer fields: include both \"responsibility\" and \"Responsibility\" in acceptable_answers, or set evaluation to be case-insensitive and trim whitespace. Example: acceptable_..."
+    ],
+    "CCSS.ELA-LITERACY.L.4.2.D+5|medium|fill-in": [
+      "Revise the explanation to match the correct spelling rule for this word. For example: \"The correct spelling is excitement. For the base word excite, keep the final e and add -me..."
+    ],
+    "CCSS.ELA-LITERACY.L.4.3.A|medium|fill-in": [
+      "- Revise the sentence to match the intended verb: “After running the race, Maya __________ water, breathing hard.” (Remove “for.”) - Clarify tense in the prompt if desired: “Use..."
+    ],
+    "CCSS.ELA-LITERACY.L.4.3.A+1|hard|fill-in": [
+      "Update acceptable_answers to only include correct variants that meet the instruction and idiom standard form, e.g., [\"at the crack of dawn\", \"At the crack of dawn\"]. Remove nons..."
+    ],
+    "CCSS.ELA-LITERACY.L.4.3.A+2|hard|fill-in": [
+      "Remove “peeked” from acceptable_answers or revise the stem to target a quick/secretive glance (e.g., change the cue from “trying hard to see in low light” to “took a quick, secr..."
+    ],
+    "CCSS.ELA-LITERACY.L.4.4.A|medium|fill-in": [
+      "Expand acceptable answers to include more precise one-word synonyms supported by the context, such as calm, reassured, relaxed, comforted, untroubled, or unworried. Alternativel..."
+    ],
+    "CCSS.ELA-LITERACY.L.4.4.B+1|easy|fill-in": [
+      "Remove the explicit answer from the stem. For example: “Use your knowledge of the prefix re- to complete the sentence: The word ‘replay’ means to play ______.” Or, “What does th..."
+    ],
+    "CCSS.ELA-LITERACY.L.4.4.B+1|hard|fill-in": [
+      "Remove the direct disclosure of the root’s meaning or alter the prompt so students must apply both parts without copying. For example: “Use your knowledge of the prefix sub- and..."
+    ],
+    "CCSS.ELA-LITERACY.L.4.4.B+2|easy|fill-in": [
+      "To strengthen mastery learning, add context requiring application of the root (e.g., “Based on the sentence, what does ‘telegraph’ most likely mean?”) or ask students to use tel..."
+    ],
+    "CCSS.ELA-LITERACY.L.4.4.C+3|medium|fill-in": [
+      "Fix grading key consistency: include both \"insulator\" and \"Insulator\" (and consider case-insensitive matching). Optionally, reduce the vowel cue by revising the sentence to avoi..."
+    ],
+    "CCSS.ELA-LITERACY.L.4.4.C+4|easy|fill-in": [
+      "Align grading fields to avoid mis-marking: add the lowercase form to acceptable_answers (e.g., [\"ancient\", \"Ancient\"]) or ensure case-insensitive evaluation. Optionally, documen..."
+    ],
+    "CCSS.ELA-LITERACY.L.4.5.A|easy|fill-in": [
+      "Revise acceptable_answers to exclude “many.” Keep only grammatically appropriate completions such as “a lot,” “a lot of water,” “a large amount (of water),” “lots of water,” or ..."
+    ],
+    "CCSS.ELA-LITERACY.L.4.5.A+3|medium|fill-in": [
+      "Fix answer validation to align with the two-word requirement. Either: (a) remove “a heavy stone”/“A heavy stone” from acceptable_answers and keep “heavy stone” (and capitalizati..."
+    ],
+    "CCSS.ELA-LITERACY.L.4.5.A+6|hard|fill-in": [
+      "- Explicitly underline the entire comparison phrase: his words were sparks. For example: “his words were UNDERLINE his words were sparks UNDERLINE that lit up my thinking.” - Or..."
+    ],
+    "CCSS.ELA-LITERACY.L.4.5.A+7|easy|fill-in": [
+      "Expand acceptable answers to include lowercase and typical variations to avoid grading errors, e.g., [\"sunshine\",\"Sunshine\"]. Consider case-insensitive grading for this item type."
+    ],
+    "CCSS.ELA-LITERACY.L.4.5.A+7|hard|fill-in": [
+      "- Adjust difficulty labeling to Easy, or increase rigor (e.g., require a full-sentence rewrite that maintains correct grammar: “The storm clouds were angry armies over the town,..."
+    ],
+    "CCSS.ELA-LITERACY.L.4.5.B+2|medium|fill-in": [
+      "Revise acceptable_answers to match the sentence frame: keep “looks” (correct), keep “appears,” add “seems.” Remove “look.” Remove “appearance,” or change the stem to “...based o..."
+    ],
+    "CCSS.ELA-LITERACY.L.4.5.C+1|easy|fill-in": [
+      "Add \"cold\" (lowercase) to acceptable_answers or enforce case-insensitive normalization. Optionally also accept \"cool\" or \"chilly\" only if your rubric permits broader antonyms th..."
+    ],
+    "CCSS.ELA-LITERACY.L.4.5.C+2|medium|fill-in": [
+      "Remove \"cold\" from acceptable_answers or revise instructions to allow synonyms beyond the Word Bank (e.g., “Type a word with a similar meaning or choose from the Word Bank”). If..."
+    ],
+    "CCSS.ELA-LITERACY.L.4.6|easy|fill-in": [
+      "To strengthen mastery learning without changing the fill-in type, add richer context or an example-based clue that requires application (e.g., “We must practice ______ by reduci..."
+    ],
+    "CCSS.ELA-LITERACY.RF.4.3.A|medium|fill-in": [
+      "Fix the explanation: “Combine un- + forget + -able to make unforgettable. In ‘forgettable,’ the final consonant t is doubled before the vowel suffix -able; the e in ‘forget’ is ..."
+    ],
+    "CCSS.ELA-LITERACY.RF.4.4.A|hard|fill-in": [
+      "Remove “to persuade” from acceptable_answers to match the instruction exactly. Optionally clarify grading to be case-insensitive and to ignore trailing punctuation if you intend..."
+    ],
+    "CCSS.ELA-LITERACY.RF.4.4.A|medium|fill-in": [
+      "- Remove the “ONE word” constraint or change it to “word or words.” Example: “fill in the blank with the words that tell what Mia finally used…” - Keep the sentence frame as is:..."
+    ],
+    "CCSS.ELA-LITERACY.RF.4.4.C|medium|fill-in": [
+      "Align acceptable answers with the instruction: either remove “sand paper” (two words) from acceptable_answers, or revise the instruction to allow spacing variations (e.g., “Writ..."
+    ],
+    "CCSS.ELA-LITERACY.RI.4.1|hard|fill-in": [
+      "Expand acceptable_answers to include other plausible synonyms directly supported by the evidence (at minimum add \"consistent\"; optionally consider \"valid\"). Alternatively, rephr..."
+    ],
+    "CCSS.ELA-LITERACY.RI.4.10|medium|fill-in": [
+      "Align backend acceptance and instructions: (1) Remove “quickly” from acceptable answers; it is ungrammatical in the given frame. (2) Either remove “more quickly” from acceptable..."
+    ],
+    "CCSS.ELA-LITERACY.RI.4.2|hard|fill-in": [
+      "Resolve the field consistency mismatch: either (a) remove “survival adaptations” from acceptable answers, or (b) change the instruction to allow a word or short phrase (e.g., “F..."
+    ],
+    "CCSS.ELA-LITERACY.RI.4.2+1|hard|fill-in": [
+      "- Revise acceptable_answers to strictly match the two-word constraint and the sentence frame: e.g., [\"protect coastlines\", \"protect shorelines\", \"protect shores\", \"protect coast..."
+    ],
+    "CCSS.ELA-LITERACY.RI.4.2+2|easy|fill-in": [
+      "Remove “a butterfly” from acceptable_answers (keep case-insensitive “butterfly”). Alternatively, adjust the stem to remove the article (e.g., “becomes ______”) if you want to ac..."
+    ],
+    "CCSS.ELA-LITERACY.RI.4.2+2|hard|fill-in": [
+      "- Remove “pollinating” from acceptable answers, keeping only “pollinate”; OR - Rephrase the summary so the gerund fits, e.g., “The text explains that bees are important because ..."
+    ],
+    "CCSS.ELA-LITERACY.RI.4.2+2|medium|fill-in": [
+      "Restrict acceptable answers to the single word “recycling” (case-insensitive), e.g., [\"recycling\", \"Recycling\"]. Alternatively, change the prompt to allow a word or phrase (e.g...."
+    ],
+    "CCSS.ELA-LITERACY.RI.4.3|hard|fill-in": [
+      "Make grading consistent with the instruction: either (a) keep the exact-phrase requirement and remove alternative acceptable answers, allowing only “prevent cracking,” or (b) ch..."
+    ],
+    "CCSS.ELA-LITERACY.RI.4.4|hard|fill-in": [
+      "To align with a “hard” label, remove the direct restatement or require inference from more indirect clues (e.g., multiple sentences, less explicit wording), or alternatively rel..."
+    ],
+    "CCSS.ELA-LITERACY.RI.4.5+2|hard|fill-in": [
+      "- Correct the answer key to the immediate cause: “This extra time.” - Update acceptable_answers to variants that still match the exact phrasing rule (e.g., “This extra time,” po..."
+    ],
+    "CCSS.ELA-LITERACY.RI.4.5+2|medium|fill-in": [
+      "Clarify which effect to name. For example: “Identify the effect introduced by the signal phrase ‘As a result’” or “What happened as a result of the branches being knocked down?”..."
+    ],
+    "CCSS.ELA-LITERACY.RI.4.6|hard|fill-in": [
+      "Clarify the target phrase to eliminate multiple plausible answers. For example: “Copy the exact three words at the start of Account B that name the publication reporting the eve..."
+    ],
+    "CCSS.ELA-LITERACY.RI.4.6|medium|fill-in": [
+      "Clarify the prompt or broaden grading: e.g., change the stem to “...gives more numerical details about the event” or accept additional correct responses like “facts,” “objective..."
+    ],
+    "CCSS.ELA-LITERACY.RI.4.9+1|easy|fill-in": [
+      "Make instructions and accepted responses consistent. Either: (a) keep “ONE word” and restrict acceptable answers to “blubber” (case-insensitive), or (b) change the instruction t..."
+    ],
+    "CCSS.ELA-LITERACY.RI.4.9+1|hard|fill-in": [
+      "Fix acceptable_answers to match the ONE-word requirement and the sentence frame. Replace multi-word entries with single-word equivalents that fit: [\"health\", \"quality\", \"fertili..."
+    ],
+    "CCSS.ELA-LITERACY.RI.4.9+1|medium|fill-in": [
+      "Make the item text-dependent for the key term or change the target task: (a) Include the word in one of the texts (e.g., “This process is called composting, and the mixture is c..."
+    ],
+    "CCSS.ELA-LITERACY.RL.4.1+1|easy|fill-in": [
+      "Revise acceptable_answers to align with the stem. Options: (a) Keep the stem as “They were taking a ______.” and set acceptable_answers to [\"test\"] only; or (b) Change the stem ..."
+    ],
+    "CCSS.ELA-LITERACY.RL.4.10|easy|fill-in": [
+      "Remove “shines” from acceptable_answers (keep only “shine”; allow case-insensitive matching if desired). If you wish to accept inflected forms, revise the prompt to remove the r..."
+    ],
+    "CCSS.ELA-LITERACY.RL.4.10|hard|fill-in": [
+      "Make acceptable answers consistent with the stem’s grammar: either (a) keep the stem as “about a ______” and accept only “flood,” removing “flooding,” or (b) change the stem to ..."
+    ],
+    "CCSS.ELA-LITERACY.RL.4.2|hard|fill-in": [
+      "Align grading with the one-word instruction: either (a) change the prompt to “one word or short phrase” and keep multi-word acceptable answers, or (b) keep “ONE word” and remove..."
+    ],
+    "CCSS.ELA-LITERACY.RL.4.3|easy|fill-in": [
+      "Align acceptable_answers with the two-word requirement. Remove longer variants and accept only capitalization/punctuation variants of “backing up” (e.g., allow “Backing up” and ..."
+    ],
+    "CCSS.ELA-LITERACY.RL.4.4|easy|fill-in": [
+      "Remove the explicit adjective from the sentence so students must infer the meaning of the allusion. For example: “After finishing the long race without stopping, Kai felt like M..."
+    ],
+    "CCSS.ELA-LITERACY.RL.4.4|hard|fill-in": [
+      "Remove “trouble” from acceptable answers or revise the stem’s quantifier (e.g., change “many” to “much” or remove the quantifier) so that “trouble” would be grammatical. Optiona..."
+    ],
+    "CCSS.ELA-LITERACY.RL.4.6+1|hard|fill-in": [
+      "Revise the stem to signal the required specificity, e.g., “Which third-person point of view does Passage 2 use (limited or omniscient)?” Alternatively, expand acceptable_answers..."
+    ],
+    "CCSS.ELA-LITERACY.RL.4.7|medium|fill-in": [
+      "- Revise the stem to remove the uniqueness claim or ensure only one unique shared phrase exists. For example: “Then fill in the blank with a phrase that appears in BOTH versions..."
+    ],
+    "CCSS.ELA-LITERACY.SL.4.1.A|easy|fill-in": [
+      "Provide a small word bank including “prepared” and plausible distractors, or broaden acceptable answers to include common synonyms like “ready.” Alternatively, rephrase to cue t..."
+    ],
+    "CCSS.ELA-LITERACY.SL.4.1.A|hard|fill-in": [
+      "Either (a) expand acceptable answers to include other valid two-word phrases that meet the intent (e.g., “Based on”), or (b) cue the target function more narrowly (e.g., “Type t..."
+    ],
+    "CCSS.ELA-LITERACY.SL.4.1.B|easy|fill-in": [
+      "Align grading metadata with instructions. Either (a) keep the instruction as “Type one word” and restrict acceptable_answers to one-word variants only (e.g., [\"rules\"]) or (b) c..."
+    ],
+    "CCSS.ELA-LITERACY.SL.4.1.C|hard|fill-in": [
+      "Align acceptable answers with the stated constraints or relax the constraints explicitly. Options: - Enforce strict grading: Remove acceptable variants that lack the comma after..."
+    ],
+    "CCSS.ELA-LITERACY.SL.4.1.C|medium|fill-in": [
+      "Resolve the two-word requirement mismatch: either remove “Following up on” from acceptable answers or change the instruction to allow a short phrase (e.g., “Write a short phrase..."
+    ],
+    "CCSS.ELA-LITERACY.SL.4.1.D|hard|fill-in": [
+      "Revise the stem to fit the keyed verb: either add the preposition or shift it into the blank. For example: “Maya is ________ on the key ideas from the discussion…” (expecting “r..."
+    ],
+    "CCSS.ELA-LITERACY.SL.4.2|easy|fill-in": [
+      "To align with SL.4.2, frame the sentence as having been presented orally or in a short audio/visual clip and ask students to paraphrase the sentence (or portion) in simpler word..."
+    ],
+    "CCSS.ELA-LITERACY.SL.4.4|easy|fill-in": [
+      "- Clarify the target term to remove ambiguity, e.g., “...to support your main ideas.” with a missing letters cue (i_d__s) or “Complete the phrase used in our standard: main ____..."
+    ],
+    "CCSS.ELA-LITERACY.SL.4.5|easy|fill-in": [
+      "Remove “sound” from the acceptable answers or revise the stem so either word fits grammatically (e.g., rephrase without a fixed article: “...is adding a ______ recording...” won..."
+    ],
+    "CCSS.ELA-LITERACY.SL.4.5|medium|fill-in": [
+      "Resolve ambiguity by either: (a) broadening acceptable answers to include “pie chart,” “pictograph,” “table,” “graph,” and “chart,” or (b) tightening the stem to signal bars/sid..."
+    ],
+    "CCSS.ELA-LITERACY.W.4.1.A|easy|fill-in": [
+      "To support mastery learning, require application: for example, provide three sample introductory sentences and ask which clearly names the topic and states an opinion; or ask st..."
+    ],
+    "CCSS.ELA-LITERACY.W.4.1.A+1|easy|fill-in": [
+      "- Make punctuation and phrasing consistent: Either 1) Keep the comma after the blank and limit acceptable answers to introductory phrases that conventionally take a comma (e.g.,..."
+    ],
+    "CCSS.ELA-LITERACY.W.4.1.B|easy|fill-in": [
+      "To comply with the requested fill-in format, remove labeled choices and prompt a direct fill-in response. For example: present the two sentences without A/B labels and ask stude..."
+    ],
+    "CCSS.ELA-LITERACY.W.4.1.C|easy|fill-in": [
+      "- Remove comma-including variants from acceptable_answers or remove the comma after the blank in the stem (but not both) to avoid “In addition,, …”. - Broaden acceptable_answers..."
+    ],
+    "CCSS.ELA-LITERACY.W.4.1.D|hard|fill-in": [
+      "- Broaden acceptable_answers to include other valid two-word concluding phrases that fit the cue (e.g., “To summarize,”). OR revise the stem to say: “Write the phrase ‘In conclu..."
+    ],
+    "CCSS.ELA-LITERACY.W.4.10|hard|fill-in": [
+      "To resolve the format mismatch: either (a) update metadata to type “mcq” to match the presented A–D options, or (b) convert to a true fill-in format by removing the A–D options ..."
+    ],
+    "CCSS.ELA-LITERACY.W.4.2.A|hard|fill-in": [
+      "- Remove the plural “sections” from acceptable_answers; keep “section” (and case-insensitive variants) to fit the sentence grammar. - To justify a “hard” label, increase cogniti..."
+    ],
+    "CCSS.ELA-LITERACY.W.4.2.A|medium|fill-in": [
+      "Strengthen mastery by requiring application. Examples: provide a short paragraph and ask the student to write an appropriate heading; or present several text features (e.g., a t..."
+    ],
+    "CCSS.ELA-LITERACY.W.4.2.B|hard|fill-in": [
+      "To comply with the requested fill-in format, remove the lettered options and prompt an open response (e.g., ask students to write a supporting sentence that defines composting a..."
+    ],
+    "CCSS.ELA-LITERACY.W.4.2.B|medium|fill-in": [
+      "Resolve the format mismatch: either convert to a true fill-in item (omit A–D options and require students to supply or select the factual sentence without labeled choices), or r..."
+    ],
+    "CCSS.ELA-LITERACY.W.4.2.C|easy|fill-in": [
+      "Add the labeled correct answer \"For example\" (capitalized, no comma) to acceptable_answers to remove the field mismatch. Optionally, also accept \"For instance\"/\"For instance,\". ..."
+    ],
+    "CCSS.ELA-LITERACY.W.4.2.C|hard|fill-in": [
+      "Resolve punctuation ambiguity. Options: (a) Keep the comma after the blank and restrict accepted answers to versions without a comma (“For example”, “for example”); or (b) remov..."
+    ],
+    "CCSS.ELA-LITERACY.W.4.2.C|medium|fill-in": [
+      "Fix acceptable_answers to match the stem’s punctuation. Options: (a) Keep the comma in the stem and allow only answers without a trailing comma (e.g., “For example”, “For instan..."
+    ],
+    "CCSS.ELA-LITERACY.W.4.2.C+1|medium|fill-in": [
+      "Remove comma-terminated variants from acceptable_answers (keep only \"For example\" and \"For instance\") or remove the comma from the stem after the blank and require the comma in ..."
+    ],
+    "CCSS.ELA-LITERACY.W.4.2.D|easy|fill-in": [
+      "To strengthen mastery learning, add a brief application component, e.g., ask students to choose the precise term and explain why it’s more precise than a general phrase, or prov..."
+    ],
+    "CCSS.ELA-LITERACY.W.4.2.D|medium|fill-in": [
+      "Adjust acceptable answers to align with the sentence frame. Either: (a) keep the stem as “…called a ________ cloud.” and accept only “cumulonimbus,” or (b) change the stem to “…..."
+    ],
+    "CCSS.ELA-LITERACY.W.4.2.E|hard|fill-in": [
+      "Match the requested format type. Either: (a) remove labeled options and prompt students to write an appropriate concluding sentence (true fill-in/short answer), or (b) update th..."
+    ],
+    "CCSS.ELA-LITERACY.W.4.3.A|easy|fill-in": [
+      "Clarify the stem to remove ambiguity, for example: “One character introduced by name is ______.” Alternatively, accept additional correct responses such as “I” or “the narrator...."
+    ],
+    "CCSS.ELA-LITERACY.W.4.3.A+1|easy|fill-in": [
+      "- Align acceptable_answers with the sentence context and the stated answer: include \"Then\" (capitalized) and remove lowercase \"then\" unless the platform enforces case-insensitiv..."
+    ],
+    "CCSS.ELA-LITERACY.W.4.3.A+1|hard|fill-in": [
+      "Fix the inconsistency by removing \"Afterwards\" from acceptable answers (keep case variants of \"afterward\" only), or revise the stem to allow either variant (e.g., remove the 9-l..."
+    ],
+    "CCSS.ELA-LITERACY.W.4.3.B|hard|fill-in": [
+      "Resolve the format mismatch: either (a) convert this to a true fill-in item (remove options and have students write or select the sentence to insert), or (b) update the item’s m..."
+    ],
+    "CCSS.ELA-LITERACY.W.4.3.B+1|hard|fill-in": [
+      "To comply with the requested fill-in format, remove the A–D answer options and prompt students to write a one- or two-sentence dialogue revision that shows the character’s respo..."
+    ],
+    "CCSS.ELA-LITERACY.W.4.3.B+1|medium|fill-in": [
+      "Fix answer key consistency: remove punctuation from acceptable answers so they match the stem’s existing comma. For example, acceptable_answers should include [\"whispered\"] only..."
+    ],
+    "CCSS.ELA-LITERACY.W.4.3.C|easy|fill-in": [
+      "- Clarify the directions: either say “Write one transitional word…” or allow a “word or phrase” and remove the one-word constraint. - Keep the comma after the blank in the sente..."
+    ],
+    "CCSS.ELA-LITERACY.W.4.3.C|hard|fill-in": [
+      "- Remove ungrammatical variants from acceptable_answers: delete \"By the time,\" and \"by the time,\". - Keep \"By the time\" (case-insensitive) as correct; if the system is case-sens..."
+    ],
+    "CCSS.ELA-LITERACY.W.4.3.E|hard|fill-in": [
+      "Correct the constraint to avoid the factual mismatch, e.g., change to “Write the 10-letter word that begins with ‘U’,” or simply remove the length cue and keep “Write the transi..."
+    ],
+    "CCSS.ELA-LITERACY.W.4.3.E|medium|fill-in": [
+      "Align the format with the requested type. Either: (a) update the item’s metadata/type to multiple-choice to match the current A/B/C structure, or (b) remove the labeled options ..."
+    ],
+    "CCSS.ELA-LITERACY.W.4.4+1|easy|fill-in": [
+      "Align fields to avoid grading mismatches: (1) Ensure the acceptable_answers include \"However\" (capitalized, no comma) to match the 'answer' field. (2) Decide whether the comma i..."
+    ],
+    "CCSS.ELA-LITERACY.W.4.5|easy|fill-in": [
+      "Remove “edit” (and likely “Edit”) from acceptable answers. Accept “editing” (case-insensitive) to match the given choices and maintain correct grammar in the sentence: “She is e..."
+    ],
+    "CCSS.ELA-LITERACY.W.4.5+4|medium|fill-in": [
+      "Disambiguate the verb tense or accept both singular forms: - Add a time cue: “Yesterday, each of the students ______ excited to share a poem.” (expects “was”). Or “Each of the s..."
+    ],
+    "CCSS.ELA-LITERACY.W.4.6|medium|fill-in": [
+      "To better support mastery, reframe to require application. For example: present short scenarios and ask which student meets W.4.6 (e.g., Student A typed 3/4 page, Student B type..."
+    ],
+    "CCSS.ELA-LITERACY.W.4.7|easy|fill-in": [
+      "Remove “researching” from acceptable_answers (keep only “research”). Optionally, adjust the stem if you want to accept gerunds (e.g., “…is called short ______.”), but as written..."
+    ],
+    "CCSS.ELA-LITERACY.W.4.8|easy|fill-in": [
+      "To support mastery while keeping fill-in format, add a brief application element, e.g., “Besides the title and author, write ONE more detail Noah should record for this website ..."
+    ],
+    "CCSS.ELA-LITERACY.W.4.8|hard|fill-in": [
+      "- Make the requirement unambiguous and align grading with it. For example: “Write only the source name (do not include the URL or date) exactly as it appears on the note cards.”..."
+    ],
+    "CCSS.ELA-LITERACY.W.4.9.B|hard|fill-in": [
+      "Make acceptable_answers strictly match verbatim text spans from the paragraph. For example, allow: (1) “trash cans held 25% less leftover food each day” and/or (2) “trash cans h..."
+    ]
+  }
+}

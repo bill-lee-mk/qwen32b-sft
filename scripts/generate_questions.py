@@ -363,8 +363,7 @@ def _get_generation_params(provider: str, model: str) -> dict:
         is_reasoning = any(k in m for k in _reasoning_models)
         temp = 1.0 if ("kimi" in m and "k2" in m) or is_reasoning else 0.7
         _needs_high_mt = ("glm" in m or "kimi" in m or is_reasoning)
-        _needs_mid_mt = ("gemini" in m or "claude" in m or "grok" in m)
-        mt = 16384 if _needs_high_mt else (8192 if _needs_mid_mt else 4096)
+        mt = 16384 if _needs_high_mt else 16384
         return {"temperature": temp, "max_tokens": mt}
     if provider == "deepseek":
         return {"temperature": 0.7, "max_tokens": 8192}
@@ -498,8 +497,9 @@ def call_local(messages: list, base_url: str, model: str = "local") -> str:
     return (response.choices[0].message.content or "").strip()
 
 
-def _normalize_parsed_mcq(obj: dict, expected_type: str = "mcq") -> dict | None:
-    """将解析出的对象规范化为题目格式，兼容 kimi-k2.5 等模型的多种输出格式。支持 mcq/msq/fill-in。"""
+def _normalize_parsed_mcq(obj: dict, expected_type: str = "mcq", context: dict | None = None) -> dict | None:
+    """将解析出的对象规范化为题目格式，兼容 kimi-k2.5 等模型的多种输出格式。支持 mcq/msq/fill-in。
+    context 可传入 {"difficulty": ..., "grade": ...} 用于回填模型漏掉的字段。"""
     if not isinstance(obj, dict):
         return None
     # 补全必填字段默认值
@@ -508,6 +508,21 @@ def _normalize_parsed_mcq(obj: dict, expected_type: str = "mcq") -> dict | None:
     if "id" not in obj and "question" in obj:
         obj["id"] = "parsed"
     qtype = str(obj.get("type", "mcq")).lower().strip()
+
+    # context 回填：模型漏掉 difficulty/grade 时从调用方补全
+    _ctx = context or {}
+    if "difficulty" not in obj and _ctx.get("difficulty"):
+        obj["difficulty"] = _ctx["difficulty"]
+    if "grade" not in obj and _ctx.get("grade"):
+        obj["grade"] = _ctx["grade"]
+    # 截断输出常常丢失最后一个字段 answer_explanation，用 placeholder 兜底避免浪费重试
+    if "answer_explanation" not in obj and "question" in obj and "answer" in obj:
+        for alias in ("explanation", "rationale", "solution", "answer_rationale"):
+            if alias in obj:
+                obj["answer_explanation"] = obj.pop(alias)
+                break
+        else:
+            obj["answer_explanation"] = "(auto-filled due to truncation)"
 
     if qtype == "fill-in":
         if "answer" not in obj and "correct_answer" in obj:
@@ -564,6 +579,15 @@ def _normalize_parsed_mcq(obj: dict, expected_type: str = "mcq") -> dict | None:
             if ans in ans_remap and ans not in "ABCDabcd":
                 obj["answer"] = ans_remap[ans]
 
+    # MCQ: answer=E/F 时截断为 A-D（模型偶尔生成 5+ 选项）
+    if qtype == "mcq":
+        opts = obj.get("answer_options")
+        if isinstance(opts, dict) and len(opts) > 4:
+            obj["answer_options"] = {k: opts[k] for k in "ABCD" if k in opts}
+        ans_raw = str(obj.get("answer", "")).strip().upper()
+        if ans_raw not in "ABCD" and len(ans_raw) == 1 and ans_raw in "EFG":
+            obj["answer"] = "D"
+
     # MCQ: normalize answer — strip non-letter noise (e.g. "A/B/C/D" or Chinese instructions)
     if qtype != "msq":
         ans_raw = str(obj.get("answer", "")).strip()
@@ -586,8 +610,9 @@ def _normalize_parsed_mcq(obj: dict, expected_type: str = "mcq") -> dict | None:
     return obj
 
 
-def parse_mcq(text: str, expected_type: str = "mcq") -> dict | None:
-    """从模型回复中解析题目 JSON。支持 <think>、```json 等包裹，兼容多种输出格式。支持 mcq/msq/fill-in。"""
+def parse_mcq(text: str, expected_type: str = "mcq", context: dict | None = None) -> dict | None:
+    """从模型回复中解析题目 JSON。支持 <think>、```json 等包裹，兼容多种输出格式。支持 mcq/msq/fill-in。
+    context 可传入 {"difficulty": ..., "grade": ...} 用于回填模型漏掉的字段。"""
     if not (text or "").strip():
         return None
     s = text.strip()
@@ -612,11 +637,12 @@ def parse_mcq(text: str, expected_type: str = "mcq") -> dict | None:
                 obj = extract_json_from_text(part)
                 if obj:
                     break
-    # 若仍失败，尝试修复截断的 JSON（如 Kimi 输出被 max_tokens 截断）
+    # 若仍失败，尝试修复截断的 JSON（如输出被 max_tokens 截断）
     if not obj and "{" in s:
         start = s.find("{")
         base = s[start:].rstrip()
-        for suffix in ('"}', '}'):
+        # 逐步尝试补全：先简单后缀，再暴力关闭所有未闭合括号
+        for suffix in ('"}', '}', '"}}', '"}}}'):
             try:
                 repaired = base + suffix
                 obj = json.loads(repaired)
@@ -624,9 +650,22 @@ def parse_mcq(text: str, expected_type: str = "mcq") -> dict | None:
                     break
             except json.JSONDecodeError:
                 continue
+        # 仍然失败：计算未闭合的 { 和 " 数量，暴力补全
+        if not obj:
+            open_braces = base.count("{") - base.count("}")
+            in_string = base.count('"') % 2 == 1
+            repair = ""
+            if in_string:
+                repair += '"'
+            repair += "}" * max(0, open_braces)
+            if repair:
+                try:
+                    obj = json.loads(base + repair)
+                except json.JSONDecodeError:
+                    pass
     if not obj:
         return None
-    obj = _normalize_parsed_mcq(obj, expected_type=expected_type)
+    obj = _normalize_parsed_mcq(obj, expected_type=expected_type, context=context)
     if not obj:
         return None
     ok, reason = is_valid_mcq(obj)
@@ -878,7 +917,7 @@ def _generate_one(
                 raw, usage = call_openai(messages, api_key, model, temperature=p["temperature"], max_tokens=p["max_tokens"])
             if usage:
                 last_usage = usage
-            mcq = parse_mcq(raw, expected_type=question_type)
+            mcq = parse_mcq(raw, expected_type=question_type, context={"difficulty": difficulty, "grade": grade})
             elapsed = time.time() - start
             if mcq:
                 out = normalize_for_inceptbench(mcq)
@@ -1295,7 +1334,7 @@ def main():
                 p = _get_generation_params(provider, model)
                 raw, _ = call_openai(messages, api_key, model, temperature=p["temperature"], max_tokens=p["max_tokens"])
 
-            mcq = parse_mcq(raw, expected_type=single_type)
+            mcq = parse_mcq(raw, expected_type=single_type, context={"difficulty": getattr(args, "difficulty", None), "grade": getattr(args, "grade", None)})
             if mcq:
                 normalized = normalize_for_inceptbench(mcq)
                 normalized["grade"] = args.grade

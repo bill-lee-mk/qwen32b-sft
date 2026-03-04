@@ -201,18 +201,30 @@ def _run_closed_loop_one_model(project_root, model, args, use_model_specific_pat
     rounds_data = []  # 供综合 JSON 日志使用
     total_start = time.time()
 
-    # --start-round 续跑：从 progress 文件恢复历史最高分，避免 best 跟踪丢失
-    if start_round > 1 and os.path.exists(progress_path):
-        try:
-            prev = json.load(open(progress_path, encoding="utf-8"))
-            prev_best = prev.get("best_pass_rate", -1.0) or -1.0
-            prev_round = prev.get("best_round", 0) or 0
-            if prev_best > best_pass_rate_seen:
-                best_pass_rate_seen = prev_best
-                best_round_seen = prev_round
-                _log(f"  [续跑] 从 round {start_round} 继续，历史最高 {best_pass_rate_seen:.1f}% @ R{best_round_seen}")
-        except Exception:
-            pass
+    # --start-round 续跑：从 progress 文件和实际 best 结果文件恢复历史最高分
+    if start_round > 1:
+        if os.path.exists(progress_path):
+            try:
+                prev = json.load(open(progress_path, encoding="utf-8"))
+                prev_best = prev.get("best_pass_rate", -1.0) or -1.0
+                prev_round = prev.get("best_round", 0) or 0
+                if prev_best > best_pass_rate_seen:
+                    best_pass_rate_seen = prev_best
+                    best_round_seen = prev_round
+            except Exception:
+                pass
+        if current_best_results_path and os.path.exists(current_best_results_path):
+            try:
+                with open(current_best_results_path, "r", encoding="utf-8") as _f:
+                    _best_data = json.load(_f)
+                _best_pr = _best_data.get("pass_rate", -1.0)
+                if _best_pr > best_pass_rate_seen:
+                    best_pass_rate_seen = _best_pr
+                    best_round_seen = max(best_round_seen, 1)
+            except Exception:
+                pass
+        if best_pass_rate_seen > 0:
+            _log(f"  [续跑] 从 round {start_round} 继续，历史最高 {best_pass_rate_seen:.1f}% @ R{best_round_seen}")
 
     def _write_progress(rnd, pr, br, bpr, m_path, r_path):
         best_m = current_best_mcqs_path
@@ -328,6 +340,23 @@ def _run_closed_loop_one_model(project_root, model, args, use_model_specific_pat
                             except Exception:
                                 pass
                     return result
+                # WEAK_THRESHOLD 合并：仅生成了弱项题目，合并回已有最佳题目集，保证评估在完整集合上进行
+                if weak_threshold is not None and current_best_mcqs_path and os.path.exists(current_best_mcqs_path) and os.path.exists(mcqs_path):
+                    try:
+                        with open(current_best_mcqs_path, "r", encoding="utf-8") as _f:
+                            _best_mcqs = json.load(_f)
+                        with open(mcqs_path, "r", encoding="utf-8") as _f:
+                            _new_mcqs = json.load(_f)
+                        if _new_mcqs and len(_new_mcqs) < len(_best_mcqs):
+                            _new_keys = {(q.get("standard", ""), q.get("difficulty", ""), q.get("type", "mcq")) for q in _new_mcqs}
+                            _kept = [q for q in _best_mcqs if (q.get("standard", ""), q.get("difficulty", ""), q.get("type", "mcq")) not in _new_keys]
+                            _merged = _kept + _new_mcqs
+                            with open(mcqs_path, "w", encoding="utf-8") as _f:
+                                json.dump(_merged, _f, ensure_ascii=False, indent=2)
+                            _log(f"  弱项合并: {len(_new_mcqs)} 新生成 + {len(_kept)} 保留 = {len(_merged)} 总题")
+                    except Exception as _e:
+                        _log(f"  弱项合并跳过: {_e}")
+
                 # 读取生成阶段的 usage 与 generation 明细（路径由 generate_questions 按 --output 推导写入）
                 usage_output_path = mcqs_path.replace("mcqs_", "log_", 1).replace(".json", "_usage.json")
                 gen_usage = {}
