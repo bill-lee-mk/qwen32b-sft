@@ -610,6 +610,33 @@ def _normalize_parsed_mcq(obj: dict, expected_type: str = "mcq", context: dict |
     return obj
 
 
+def _fix_unescaped_inner_quotes(text: str) -> str:
+    """修复 JSON 字符串值内部未转义的 ASCII 双引号。
+
+    LLM 生成 JSON 时，引用文本常忘记转义内部的 "，例如：
+      "D": "Add: "According to NASA, ..."
+    此函数迭代定位 json.loads 报错位置，在对应的裸引号前插入 \\ 转义。
+    最多修复 20 次以避免无限循环。
+    """
+    current = text
+    for _ in range(20):
+        try:
+            json.loads(current)
+            return current
+        except json.JSONDecodeError as e:
+            if "Expecting ',' delimiter" not in str(e) and "Expecting ':' delimiter" not in str(e):
+                return current
+            pos = e.pos
+            quote_pos = current.rfind('"', 0, pos)
+            if quote_pos < 0 or quote_pos == 0:
+                return current
+            prev_char = current[quote_pos - 1] if quote_pos > 0 else ''
+            if prev_char == '\\':
+                return current
+            current = current[:quote_pos] + '\\' + current[quote_pos:]
+    return current
+
+
 def _repair_truncated_json(raw: str) -> dict | None:
     """用状态机修复被 max_tokens 截断或有轻微语法错误的 JSON。
 
@@ -617,12 +644,16 @@ def _repair_truncated_json(raw: str) -> dict | None:
     - 截断在 key 名中间、value 内部、嵌套对象/数组内部
     - 数组元素间缺少逗号 (如 ["a" "b"])
     - 未闭合的字符串、数组、对象
+    - 字符串值内部包含未转义的 ASCII 双引号 (如模型输出引用文本时)
     """
     start = raw.find("{")
     if start == -1:
         return None
 
     text = raw[start:]
+
+    # 先尝试修复未转义的内部双引号（LLM 常见问题：值中引用文本时忘记转义 "）
+    text = _fix_unescaped_inner_quotes(text)
 
     for variant in [text, re.sub(r'"\s+"', '", "', text)]:
         try:
