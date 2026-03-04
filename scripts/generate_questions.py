@@ -610,6 +610,73 @@ def _normalize_parsed_mcq(obj: dict, expected_type: str = "mcq", context: dict |
     return obj
 
 
+def _repair_truncated_json(raw: str) -> dict | None:
+    """用状态机修复被 max_tokens 截断或有轻微语法错误的 JSON。
+
+    处理能力：
+    - 截断在 key 名中间、value 内部、嵌套对象/数组内部
+    - 数组元素间缺少逗号 (如 ["a" "b"])
+    - 未闭合的字符串、数组、对象
+    """
+    start = raw.find("{")
+    if start == -1:
+        return None
+
+    text = raw[start:]
+
+    for variant in [text, re.sub(r'"\s+"', '", "', text)]:
+        try:
+            obj = json.loads(variant)
+            if isinstance(obj, dict):
+                return obj
+        except json.JSONDecodeError:
+            pass
+
+        stack: list[str] = []
+        in_string = False
+        escaped = False
+        safe_points: list[tuple[int, list[str]]] = []
+
+        for i, ch in enumerate(variant):
+            if escaped:
+                escaped = False
+                continue
+            if in_string:
+                if ch == '\\':
+                    escaped = True
+                elif ch == '"':
+                    in_string = False
+                continue
+            if ch == '"':
+                in_string = True
+            elif ch == '{':
+                stack.append('}')
+            elif ch == '[':
+                stack.append(']')
+            elif ch == '}':
+                if stack and stack[-1] == '}':
+                    stack.pop()
+                    safe_points.append((i + 1, list(stack)))
+            elif ch == ']':
+                if stack and stack[-1] == ']':
+                    stack.pop()
+                    safe_points.append((i + 1, list(stack)))
+            elif ch == ',':
+                safe_points.append((i, list(stack)))
+
+        for pos, remaining in reversed(safe_points[-50:]):
+            truncated = variant[:pos].rstrip().rstrip(',')
+            close = ''.join(reversed(remaining))
+            try:
+                result = json.loads(truncated + close)
+                if isinstance(result, dict) and "question" in result:
+                    return result
+            except json.JSONDecodeError:
+                continue
+
+    return None
+
+
 def parse_mcq(text: str, expected_type: str = "mcq", context: dict | None = None) -> dict | None:
     """从模型回复中解析题目 JSON。支持 <think>、```json 等包裹，兼容多种输出格式。支持 mcq/msq/fill-in。
     context 可传入 {"difficulty": ..., "grade": ...} 用于回填模型漏掉的字段。"""
@@ -639,30 +706,7 @@ def parse_mcq(text: str, expected_type: str = "mcq", context: dict | None = None
                     break
     # 若仍失败，尝试修复截断的 JSON（如输出被 max_tokens 截断）
     if not obj and "{" in s:
-        start = s.find("{")
-        base = s[start:].rstrip()
-        # 逐步尝试补全：先简单后缀，再暴力关闭所有未闭合括号
-        for suffix in ('"}', '}', '"}}', '"}}}'):
-            try:
-                repaired = base + suffix
-                obj = json.loads(repaired)
-                if obj:
-                    break
-            except json.JSONDecodeError:
-                continue
-        # 仍然失败：计算未闭合的 { 和 " 数量，暴力补全
-        if not obj:
-            open_braces = base.count("{") - base.count("}")
-            in_string = base.count('"') % 2 == 1
-            repair = ""
-            if in_string:
-                repair += '"'
-            repair += "}" * max(0, open_braces)
-            if repair:
-                try:
-                    obj = json.loads(base + repair)
-                except json.JSONDecodeError:
-                    pass
+        obj = _repair_truncated_json(s)
     if not obj:
         return None
     obj = _normalize_parsed_mcq(obj, expected_type=expected_type, context=context)
@@ -816,7 +860,8 @@ def _log_parse_failure(model: str, standard: str, difficulty: str,
         "difficulty": difficulty,
         "type": qtype,
         "reason": reason,
-        "raw_preview": (raw or "")[:500],
+        "raw_len": len(raw or ""),
+        "raw_preview": (raw or "")[:4000],
     }
     with _parse_fail_lock:
         with open(log_path, "a", encoding="utf-8") as f:

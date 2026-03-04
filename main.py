@@ -341,6 +341,7 @@ def _run_closed_loop_one_model(project_root, model, args, use_model_specific_pat
                                 pass
                     return result
                 # WEAK_THRESHOLD 合并：仅生成了弱项题目，合并回已有最佳题目集，保证评估在完整集合上进行
+                _cached_scores_path = None
                 if weak_threshold is not None and current_best_mcqs_path and os.path.exists(current_best_mcqs_path) and os.path.exists(mcqs_path):
                     try:
                         with open(current_best_mcqs_path, "r", encoding="utf-8") as _f:
@@ -353,7 +354,33 @@ def _run_closed_loop_one_model(project_root, model, args, use_model_specific_pat
                             _merged = _kept + _new_mcqs
                             with open(mcqs_path, "w", encoding="utf-8") as _f:
                                 json.dump(_merged, _f, ensure_ascii=False, indent=2)
-                            _log(f"  弱项合并: {len(_new_mcqs)} 新生成 + {len(_kept)} 保留 = {len(_merged)} 总题")
+                            _score_map = {}
+                            if current_best_results_path and os.path.exists(current_best_results_path):
+                                try:
+                                    with open(current_best_results_path, "r", encoding="utf-8") as _f:
+                                        _best_res = json.load(_f)
+                                    _best_scores = _best_res.get("scores", [])
+                                    for _bi, _bq in enumerate(_best_mcqs):
+                                        if _bi < len(_best_scores) and _best_scores[_bi] is not None:
+                                            _k = (_bq.get("standard", ""), _bq.get("difficulty", ""), _bq.get("type", "mcq"))
+                                            _score_map[_k] = _best_scores[_bi]
+                                except Exception:
+                                    pass
+                            if _score_map:
+                                _cached = {}
+                                for _mi, _mq in enumerate(_merged):
+                                    _k = (_mq.get("standard", ""), _mq.get("difficulty", ""), _mq.get("type", "mcq"))
+                                    if _k in _score_map and _k not in _new_keys:
+                                        _cached[str(_mi)] = _score_map[_k]
+                                if _cached:
+                                    _cached_scores_path = mcqs_path.replace(".json", "_cached_scores.json")
+                                    with open(_cached_scores_path, "w", encoding="utf-8") as _f:
+                                        json.dump(_cached, _f)
+                                    _log(f"  弱项合并: {len(_new_mcqs)} 新生成 + {len(_kept)} 保留 = {len(_merged)} 总题（{len(_cached)} 题复用缓存评分，仅评估 {len(_merged) - len(_cached)} 题）")
+                                else:
+                                    _log(f"  弱项合并: {len(_new_mcqs)} 新生成 + {len(_kept)} 保留 = {len(_merged)} 总题")
+                            else:
+                                _log(f"  弱项合并: {len(_new_mcqs)} 新生成 + {len(_kept)} 保留 = {len(_merged)} 总题")
                     except Exception as _e:
                         _log(f"  弱项合并跳过: {_e}")
 
@@ -369,8 +396,24 @@ def _run_closed_loop_one_model(project_root, model, args, use_model_specific_pat
                 except Exception:
                     pass
                 eval_cmd = [sys.executable, os.path.join(project_root, "main.py"), "evaluate", "--input", mcqs_path, "--output", results_path, "--parallel", str(parallel)]
-                _log(f"  [2/3] 评估: ... --parallel {parallel}")
+                if _cached_scores_path and os.path.exists(_cached_scores_path):
+                    eval_cmd.extend(["--cached-scores", _cached_scores_path])
+                _n_to_eval = "（全部）"
+                if _cached_scores_path and os.path.exists(_cached_scores_path):
+                    try:
+                        with open(_cached_scores_path) as _f:
+                            _cs = json.load(_f)
+                        _n_to_eval = f"（仅评估新题，跳过 {len(_cs)} 题缓存）"
+                    except Exception:
+                        pass
+                _log(f"  [2/3] 评估: ... --parallel {parallel} {_n_to_eval}")
                 r = _run_with_log_stream(eval_cmd, project_root)
+                # 清理临时缓存分数文件
+                if _cached_scores_path and os.path.exists(_cached_scores_path):
+                    try:
+                        os.remove(_cached_scores_path)
+                    except Exception:
+                        pass
                 if r != 0:
                     result["error"] = f"评估失败 exit={r}"
                     _log(f"  评估失败 exit={r}")
@@ -812,6 +855,7 @@ def main():
     eval_parser.add_argument("--debug", action="store_true", help="打印请求 payload，便于排查 500 错误")
     eval_parser.add_argument("--timeout", type=int, default=180, help="单题超时秒数（默认 180，约 2 分钟/题）")
     eval_parser.add_argument("--parallel", type=int, default=20, help="并行提交数（一次只能提交一题，默认 20 进程并行）")
+    eval_parser.add_argument("--cached-scores", default=None, help="缓存评分 JSON 路径（key=题目索引, value=分数）；有缓存的题跳过评估，节省 API 调用")
 
     # 预提交 MCQ 校验（提升 InceptBench 通过率）
     validate_parser = subparsers.add_parser("validate-mcq", help="预提交 MCQ 校验")
@@ -1142,7 +1186,20 @@ def main():
                     type_tag = f", {qtype}" if _has_multi_types else ""
                     return f"题{i+1:>3} (G{_eval_grade:<2}, {std}, {diff}{type_tag})"
                 label_width = max(len(_eval_label(i, q)) for i, q in enumerate(items))
-                print(f"[评估] {n_total} 题，每次 1 题，{parallel} 并行，超时 {timeout}s/题", flush=True)
+                # 加载缓存评分（WEAK_THRESHOLD 合并时生成，保留题无需重新评估）
+                _cached_scores = {}
+                _cached_scores_arg = getattr(args, "cached_scores", None)
+                if _cached_scores_arg and os.path.exists(_cached_scores_arg):
+                    try:
+                        with open(_cached_scores_arg, "r", encoding="utf-8") as _f:
+                            _cached_scores = json.load(_f)
+                    except Exception:
+                        pass
+                n_to_eval = n_total - len(_cached_scores)
+                if _cached_scores:
+                    print(f"[评估] {n_total} 题，{len(_cached_scores)} 题复用缓存评分，实际评估 {n_to_eval} 题，{parallel} 并行，超时 {timeout}s/题", flush=True)
+                else:
+                    print(f"[评估] {n_total} 题，每次 1 题，{parallel} 并行，超时 {timeout}s/题", flush=True)
                 evaluator = InceptBenchEvaluator(timeout=timeout)
 
                 def _brief_reason(result_dict):
@@ -1231,8 +1288,20 @@ def main():
                 results_by_idx = {}
                 elapsed_by_idx = {}  # 供 evaluation_details 使用
                 done = 0
+                # 先填充缓存分数，跳过这些题的 API 调用
+                _items_to_eval = []
+                for i, q in enumerate(items):
+                    if str(i) in _cached_scores:
+                        cached_s = _cached_scores[str(i)]
+                        results_by_idx[i] = {"overall_score": cached_s, "_cached": True}
+                        elapsed_by_idx[i] = 0.0
+                        done += 1
+                    else:
+                        _items_to_eval.append((i, q))
+                if _cached_scores:
+                    print(f"[评估] 已加载 {len(_cached_scores)} 题缓存评分，开始评估剩余 {len(_items_to_eval)} 题...", flush=True)
                 with ThreadPoolExecutor(max_workers=parallel) as ex:
-                    futures = {ex.submit(_eval_one, (i, q)): i for i, q in enumerate(items)}
+                    futures = {ex.submit(_eval_one, (i, q)): i for i, q in _items_to_eval}
                     for fut in as_completed(futures):
                         i = futures[fut]
                         q = items[i]
@@ -1249,7 +1318,8 @@ def main():
                                 if s is None:
                                     s = (ev.get("overall") or {}).get("score")  # 第二套格式
                             done += 1
-                            progress = f"{done:>3}/{n_total}"
+                            _eval_done = done - len(_cached_scores)
+                            progress = f"{_eval_done:>3}/{n_to_eval}" if _cached_scores else f"{done:>3}/{n_total}"
                             label = _eval_label(i_actual, items[i_actual]).ljust(label_width)
                             dur_str = f"  {elapsed:.1f}s"
                             retry_info = r.pop("_retry_info", "")
@@ -1287,7 +1357,8 @@ def main():
                             results_by_idx[i] = {"overall_score": 0.0, "status": "error", "message": str(e)}
                             elapsed_by_idx[i] = 0.0
                             done += 1
-                            progress = f"{done:>3}/{n_total}"
+                            _eval_done = done - len(_cached_scores)
+                            progress = f"{_eval_done:>3}/{n_to_eval}" if _cached_scores else f"{done:>3}/{n_total}"
                             label = _eval_label(i, items[i]).ljust(label_width)
                             print(f"[评估] [{progress}] {label}: error (原因: {e})  —", flush=True)
 
@@ -1337,7 +1408,10 @@ def main():
                     avg = sum(valid_scores) / len(valid_scores)
                     passed = sum(1 for s in scores if s is not None and s >= 0.85)
                     print(f"\n[评估] === 汇总 ===", flush=True)
-                    print(f"[评估] 总评估数: {n_submitted}（提交给评分服务的题目数）", flush=True)
+                    if _cached_scores:
+                        print(f"[评估] 总题数: {n_submitted}（其中 {len(_cached_scores)} 题复用缓存评分，{n_to_eval} 题实际调用 API）", flush=True)
+                    else:
+                        print(f"[评估] 总评估数: {n_submitted}（提交给评分服务的题目数）", flush=True)
                     print(f"[评估] 有效分数数: {n_valid}（拿到数值分数的题目数）", flush=True)
                     if n_error:
                         print(f"[评估] 无分数: {n_error} 题（见下方明细，需区分服务端问题与题目问题）", flush=True)

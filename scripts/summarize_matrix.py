@@ -391,6 +391,7 @@ def main():
     p.add_argument("--metric", default="pass_rate", choices=["pass_rate", "avg_score"], help="展示指标")
     p.add_argument("--output", default=None, help="矩阵 JSON 输出路径（默认 <dir>/score_matrix.json）")
     p.add_argument("--model", default=None, help="只显示指定模型（模型名片段匹配，如 kimi / deepseek-v3 / glm-5）")
+    p.add_argument("--exclude", default=None, help="排除指定模型（逗号分隔，片段匹配，如 deepseek-v3,gpt-oss）")
     args = p.parse_args()
 
     if not os.path.isdir(args.dir):
@@ -399,6 +400,9 @@ def main():
         sys.exit(1)
 
     data = scan_results(args.dir, args.subject)
+    if args.exclude:
+        excl_patterns = [e.strip().lower().replace(".", "_").replace("/", "_") for e in args.exclude.split(",") if e.strip()]
+        data = {m: v for m, v in data.items() if not any(p in m.lower().replace(".", "_") for p in excl_patterns)}
     if args.model:
         pattern = args.model.lower().replace(".", "_").replace("/", "_")
         filtered = {m: v for m, v in data.items() if pattern in m.lower().replace(".", "_")}
