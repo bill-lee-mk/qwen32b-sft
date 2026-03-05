@@ -1,5 +1,11 @@
 {
   "global_rules": [
+    "Never generate placeholder or template questions. Every question must contain real, specific educational content appropriate for the grade level. Do NOT use meta-descriptions like 'A correct choice that matches the standard' or 'demonstrate the skill described in [standard]' as question stems or answer options. All answer options must be concrete, meaningful choices.",
+    "CRITICAL for MSQ (multiple-select) questions: Each answer option MUST be a complete, concrete sentence or phrase with real educational content. NEVER use generic option text like 'A correct choice that matches the standard' or 'Another correct choice that also matches' or 'An unrelated distractor option'. Every MSQ option must contain specific, grade-appropriate content that a 2nd-grader could read and evaluate. Example GOOD options: 'The cat sleeps on the mat.' / 'She runned to the store.' Example BAD options: 'A correct choice that matches the standard.'",
+    "For ALL question types: The question stem must ask about specific content (a passage, sentence, word, or scenario). Never reference the standard code or difficulty level in the question stem. Write as a teacher would write a real classroom assessment.",
+    "Grade 2 content guidelines: Use simple vocabulary (1-2 syllable words preferred), short sentences (under 15 words), familiar topics (school, family, animals, seasons, food). Avoid abstract concepts. All reading passages should be 2-4 sentences maximum.",
+    "For fill-in questions: The blank must have exactly ONE clearly correct answer that fits grammatically and semantically. Provide 2-3 acceptable_answers covering common valid alternatives. The answer_explanation must explain WHY the answer is correct, not just restate it.",
+    "For MSQ distractor quality: Wrong options must be plausible mistakes a 2nd-grader might make (e.g., common grammar errors, near-miss vocabulary). Do NOT use obviously wrong or absurd distractors. Each distractor should test a specific misconception.",
     "Use only plausible, real-word distractors; avoid non-words or invented forms.",
     "Ensure all four options A/B/C/D have different text; no duplicate options.",
     "answer_explanation must describe only the correct option and must not reference or contradict wrong options.",
@@ -8,9 +14,6 @@
     "Keep tense and time cues consistent between stem and options.",
     "If the stem has a blank, each option must be a phrase that fits the blank grammatically; avoid full clauses as options for a single blank.",
     "For peer feedback/editing items: ensure the feedback describes an actual error present in the draft; avoid describing errors that don't exist.",
-    "For fluency terms (e.g. RF.3.4.C): use accurate definitions: 'aloud' means 'out loud' or 'audibly,' not 'speaking loudly'.",
-    "Ensure all passage content is factually accurate; avoid false or misleading claims in stems or passages.",
-    "If the stem has a blank, each option must be a phrase that fits the blank grammatically; avoid full clauses as options for a single blank.",
     "For fluency terms (e.g. RF.3.4.C): use accurate definitions: 'aloud' means 'out loud' or 'audibly,' not 'speaking loudly'."
   ],
   "by_standard": {
@@ -31,7 +34,8 @@
     "CCSS.ELA-LITERACY.L.2.4.E": [
       "Fix the field mismatch: Either (a) add a 4th line to the dictionary entry for “a piece of paper money,” or (b) change Option D so it refers only to the definitions shown (1–3), ...",
       "- Replace the stem with student-appropriate language that directly targets L.2.4.E (avoid standard codes). Example: “You find the word ‘bark’ in a story. Which steps would help ...",
-      "Restrict acceptable answers to numeric-only to match the instruction: acceptable_answers should be [\"2\"] (optionally allow \" 2 \" with whitespace handling). Consider removing \"tw..."
+      "Restrict acceptable answers to numeric-only to match the instruction: acceptable_answers should be [\"2\"] (optionally allow \" 2 \" with whitespace handling). Consider removing \"tw...",
+      "Fix the explanation wording: e.g., “The sentence says the bat was sleeping upside down in a cave, which refers to the animal. This matches definition 2 (‘a small animal that fli..."
     ],
     "CCSS.ELA-LITERACY.L.2.5.A": [
       "Revise the explanation to avoid the scientific inaccuracy, e.g., “Clouds are made of tiny water droplets or ice crystals in the air, not something you can touch, so they aren’t ...",
@@ -366,7 +370,8 @@
       "Correct the phonetic notation in the explanation or avoid IPA altogether. For example: “In ‘have’ (B), the ‘a’ is short /æ/ rather than the long a /eɪ/ expected with silent e; i...",
       "Update acceptable_answers to include both \"great\" and \"Great\" (or use case-insensitive matching). Optionally allow minor variations like surrounding whitespace to prevent inadve...",
       "- Replace the stem with student-friendly language: “Select all the words that do NOT make their usual sounds.” Avoid referencing the standard code in the student-facing stem. - ...",
-      "Add “great” (lowercase, no trailing space) to acceptable_answers and consider case-insensitive, trimmed matching. Example acceptable_answers: [\"great\", \"Great\"], with whitespace..."
+      "Add “great” (lowercase, no trailing space) to acceptable_answers and consider case-insensitive, trimmed matching. Example acceptable_answers: [\"great\", \"Great\"], with whitespace...",
+      "Add lowercase \"great\" to acceptable_answers (and consider case-insensitive grading). Example: acceptable_answers: [\"great\", \"Great\"]. Optionally clarify the hint slightly: “This..."
     ],
     "CCSS.ELA-LITERACY.SL.2.2": [
       "To align with SL.2.2, present the information orally (audio clip or teacher read-aloud) and keep the question the same. Alternatively, retag the standard to a reading comprehens...",
@@ -384,13 +389,17 @@
     ],
     "CCSS.ELA-LITERACY.L.2.1.B": [
       "Revise option B to unambiguously show a plural, e.g., “Two fish swam quickly in the pond.” or “The fish were swimming in the pond.” This removes ambiguity and better matches the...",
-      "- Replace the stem with student-friendly language, e.g., \"Select ALL sentences that use irregular plural nouns correctly.\" - Replace options with real Grade 2–appropriate conten..."
+      "- Replace the stem with student-friendly language, e.g., \"Select ALL sentences that use irregular plural nouns correctly.\" - Replace options with real Grade 2–appropriate conten...",
+      "If a hard difficulty level is desired, increase complexity by: using a wider range of irregular plurals (e.g., children, feet, mice), including a sentence with two irregular plu...",
+      "To improve mastery alignment, require a small application step, such as: (a) provide two sentences—one needing singular and one plural—and have students supply each form; (b) as...",
+      "Clarify the stem to remove ambiguity. For example: \"Which sentences have all irregular plural nouns used correctly? Select all that apply.\" Alternatively: \"Select the sentences ..."
     ],
     "CCSS.ELA-LITERACY.RI.2.2": [
       "Add explicit paragraph numbers or labels to the passage (e.g., [1], [2], [3]) or rephrase options to avoid numeric references (e.g., “The second body paragraph…”).",
       "Remove \"trunks\" from acceptable_answers. Keep only \"trunk\" (optionally allow trimmed variations like exact-case insensitivity). Alternatively, if you intend to accept the plural...",
       "Revise Paragraph 2 to be factually correct for butterflies, e.g., “The caterpillar forms a chrysalis and changes into a butterfly,” or “The caterpillar forms a chrysalis (a hard...",
-      "Revise the explanation for Option D to avoid the inaccuracy. For example: “Option D is incorrect because while water is mentioned in paragraph 2 (drinking water) and finding wat..."
+      "Revise the explanation for Option D to avoid the inaccuracy. For example: “Option D is incorrect because while water is mentioned in paragraph 2 (drinking water) and finding wat...",
+      "Remove “see well” from acceptable answers. Keep acceptable responses to forms of “see” that match the text’s meaning (e.g., “see,” possibly “see at all” if multi-word responses ..."
     ],
     "CCSS.ELA-LITERACY.RI.2.9": [
       "- Replace the meta-stem with a Grade 2–appropriate task: provide two short informational paragraphs on the same topic and ask students to compare/contrast the most important poi...",
@@ -403,13 +412,15 @@
       "Remove “misspelt” from acceptable_answers (or adjust the prompt/locale if accepting British variants). Keep only “misspelled” as correct for en-US and for the stated -ed suffix ...",
       "Redesign as a true Grade 2 phonics multiple-select item aligned to RF.2.3.D. For example: “Select ALL words that have a common prefix.” Options might include: unhappy, redo, car...",
       "- Replace the stem with a student-friendly decoding task, e.g., “Select ALL the words that have the prefix un- and mean ‘not …’.” or “Which words show past tense with -ed? Selec...",
-      "Rewrite as a genuine Grade 2 multiple-select item assessing RF.2.3.D without telegraphing answers. Example: Stem: “Which words have a common prefix or suffix? Select all that ap..."
+      "Rewrite as a genuine Grade 2 multiple-select item assessing RF.2.3.D without telegraphing answers. Example: Stem: “Which words have a common prefix or suffix? Select all that ap...",
+      "- Fix grading fields to accept the correct lowercase form: set acceptable_answers to [\"unplugged\"] or make evaluation case-insensitive. - Optionally, add guidance in the explana..."
     ],
     "CCSS.ELA-LITERACY.SL.2.5": [
       "Replace “recording” with “audio recording” or “voice recording” to remove ambiguity; alternatively revise the prompt to explicitly contrast seeing vs hearing (e.g., keep “see” a...",
       "To match the labeled difficulty, either relabel as Medium/Easy or make the task more complex (e.g., include multiple sentences with mixed cues or require choosing between closel...",
       "Fix the grammatical inconsistency between the sentence frame and acceptable answers. Options: (a) keep the frame as “...of the ______” and accept only bare noun phrases (e.g., “...",
-      "Align grading with the stem’s requirement. Either: (a) keep the prompt “match the text exactly” and limit accepted answers to [“silver”, “silver color”], removing “metallic,” “g..."
+      "Align grading with the stem’s requirement. Either: (a) keep the prompt “match the text exactly” and limit accepted answers to [“silver”, “silver color”], removing “metallic,” “g...",
+      "To avoid an answer giveaway, revise the quoted sentence to remove the explicit emotion word or replace it with actions that imply fear without naming it (e.g., remove “nervously..."
     ],
     "CCSS.ELA-LITERACY.RL.2.6": [
       "To better match a “hard” difficulty, make the fear cues subtler or mixed (e.g., remove explicit words like “scary,” avoid direct emotion labels, include conflicting or nuanced a...",
@@ -424,18 +435,259 @@
     "CCSS.ELA-LITERACY.RF.2.3.A": [
       "Add lowercase \"snake\" to acceptable_answers (or enable case-insensitive matching). Consider accepting minor punctuation/spacing variants to prevent false negatives.",
       "Rewrite as a real Grade 2 MSQ aligned to RF.2.3.A with concrete one-syllable words. Example stem: “Select ALL words with a long a sound.” Options: A) cake B) cap C) map D) mane ...",
-      "Remove “the snake” from acceptable_answers. Accept case-insensitive variants of the single word only (e.g., “snake”, “Snake”, “SNAKE”). Optionally allow minor trailing punctuati..."
+      "Remove “the snake” from acceptable_answers. Accept case-insensitive variants of the single word only (e.g., “snake”, “Snake”, “SNAKE”). Optionally allow minor trailing punctuati...",
+      "Relabel difficulty to Easy (or at most Medium), or increase challenge to justify Hard (e.g., include 3–4 words mixing CVCe and vowel teams like ai/ay, or ask for brief justifica...",
+      "- Relabel difficulty from “hard” to “easy” (or at most “medium”). - Optionally add lowercase \"shape\" to acceptable_answers for redundancy, though the canonical answer already co..."
     ],
     "CCSS.ELA-LITERACY.RF.2.4.C": [
-      "Align acceptable_answers with the keyed answer and typical casing in a sentence. For example, set acceptable_answers to [\"brush\", \"Brush\"] or use case-insensitive grading. Optio..."
+      "Align acceptable_answers with the keyed answer and typical casing in a sentence. For example, set acceptable_answers to [\"brush\", \"Brush\"] or use case-insensitive grading. Optio...",
+      "Align acceptable_answers with the intended student response: include both \"sweep\" and \"Sweep\" (or make grading case-insensitive). Optionally add common misspellings or whitespac...",
+      "Align acceptable_answers with the answer key and likely student inputs. Include both \"horse\" and \"Horse\" (or use case-insensitive matching), and consider trimming whitespace. Ex...",
+      "Add the lowercase form to acceptable_answers (e.g., [\"scent\", \"Scent\", \"SCENT\"]) or ensure case-insensitive grading. Optionally accept minor whitespace variations to prevent acc...",
+      "Add the lowercase variant to acceptable_answers (e.g., [\"bench\", \"Bench\", \"BENCH\"]) or make evaluation case-insensitive to ensure correct responses are accepted."
     ],
     "CCSS.ELA-LITERACY.W.2.1": [
       "Revise the explanation to acknowledge that “so” forms a grammatical sentence expressing a purpose/result, but “because” is the best choice for explicitly introducing a reason in...",
       "Update acceptable_answers to include the lowercase form (\"because\") and ideally handle case-insensitive grading. Since the word occurs mid-sentence, consider removing the capita...",
-      "Revise the explanation to: \"The correct answer is 'because' because it introduces the reason. In this sentence order, 'so' would not work; 'so' would be correct only if the caus..."
+      "Revise the explanation to: \"The correct answer is 'because' because it introduces the reason. In this sentence order, 'so' would not work; 'so' would be correct only if the caus...",
+      "Relabel difficulty to easy or medium for Grade 2 W.2.1, or increase complexity to justify “hard” (e.g., multiple blanks across two sentences, more/closer distractors like becaus...",
+      "Relabel difficulty to Easy/Medium, or increase complexity to justify Hard (e.g., include multiple blanks with different connector types, remove the word bank, or require explana..."
     ]
   },
   "by_standard_difficulty": {
+    "CCSS.ELA-LITERACY.L.2.1.D|easy|msq": [
+      "- Replace the stem with a student-friendly prompt that directly targets L.2.1.D (e.g., “Choose the sentence that shows the correct past tense of the verb.”). - Remove meta optio..."
+    ],
+    "CCSS.ELA-LITERACY.L.2.1.F|easy|msq": [
+      "- Replace meta-labeled options with actual Grade 2 sentence examples that either demonstrate producing, expanding, or rearranging simple sentences, or do not, so students must d...",
+      "Refocus the stem to a student-friendly task aligned to L.2.1.F (e.g., \"Select all sentences that are complete and show more detail\" or \"Select all sentences that rearrange the w...",
+      "- Replace the meta stem with student-friendly language (e.g., “Select all the complete sentences.” or “Select all the ways to expand this sentence: ‘The boy watched the movie.’”...",
+      "- Replace meta-labeled options with actual Grade 2 sentences and tasks (e.g., choose all options that are complete sentences; select all rearrangements that make a complete sent...",
+      "- Replace the meta stem with a student-friendly task that directly targets L.2.1.F (e.g., \"Choose the sentences that are complete\"; \"Which sentences show adding a small detail?\"..."
+    ],
+    "CCSS.ELA-LITERACY.L.2.2.B|easy|msq": [
+      "- Replace the stem with student-friendly language: “Select all options that correctly use commas in the greeting or closing of a letter.” - Provide concrete examples that demons...",
+      "- Replace meta text with real examples, e.g., A) Dear Grandma, B) Dear Grandma C) Your friend, Mia D) Your friend Mia - Revise stem to kid-friendly language: “Which lines show c...",
+      "- Replace meta option texts with concrete examples of greetings/closings, e.g., “Dear Grandma,”; “Dear Grandma”; “Your friend, Sam”; “Your friend Sam.” - Rewrite the stem in stu...",
+      "- Rewrite the stem in student-friendly language, e.g., “Which choices use a comma correctly in the greeting or closing of a letter? Select all that are correct.” - Replace meta ...",
+      "- Replace meta option texts with concrete examples that assess L.2.2.B, e.g., greetings/closings with and without proper commas: “Dear Grandma,” “Your friend,” “Dear Grandma” (n..."
+    ],
+    "CCSS.ELA-LITERACY.L.2.2.D|medium|msq": [
+      "- Replace meta-option text with actual Grade 2-appropriate word examples that target L.2.2.D (e.g., distinguishing oi vs oy: which words use the same /oi/ sound pattern, or choo...",
+      "Rewrite as a true Grade 2 multiple-select item that directly assesses L.2.2.D using student-friendly wording and real word examples. For example: “Select all the words that use ...",
+      "- Replace placeholder option texts with actual Grade 2 spelling-pattern examples (e.g., select all words where y changes to i before adding -es; select words where boy → boil pa...",
+      "- Replace meta-labeled options with actual Grade 2 spelling-pattern content. Example MSQ stem: “Select ALL pairs that correctly show a learned spelling pattern.” Options like: A...",
+      "- Replace meta option texts with concrete, student-friendly content targeting L.2.2.D (e.g., “Which word shows the correct spelling change? cage → badge; boy → boil; toye → toil..."
+    ],
+    "CCSS.ELA-LITERACY.L.2.2.E|easy|msq": [
+      "- Remove references to standard codes/difficulty from the stem. Use student-friendly language, e.g., “Which actions help you check how to spell a word? Select all that are true....",
+      "- Reframe the stem in student-friendly language without standard codes: “Which actions would help you check if a word is spelled correctly? (Select all that apply).” - Replace o...",
+      "- Replace the meta-stem with a student-friendly prompt aligned to L.2.2.E, e.g., \"Which tool can you use to check how to spell the word 'frend'? (Select ALL that apply)\" with op...",
+      "- Replace meta-referential stem with a concrete, grade-appropriate prompt aligned to L.2.2.E (e.g., “Which tools can you use to check how to spell a word? Select ALL that apply....",
+      "- Remove answer-giveaway language. Replace placeholder option texts with concrete, age-appropriate scenarios tied to L.2.2.E (e.g., “Maya isn’t sure how to spell ‘rabbit.’ She o..."
+    ],
+    "CCSS.ELA-LITERACY.L.2.4.A|easy|msq": [
+      "- Replace the meta stem with a student-friendly prompt that includes a short sentence using an unfamiliar word. Ask students to infer the word’s meaning from sentence-level cont...",
+      "- Replace the meta stem with a Grade 2–friendly prompt that directly targets L.2.4.A. Example: “Read the sentence: ‘Dad will tote the bags to the car.’ What does tote mean in th...",
+      "- Replace the stem with a student-friendly prompt that targets L.2.4.A, e.g., “Read the sentence. What does ‘bark’ mean in this sentence?” - Provide a short sentence with a targ...",
+      "- Replace the meta stem with a student-friendly prompt that includes a sentence providing context for an unfamiliar word (e.g., “I forgot my umbrella because the sky was gloomy....",
+      "- Replace meta stem with a Grade 2-friendly prompt and an actual sentence containing an unfamiliar word: “Read: ‘The tiny pup scurried under the table to hide from the storm.’ W..."
+    ],
+    "CCSS.ELA-LITERACY.L.2.4.A|medium|msq": [
+      "- Replace the meta options with authentic 2nd-grade sentences where a target word’s meaning must be inferred from sentence-level context. - Avoid referencing the standard code i...",
+      "- Replace with a real L.2.4.A item: Provide a sentence with a highlighted word and ask for its meaning using sentence-level context. Example: “Maya zipped up her coat because th...",
+      "- Replace the meta stem with a Grade 2-friendly task that uses sentence-level context. Example MSQ formats: - “Read: ‘We trudged up the hill, our legs heavy after the long day.’...",
+      "- Replace the meta stem with a student-facing context-clue task (e.g., a short sentence with an underlined word and choices for its meaning based on the sentence). - Remove any ...",
+      "- Replace meta-language with a real Grade 2 context-clues task: Provide a short sentence with an unfamiliar word and ask students to use the sentence to choose the meaning of th..."
+    ],
+    "CCSS.ELA-LITERACY.L.2.4.B|easy|msq": [
+      "Rewrite as a genuine Grade 2 prefix-meaning multi-select item with child-friendly wording and plausible, diagnostic distractors. Example: Stem: “Which choices show the correct m...",
+      "- Replace the meta stem with a student-friendly prompt that directly assesses L.2.4.B, e.g., “Select all words that show how adding a prefix changes the meaning.” - Use concrete...",
+      "- Replace meta-labeled options with real, grade-appropriate content that targets L.2.4.B (e.g., words with/without prefixes: unhappy, retell, cat, play). - Rewrite the stem in s...",
+      "Rewrite as a true Grade 2 L.2.4.B multi-select item with student-friendly language and authentic choices. For example: Stem: “Which words with the prefix un- mean ‘not’?” Option..."
+    ],
+    "CCSS.ELA-LITERACY.L.2.4.C|hard|msq": [
+      "- Replace meta placeholders with authentic Grade 2-appropriate root-word items. Example stem: “Some words share a root. If you know the word add, which words are about adding? S...",
+      "Rewrite as an authentic Grade 2 multi-select item aligned to L.2.4.C using student-friendly language and concrete words. Example: - Stem: “Use what you know about the word ‘help...",
+      "- Replace the meta stem with a concrete, age-appropriate task that uses roots to infer meanings. Example stem: “Use the root ‘act’ (to do) to help you. Which words are about doi...",
+      "- Replace meta-labeled options with real word choices that involve a shared root (e.g., add, addition, additional) and require using the known root to infer the new word’s meani..."
+    ],
+    "CCSS.ELA-LITERACY.L.2.4.C|medium|msq": [
+      "Revise the explanation to avoid the incorrect claim. For example: \"Agreement adds -ment to agree, meaning the act of agreeing. Disagree adds the prefix dis-, meaning to not agre...",
+      "- Replace the meta stem with a student-friendly prompt that directly targets L.2.4.C. Example (MSQ): “You know the word add means ‘to put together.’ Which words use the same roo...",
+      "- Replace meta placeholder options with real, grade-appropriate examples that require using a known root to infer meaning (e.g., link ‘help’ to ‘helpful,’ ‘helper’; ‘cover’ to ‘...",
+      "- Replace meta/placeholders with authentic Grade 2-appropriate content that targets L.2.4.C (e.g., “If you know help means to assist, what does helper mean?” with realistic choi...",
+      "- Replace meta stem with student-friendly language (e.g., \"Which choices use a known word to help you figure out a new word? Select all that apply.\"). - Provide concrete root-wo..."
+    ],
+    "CCSS.ELA-LITERACY.L.2.4.D|hard|msq": [
+      "- Replace meta-text options with real, student-friendly content aligned to L.2.4.D (e.g., present compound words and ask students to choose meanings or which are real compound w...",
+      "- Replace the stem with a student-friendly prompt aligned to L.2.4.D (e.g., “What does the compound word ‘birdhouse’ most likely mean?” or “Choose the meaning of ‘raincoat’.”). ...",
+      "Rewrite as a real Grade 2 compound-words MSQ. Example: “Which words are compound words? (Select ALL that apply)” Options: birdhouse, notebook, carpet, sunshine, housefly, pencil...",
+      "Revise the stem to avoid mislabeling non-compounds. For example: “Which sentences correctly explain the meaning of the bold word?” or “Which sentences correctly explain the mean..."
+    ],
+    "CCSS.ELA-LITERACY.L.2.6|easy|msq": [
+      "- Replace the meta stem with a student-friendly prompt that names the skill, e.g., “Which sentences use describing words (adjectives or adverbs)? Select all that apply.” - Repla...",
+      "- Replace meta-labeled options with authentic, age-appropriate sentences that use (or do not use) adjectives/adverbs. Example stem: “Which sentences use describing words (adject...",
+      "- Replace the stem with student-friendly language, avoiding standard codes (e.g., “Which sentences use describing words (adjectives or adverbs)? Select all that are true.”). - P...",
+      "- Remove self-referential option labels; write actual Grade 2–appropriate sentences. - Replace “L.2.6” in the stem with plain language (e.g., “Which sentences use describing wor...",
+      "- Replace meta stem with kid-friendly language (e.g., “Which sentences use an adjective or adverb to describe?”). Remove references to “L.2.6” and “easy difficulty.” - Provide r..."
+    ],
+    "CCSS.ELA-LITERACY.RF.2.3.B|easy|fill-in": [
+      "Add the lowercase form to acceptable_answers and remove or de-prioritize the capitalized form for mid-sentence use. For example: acceptable_answers: [\"sea\", \"Sea\"], with the pri..."
+    ],
+    "CCSS.ELA-LITERACY.RF.2.3.A|medium|fill-in": [
+      "Create a fill-in about distinguishing long and short vowels in regularly spelled one-syllable words. Use simple, familiar words. The answer should be a single word that a 2nd-grader can spell."
+    ],
+    "CCSS.ELA-LITERACY.RF.2.3.C|easy|mcq": [
+      "Revise distractors to be verbs that could plausibly complete the sentence while differing in vowel patterns (e.g., invite, visit, carry, follow). Alternatively, make the phonics..."
+    ],
+    "CCSS.ELA-LITERACY.RF.2.3.C|medium|mcq": [
+      "- Make all options the same part of speech (verbs) and two syllables to ensure students must decode, not just use grammar. For example, revise the sentence and choices so severa..."
+    ],
+    "CCSS.ELA-LITERACY.RF.2.4.B|hard|msq": [
+      "- Replace the stem with student-appropriate language that describes the task without using the standard code (e.g., “Listen to each recording. Which recordings show reading with...",
+      "- Replace meta-language with a student-friendly task tied to evidence: provide a short grade-level passage and/or audio recordings of readings. - For MSQ, consider: “Listen to e...",
+      "- Replace placeholder options with concrete, student-friendly content that evidences oral reading fluency (e.g., short recorded readings or brief passages with descriptions of h...",
+      "- Redesign to align with RF.2.4.B: Provide a short grade-level passage and audio recordings of students reading it. Ask students to select all recordings that show accuracy, app...",
+      "- Replace placeholder option texts with substantive, student-appropriate content that actually assesses RF.2.4.B (e.g., audio clips or transcripts of short grade-level sentences..."
+    ],
+    "CCSS.ELA-LITERACY.RF.2.4.B|easy|msq": [
+      "- Replace meta-labeled options with concrete, student-facing evidence of oral reading (e.g., brief audio clips or short written descriptions of how a sentence was read: smooth a...",
+      "- Replace the standard code with student-friendly language (e.g., “reading aloud smoothly, at a good speed, and with expression”). - Provide an evidence-based task aligned to RF...",
+      "- Replace meta options with authentic, student-facing content aligned to RF.2.4.B: include brief grade-level sentences and audio clips; ask students to select recordings that de...",
+      "- Replace meta-labeled options with age-appropriate, observable scenarios or audio clips. For example, provide short audio recordings and ask: “Select ALL readings that sound sm...",
+      "- Replace meta-labeled options with authentic, student-facing tasks aligned to RF.2.4.B. Examples: - Provide a 1–2 sentence grade-level passage and short audio clips of differen..."
+    ],
+    "CCSS.ELA-LITERACY.RI.2.1|hard|fill-in": [
+      "Either relabel difficulty to Easy, or increase cognitive demand to justify Hard (e.g., require a two-part answer explaining both what the dog does and why, or ask students to ci...",
+      "Align difficulty labeling with the actual cognitive demand (rename to Easy/Medium). If “Hard” is required, increase complexity (e.g., ask a why/how question requiring inference ...",
+      "To match the “hard” label, increase cognitive demand: for example, ask a why/how question requiring inference (“Why do chameleons turn dark colors when they are cold?”) or requi...",
+      "Remove “hot” from acceptable_answers. Keep text-supported variants like “warm,” “warmer,” “to warm up,” or “get warm.”",
+      "- Adjust labeled difficulty to Easy (or Medium if adding slight inference), OR - Increase cognitive demand to match “Hard,” e.g., ask a why/how question requiring synthesis from..."
+    ],
+    "CCSS.ELA-LITERACY.RI.2.1|medium|msq": [
+      "- Replace the meta-level stem with a student-friendly prompt tied to a short informational passage (2–4 sentences). Example: “Read the passage. Which two questions are answered ...",
+      "Create a Grade 2–appropriate informational mini-passage (2–4 sentences). Ask students to select all questions (or answers) about key details (who/what/where/when/why/how) suppor...",
+      "- Replace the meta stem with a student-friendly prompt. Provide a short informational passage (2–4 sentences) and ask a who/what/where/when/why/how question about key details. -...",
+      "- Replace the meta stem with a student-friendly prompt tied to an informational passage (e.g., “Read the paragraph. Which question asks about where the animal lives?” or “Accord...",
+      "- Provide a short, age-appropriate informational passage (3–5 sentences). - Ask a W/H question (who/what/where/when/why/how) about a key detail from the passage. - Replace meta-..."
+    ],
+    "CCSS.ELA-LITERACY.RI.2.6|hard|msq": [
+      "- Remove any meta labels that reveal correctness. Replace option texts with concrete, student-friendly statements. - Provide a short informational passage (2–3 sentences) or bri...",
+      "- Replace the meta-level stem with a student-friendly, RI.2.6-aligned task. Example: Provide a short informational paragraph (3–6 sentences). Ask: “What is the author’s main pur...",
+      "Redesign as a true Grade 2 RI.2.6 item: 1) Provide a short, age-appropriate informational paragraph (2–4 sentences). 2) Ask, “What is the author’s main purpose?” with child-frie...",
+      "- Replace meta/placeholder text with authentic Grade 2-appropriate content. Provide a short informational paragraph (3–5 sentences) and ask: “What is the author’s main purpose: ...",
+      "- Replace the meta stem with a grade-appropriate task that targets RI.2.6 directly, e.g., provide a short informational paragraph and ask: “What is the author’s main purpose? Se..."
+    ],
+    "CCSS.ELA-LITERACY.RI.2.9|hard|fill-in": [
+      "To align with a hard difficulty label, increase complexity: use longer texts, remove the word bank, and/or require identifying multiple shared points or explaining how the texts...",
+      "Relabel difficulty to easy (or medium) OR increase complexity to justify “hard,” e.g., require students to name two similarities/differences or infer a shared main point not sta..."
+    ],
+    "CCSS.ELA-LITERACY.RL.2.4|medium|msq": [
+      "- Replace the stem with student-friendly language that names the task, not the standard code (e.g., “Read the short poem. Which lines rhyme?” or “Which words show alliteration?”...",
+      "- Replace meta-labeled options with authentic, student-facing content. Provide a brief poem or 3–4 lines from a poem/song. - Use a kid-friendly stem, e.g., “Which lines use rhym...",
+      "- Replace the stem with a student-friendly prompt that references a short poem or song excerpt (2–4 lines). - Ask students to select lines/phrases that rhyme, show alliteration,...",
+      "- Replace meta-labeled options with authentic Grade 2 content. Provide a short poem or 2–3 lines from a song/story. - Ask students to select all phrases that show alliteration/r...",
+      "- Replace meta-language with a student-friendly prompt connected to a short poem or song excerpt. Example: “Read the poem. Which lines use rhyming words that create a beat? Sele..."
+    ],
+    "CCSS.ELA-LITERACY.RL.2.5|medium|msq": [
+      "- Replace the standard code with student-friendly language (e.g., “Which sentences show how the beginning introduces the story and which show how the ending concludes it?”). - P...",
+      "- Replace the meta stem with a child-friendly prompt tied to a short passage or scenario. Example: “Read the sentences. Which ones show the beginning that introduces the story? ...",
+      "- Replace the meta-task with a student-facing prompt aligned to RL.2.5 (e.g., provide a short story and ask which sentence shows the beginning introducing the story, or which en...",
+      "- Replace meta-language with a child-friendly stem tied to RL.2.5, e.g., “Which sentences tell how the beginning or ending of the story works? Choose all that are true.” - Provi...",
+      "- Replace meta language with a student-friendly, RL.2.5-aligned task using a brief story or scenario. - Use a clear stem, e.g., “Read this short story. Which sentences tell how ..."
+    ],
+    "CCSS.ELA-LITERACY.RL.2.6|medium|fill-in": [
+      "Align accepted responses with the Word Bank. Either remove “mad” and “upset” from acceptable_answers, or revise the prompt to accept typed synonyms and remove/expand the word ba..."
+    ],
+    "CCSS.ELA-LITERACY.RL.2.9|easy|mcq": [
+      "- Remove the answer giveaway by not stating the exact similarity in the stem. For example: “Little Red Riding Hood and Lon Po Po are two versions of a similar story. Which choic..."
+    ],
+    "CCSS.ELA-LITERACY.RL.2.9|hard|mcq": [
+      "Replace option D with a more plausible misconception-based distractor, e.g., \"In Story 1, the villagers come to help at the end, but in Story 2, they do not come,\" or \"In Story ..."
+    ],
+    "CCSS.ELA-LITERACY.RL.2.9|easy|msq": [
+      "- Replace the meta stem with a student-facing prompt aligned to RL.2.9. Example: \"Read the two short versions of Cinderella. Which sentences show how the stories are the same? (...",
+      "Rewrite the item to authentically assess RL.2.9 at an easy level: (a) Provide two very short versions of a familiar tale (e.g., two Cinderella variants) or short summaries; (b) ...",
+      "- Replace meta stem with a student-facing prompt aligned to RL.2.9 (e.g., provide two brief versions of a familiar tale and ask students to choose a statement that shows a simil...",
+      "- Replace meta-language with student-friendly content. Provide two brief versions of a familiar tale (2–3 sentences each) or a short description of two versions (author/cultural...",
+      "- Replace meta-labeled options with concrete, Grade 2-appropriate content: provide two brief versions of a familiar tale (or short summaries) and ask students to select all stat..."
+    ],
+    "CCSS.ELA-LITERACY.RL.2.10|medium|msq": [
+      "- Replace the meta stem with a student-friendly prompt tied to a short, grade-appropriate literary passage (2–3 band). For example: “Read the story. Which sentences are true abo...",
+      "- Replace the meta stem with a student-friendly prompt tied to a short grade-appropriate story or poem. - Provide a 75–150 word literary passage and ask a clear comprehension qu...",
+      "- Remove self-revealing option labels. Replace with content-based statements that do not announce correctness. - Align to RL.2.10 by including a brief Grade 2–3 appropriate stor...",
+      "- Replace the meta-stem with a student-facing comprehension task that includes a short Grade 2–3 band story or poem. - Ask a skill-aligned question (e.g., main idea, character a...",
+      "- Replace meta placeholders with an age-appropriate short story or poem (within the grades 2–3 text complexity band). - Ask students to select all statements that accurately ref..."
+    ],
+    "CCSS.ELA-LITERACY.RL.2.10|easy|msq": [
+      "- Replace the meta-stem with a student-friendly prompt tied to a very short Grade 2–3 text (story or poem). Example: Provide a 2–3 sentence passage with picture support and ask:...",
+      "- Replace the meta-standard stem with a student-friendly prompt tied to a brief, grade-appropriate story or poem excerpt. - Ask a simple comprehension question (e.g., identify t...",
+      "- Replace meta-labeled options with actual grade-appropriate content. Provide a brief story or poem (2–4 sentences) and ask a comprehension question aligned to RL.2.10. - Keep M...",
+      "- Replace the meta stem with a student-friendly, Grade 2 task aligned to RL.2.10. Include a brief story or poem (grades 2–3 text complexity band) and ask a simple, literal compr...",
+      "- Replace placeholder/meta options with concrete, student-facing content aligned to RL.2.10 (e.g., provide a very short story or poem and ask students to choose all statements t..."
+    ],
+    "CCSS.ELA-LITERACY.SL.2.1.A|hard|msq": [
+      "- Replace meta language with child-friendly behavior scenarios (e.g., “Which actions show good rules for class talks? Select all that show good rules.”). - Remove any reference ...",
+      "- Replace meta-labeled options with grade-appropriate, concrete scenarios depicting discussion behaviors (e.g., raising a hand before speaking, listening without interrupting, s...",
+      "- Replace meta/placeholder text with concrete, age-appropriate behaviors tied to SL.2.1.A. Example stem: “Which actions follow class discussion rules? (Select all that apply).” ...",
+      "- Replace meta labels with age-appropriate scenarios that show discussion behaviors (e.g., “Jay raises his hand and waits to be called on before speaking.”). - Remove the standa...",
+      "- Replace meta placeholders with concrete, grade-appropriate scenarios depicting discussion behaviors (e.g., students taking turns, raising hands, listening and responding). - R..."
+    ],
+    "CCSS.ELA-LITERACY.SL.2.1.B|hard|msq": [
+      "Revise the stem to remove ambiguity: for example, “Which responses build on what both Sam and Kira said? Select all that apply.” or “Choose all responses that connect to both Sa...",
+      "- Replace the meta reference to “SL.2.1.B” with student-friendly language: e.g., “Read this short conversation. Which sentences build on what someone else just said? Select ALL ...",
+      "- Replace meta-labeled options with authentic, student-friendly utterances showing or not showing linking to a peer’s remark (e.g., “I agree with Rosa because she said we should...",
+      "- Replace meta labels with concrete, age-appropriate dialogue turns from a multi-speaker conversation. Ask: “Which responses build on what others said? Select all that apply.” -...",
+      "- Replace the stem with student-friendly language: “Read the short conversation. Which replies link to what the other person said? Select all that apply.” - Provide a brief two-..."
+    ],
+    "CCSS.ELA-LITERACY.SL.2.1.C|easy|msq": [
+      "- Rewrite the stem in student-friendly language without standard codes, e.g., “Which sentences show a student politely asking for help to understand better? Select all that are ...",
+      "- Replace meta phrasing with age-appropriate student utterances about a topic/text. Example stem: \"Which sentences show someone asking for help to understand better? (Select ALL...",
+      "Rewrite with student-friendly language and authentic behaviors. Example stem: 'Which of these are good ways to ask for help or to understand better during a discussion? Select a...",
+      "- Replace meta language with student-friendly wording: e.g., “Which of these are good ways to ask for help when you don’t understand? Select all that are true.” - Provide concre...",
+      "- Replace placeholder options with authentic Grade 2-appropriate utterances. Examples of correct options (aligned to SL.2.1.C): “Can you explain what ‘main idea’ means?”, “What ..."
+    ],
+    "CCSS.ELA-LITERACY.SL.2.3|medium|msq": [
+      "- Replace the meta stem with a student-facing prompt featuring a brief speaker statement (audio or short transcript) and ask: “Which questions could you ask to better understand...",
+      "- Replace meta-labeled options with authentic, Grade 2–appropriate scenarios. Include a brief speaker statement (1–3 sentences) and ask students to select all questions that wou...",
+      "- Replace placeholder option texts with authentic, grade-appropriate scenarios involving a speaker (short audio transcript or brief teacher talk) and ask students to choose ques...",
+      "- Replace the stem with a student-friendly prompt that describes the skill without using the code (e.g., “After listening to a speaker, which questions would help you understand...",
+      "- Replace the meta prompt with a Grade 2-appropriate task aligned to SL.2.3, e.g., provide a short audio/text from a speaker and ask students to choose a good clarifying questio..."
+    ],
+    "CCSS.ELA-LITERACY.SL.2.4|hard|msq": [
+      "- Replace meta option text with concrete, student-facing scenarios or short transcripts of children recounting experiences. Ask students to select all that meet SL.2.4 (appropri...",
+      "- Replace the meta-stem with a kid-friendly prompt aligned to SL.2.4 (e.g., \"Which student tells about an experience using clear, complete sentences and helpful details? Select ...",
+      "- Replace the stem with student-friendly language referencing the skill: e.g., “Which examples show a speaker telling about an experience with clear sentences and descriptive de...",
+      "- Replace meta-labeled options with short, age-appropriate student speech samples (2–3 sentences each) recounting an experience. - Reword the stem for students: e.g., \"Which stu...",
+      "- Replace placeholder option text with authentic, age-appropriate short transcripts of students telling/recounting experiences. Ask: “Which responses tell a story or recount an ..."
+    ],
+    "CCSS.ELA-LITERACY.W.2.6|medium|msq": [
+      "Clarify the stem or option B to resolve ambiguity. For example: change stem to “produce and/or publish writing,” or revise B to “Working with a partner to create and share a dig...",
+      "Revise option C to explicitly include publishing/sharing, e.g., \"Using a tablet with a partner to create and share a digital storybook with the class.\" Alternatively, soften the...",
+      "- Replace placeholder text with concrete, grade-appropriate actions aligned to W.2.6 (e.g., “With help, type your story in a word processor and add a title before sharing it on ..."
+    ],
+    "CCSS.ELA-LITERACY.L.2.1.A|medium|fill-in": [
+      "Align grading fields: include \"pack\" in acceptable_answers (or make evaluation case-insensitive). Example: acceptable_answers: [\"pack\", \"Pack\", \"PACK\"].",
+      "Clarify the stem or broaden accepted responses. Options: - Revise stem to specify specificity: “Type the specific collective noun used for a group of wolves.” - Or accept additi...",
+      "Clarify the prompt to target the specific conventional noun (e.g., “Type the best/specific collective noun we commonly use for wolves”) or expand accepted responses to include v...",
+      "To improve mastery evidence, add a brief justification or application step (e.g., ask students to explain why ‘pack’ fits, choose among several collective nouns and justify, or ...",
+      "Revise the explanation to avoid misstating the standard, e.g., “The word ‘flock’ is a common specific collective noun for a group of birds. While words like ‘group’ mean many, ‘..."
+    ],
+    "CCSS.ELA-LITERACY.L.2.1.C|easy|fill-in": [
+      "Align grading fields: add lowercase \"herself\" to acceptable_answers (or make grading case-insensitive but prefer capturing the grammatically correct lowercase), and/or remove th..."
+    ],
+    "CCSS.ELA-LITERACY.L.2.1.F|hard|fill-in": [
+      "Unify the answer key: either include the period in both 'answer' and 'acceptable_answers' or allow both variants. Suggested acceptable answers: [\"was pushed by the girl\", \"was p...",
+      "Clarify the response format. For example: “Complete the sentence so it starts with ‘The picture’ and uses the word ‘by.’ Write the missing words in the blank.” Show the sentence...",
+      "Clarify the constraint on word choice. For example: “Rearrange the sentence so it starts with ‘The cart.’ Use the same words from the sentence and add ‘was’ and ‘by.’ Do not cha..."
+    ],
+    "CCSS.ELA-LITERACY.L.2.5.B|medium|fill-in": [
+      "Create a fill-in about distinguishing shades of meaning among closely related verbs or adjectives. Example: 'The runner didn't just walk, she ______.' Answer: 'jogged' or 'sprinted'."
+    ],
+    "CCSS.ELA-LITERACY.L.2.4.E|hard|fill-in": [
+      "Restrict acceptable answers to numeric-only to match the instruction: acceptable_answers should be [\"2\"] (optionally allow \" 2 \" with whitespace handling). Consider removing \"tw..."
+    ],
     "CCSS.ELA-LITERACY.L.2.1.C|hard|mcq": [
       "Include the full sentence in the stem so students can determine the correct reflexive pronoun, and ensure the explanation matches that sentence. For example: “My brother and I w..."
     ],
@@ -469,7 +721,9 @@
       "- Replace the stem with student-friendly wording that names the skill: “Which sentences correctly use a collective noun? Select ALL that apply.” - Provide actual Grade 2 example..."
     ],
     "CCSS.ELA-LITERACY.L.2.1.D|hard|msq": [
-      "- Replace the meta stem with a student-friendly, skill-aligned prompt, e.g., “Which sentences correctly use the past tense?” or “Select ALL sentences that use the past tense of ..."
+      "- Replace the meta stem with a student-friendly, skill-aligned prompt, e.g., “Which sentences correctly use the past tense?” or “Select ALL sentences that use the past tense of ...",
+      "Either: (a) relabel difficulty to Medium, or (b) increase complexity to merit “Hard” by including less familiar irregulars (e.g., “sang/sunk,” “ran/began”), verbs that don’t cha...",
+      "Align the item with an appropriate standard (e.g., subject-verb agreement in early grades such as L.1.1.c) or modify the content to target L.2.1.D (e.g., focus on irregular past..."
     ],
     "CCSS.ELA-LITERACY.L.2.1.E|hard|msq": [
       "- Replace meta phrasing with student-friendly wording, e.g., “Select ALL sentences that correctly use adjectives or adverbs.” - Do not reference the standard code in the stem; d...",
@@ -481,26 +735,6 @@
     "CCSS.ELA-LITERACY.L.2.2.A|easy|msq": [
       "Revise the stem to remove ambiguity, for example: “Which sentences capitalize all holidays, product names, and geographic names correctly? Select all that apply.” Alternatively:..."
     ],
-    "CCSS.ELA-LITERACY.L.2.2.B|easy|msq": [
-      "- Replace the stem with student-friendly language: “Select all options that correctly use commas in the greeting or closing of a letter.” - Provide concrete examples that demons...",
-      "- Replace meta text with real examples, e.g., A) Dear Grandma, B) Dear Grandma C) Your friend, Mia D) Your friend Mia - Revise stem to kid-friendly language: “Which lines show c...",
-      "- Replace meta option texts with concrete examples of greetings/closings, e.g., “Dear Grandma,”; “Dear Grandma”; “Your friend, Sam”; “Your friend Sam.” - Rewrite the stem in stu...",
-      "- Rewrite the stem in student-friendly language, e.g., “Which choices use a comma correctly in the greeting or closing of a letter? Select all that are correct.” - Replace meta ...",
-      "- Replace meta option texts with concrete examples that assess L.2.2.B, e.g., greetings/closings with and without proper commas: “Dear Grandma,” “Your friend,” “Dear Grandma” (n..."
-    ],
-    "CCSS.ELA-LITERACY.L.2.2.D|medium|msq": [
-      "- Replace meta-option text with actual Grade 2-appropriate word examples that target L.2.2.D (e.g., distinguishing oi vs oy: which words use the same /oi/ sound pattern, or choo...",
-      "Rewrite as a true Grade 2 multiple-select item that directly assesses L.2.2.D using student-friendly wording and real word examples. For example: “Select all the words that use ...",
-      "- Replace placeholder option texts with actual Grade 2 spelling-pattern examples (e.g., select all words where y changes to i before adding -es; select words where boy → boil pa...",
-      "- Replace meta-labeled options with actual Grade 2 spelling-pattern content. Example MSQ stem: “Select ALL pairs that correctly show a learned spelling pattern.” Options like: A..."
-    ],
-    "CCSS.ELA-LITERACY.L.2.2.E|easy|msq": [
-      "- Remove references to standard codes/difficulty from the stem. Use student-friendly language, e.g., “Which actions help you check how to spell a word? Select all that are true....",
-      "- Reframe the stem in student-friendly language without standard codes: “Which actions would help you check if a word is spelled correctly? (Select all that apply).” - Replace o...",
-      "- Replace the meta-stem with a student-friendly prompt aligned to L.2.2.E, e.g., \"Which tool can you use to check how to spell the word 'frend'? (Select ALL that apply)\" with op...",
-      "- Replace meta-referential stem with a concrete, grade-appropriate prompt aligned to L.2.2.E (e.g., “Which tools can you use to check how to spell a word? Select ALL that apply....",
-      "- Remove answer-giveaway language. Replace placeholder option texts with concrete, age-appropriate scenarios tied to L.2.2.E (e.g., “Maya isn’t sure how to spell ‘rabbit.’ She o..."
-    ],
     "CCSS.ELA-LITERACY.L.2.3.A|easy|msq": [
       "Replace meta-text options with real, grade-appropriate sentences demonstrating formal and informal English (e.g., greetings, requests) and ask students to select all that are fo...",
       "- Replace the stem with student-friendly language (e.g., “Which sentences are formal? Select all that apply.”). - Remove the standard code from student-facing text. - Provide co...",
@@ -508,53 +742,15 @@
       "- Replace meta text with concrete, age-appropriate sentences. Example MSQ stem: \"Which sentences sound informal (like talking to a friend)? Select all that apply.\" Options: (A) ...",
       "1) Replace meta text with authentic Grade 2–appropriate sentences showing formal vs informal English (e.g., \"Could you please help me?\" vs \"Can ya help me?\"). 2) Rephrase the st..."
     ],
-    "CCSS.ELA-LITERACY.L.2.4.A|easy|msq": [
-      "- Replace the meta stem with a student-friendly prompt that includes a short sentence using an unfamiliar word. Ask students to infer the word’s meaning from sentence-level cont...",
-      "- Replace the meta stem with a Grade 2–friendly prompt that directly targets L.2.4.A. Example: “Read the sentence: ‘Dad will tote the bags to the car.’ What does tote mean in th...",
-      "- Replace the stem with a student-friendly prompt that targets L.2.4.A, e.g., “Read the sentence. What does ‘bark’ mean in this sentence?” - Provide a short sentence with a targ...",
-      "- Replace the meta stem with a student-friendly prompt that includes a sentence providing context for an unfamiliar word (e.g., “I forgot my umbrella because the sky was gloomy....",
-      "- Replace meta stem with a Grade 2-friendly prompt and an actual sentence containing an unfamiliar word: “Read: ‘The tiny pup scurried under the table to hide from the storm.’ W..."
-    ],
-    "CCSS.ELA-LITERACY.L.2.4.B|easy|msq": [
-      "Rewrite as a genuine Grade 2 prefix-meaning multi-select item with child-friendly wording and plausible, diagnostic distractors. Example: Stem: “Which choices show the correct m...",
-      "- Replace the meta stem with a student-friendly prompt that directly assesses L.2.4.B, e.g., “Select all words that show how adding a prefix changes the meaning.” - Use concrete..."
-    ],
-    "CCSS.ELA-LITERACY.L.2.4.C|medium|msq": [
-      "Revise the explanation to avoid the incorrect claim. For example: \"Agreement adds -ment to agree, meaning the act of agreeing. Disagree adds the prefix dis-, meaning to not agre...",
-      "- Replace the meta stem with a student-friendly prompt that directly targets L.2.4.C. Example (MSQ): “You know the word add means ‘to put together.’ Which words use the same roo...",
-      "- Replace meta placeholder options with real, grade-appropriate examples that require using a known root to infer meaning (e.g., link ‘help’ to ‘helpful,’ ‘helper’; ‘cover’ to ‘...",
-      "- Replace meta/placeholders with authentic Grade 2-appropriate content that targets L.2.4.C (e.g., “If you know help means to assist, what does helper mean?” with realistic choi...",
-      "- Replace meta stem with student-friendly language (e.g., \"Which choices use a known word to help you figure out a new word? Select all that apply.\"). - Provide concrete root-wo..."
-    ],
-    "CCSS.ELA-LITERACY.L.2.6|easy|msq": [
-      "- Replace the meta stem with a student-friendly prompt that names the skill, e.g., “Which sentences use describing words (adjectives or adverbs)? Select all that apply.” - Repla...",
-      "- Replace meta-labeled options with authentic, age-appropriate sentences that use (or do not use) adjectives/adverbs. Example stem: “Which sentences use describing words (adject...",
-      "- Replace the stem with student-friendly language, avoiding standard codes (e.g., “Which sentences use describing words (adjectives or adverbs)? Select all that are true.”). - P...",
-      "- Remove self-referential option labels; write actual Grade 2–appropriate sentences. - Replace “L.2.6” in the stem with plain language (e.g., “Which sentences use describing wor...",
-      "- Replace meta stem with kid-friendly language (e.g., “Which sentences use an adjective or adverb to describe?”). Remove references to “L.2.6” and “easy difficulty.” - Provide r..."
-    ],
     "CCSS.ELA-LITERACY.RF.2.4.A|easy|msq": [
       "Improve distractor plausibility with text-relevant but unsupported actions to better assess careful reading. For example, replace C/D with options like \"dig in the yard,\" \"sleep..."
-    ],
-    "CCSS.ELA-LITERACY.RF.2.4.B|hard|msq": [
-      "- Replace the stem with student-appropriate language that describes the task without using the standard code (e.g., “Listen to each recording. Which recordings show reading with...",
-      "- Replace meta-language with a student-friendly task tied to evidence: provide a short grade-level passage and/or audio recordings of readings. - For MSQ, consider: “Listen to e...",
-      "- Replace placeholder options with concrete, student-friendly content that evidences oral reading fluency (e.g., short recorded readings or brief passages with descriptions of h...",
-      "- Redesign to align with RF.2.4.B: Provide a short grade-level passage and audio recordings of students reading it. Ask students to select all recordings that show accuracy, app...",
-      "- Replace placeholder option texts with substantive, student-appropriate content that actually assesses RF.2.4.B (e.g., audio clips or transcripts of short grade-level sentences..."
     ],
     "CCSS.ELA-LITERACY.RF.2.4.B|medium|msq": [
       "- Replace meta placeholders with student-facing tasks aligned to RF.2.4.B (e.g., provide 3–5 brief audio clips of a grade-level sentence; ask: “Which recordings show smooth, acc...",
       "- Replace meta/textbook labels with concrete, grade-appropriate MSQ content that engages RF.2.4.B: • Provide short recorded readings (or brief printed lines with clear prosody c...",
       "- Replace meta-labeled options with content that elicits RF.2.4.B skills. For MSQ at Grade 2 medium difficulty, consider: - Provide 3–4 short audio clips (or brief written cues ...",
-      "Rewrite the item as a genuine Grade 2 fluency task. For example: provide a short grade-level passage for oral reading and ask students to select behaviors that show fluent readi..."
-    ],
-    "CCSS.ELA-LITERACY.RI.2.1|medium|msq": [
-      "- Replace the meta-level stem with a student-friendly prompt tied to a short informational passage (2–4 sentences). Example: “Read the passage. Which two questions are answered ...",
-      "Create a Grade 2–appropriate informational mini-passage (2–4 sentences). Ask students to select all questions (or answers) about key details (who/what/where/when/why/how) suppor...",
-      "- Replace the meta stem with a student-friendly prompt. Provide a short informational passage (2–4 sentences) and ask a who/what/where/when/why/how question about key details. -...",
-      "- Replace the meta stem with a student-friendly prompt tied to an informational passage (e.g., “Read the paragraph. Which question asks about where the animal lives?” or “Accord...",
-      "- Provide a short, age-appropriate informational passage (3–5 sentences). - Ask a W/H question (who/what/where/when/why/how) about a key detail from the passage. - Replace meta-..."
+      "Rewrite the item as a genuine Grade 2 fluency task. For example: provide a short grade-level passage for oral reading and ask students to select behaviors that show fluent readi...",
+      "- Replace the meta-stem with a student-facing task aligned to RF.2.4.B, e.g., provide two short recordings or scripts of the same grade-level sentence and ask which shows accura..."
     ],
     "CCSS.ELA-LITERACY.RI.2.5|hard|msq": [
       "- Replace meta stem with a student-friendly task requiring use of text features (e.g., provide a short informational page with headings, bold words, a caption, and a mini index)...",
@@ -563,29 +759,8 @@
       "Replace placeholders with a real Grade 2 RI.2.5 multi-select item. Provide a brief informational page layout or screenshots of features (subheadings, bold words, glossary, index...",
       "- Replace the stem with student-friendly language: \"Look at the page from the book. Which features would help you find what ‘habitat’ means? (Select all that apply).\" - Provide ..."
     ],
-    "CCSS.ELA-LITERACY.RI.2.6|hard|msq": [
-      "- Remove any meta labels that reveal correctness. Replace option texts with concrete, student-friendly statements. - Provide a short informational passage (2–3 sentences) or bri...",
-      "- Replace the meta-level stem with a student-friendly, RI.2.6-aligned task. Example: Provide a short informational paragraph (3–6 sentences). Ask: “What is the author’s main pur...",
-      "Redesign as a true Grade 2 RI.2.6 item: 1) Provide a short, age-appropriate informational paragraph (2–4 sentences). 2) Ask, “What is the author’s main purpose?” with child-frie...",
-      "- Replace meta/placeholder text with authentic Grade 2-appropriate content. Provide a short informational paragraph (3–5 sentences) and ask: “What is the author’s main purpose: ...",
-      "- Replace the meta stem with a grade-appropriate task that targets RI.2.6 directly, e.g., provide a short informational paragraph and ask: “What is the author’s main purpose? Se..."
-    ],
     "CCSS.ELA-LITERACY.RL.2.1|easy|msq": [
       "Replace the stem text with: “Which details from the story tell who is in the story? Select all that apply.” Optionally consider changing choice B to “Sam’s dad” for consistency ..."
-    ],
-    "CCSS.ELA-LITERACY.RL.2.10|easy|msq": [
-      "- Replace the meta-stem with a student-friendly prompt tied to a very short Grade 2–3 text (story or poem). Example: Provide a 2–3 sentence passage with picture support and ask:...",
-      "- Replace the meta-standard stem with a student-friendly prompt tied to a brief, grade-appropriate story or poem excerpt. - Ask a simple comprehension question (e.g., identify t...",
-      "- Replace meta-labeled options with actual grade-appropriate content. Provide a brief story or poem (2–4 sentences) and ask a comprehension question aligned to RL.2.10. - Keep M...",
-      "- Replace the meta stem with a student-friendly, Grade 2 task aligned to RL.2.10. Include a brief story or poem (grades 2–3 text complexity band) and ask a simple, literal compr...",
-      "- Replace placeholder/meta options with concrete, student-facing content aligned to RL.2.10 (e.g., provide a very short story or poem and ask students to choose all statements t..."
-    ],
-    "CCSS.ELA-LITERACY.RL.2.10|medium|msq": [
-      "- Replace the meta stem with a student-friendly prompt tied to a short, grade-appropriate literary passage (2–3 band). For example: “Read the story. Which sentences are true abo...",
-      "- Replace the meta stem with a student-friendly prompt tied to a short grade-appropriate story or poem. - Provide a 75–150 word literary passage and ask a clear comprehension qu...",
-      "- Remove self-revealing option labels. Replace with content-based statements that do not announce correctness. - Align to RL.2.10 by including a brief Grade 2–3 appropriate stor...",
-      "- Replace the meta-stem with a student-facing comprehension task that includes a short Grade 2–3 band story or poem. - Ask a skill-aligned question (e.g., main idea, character a...",
-      "- Replace meta placeholders with an age-appropriate short story or poem (within the grades 2–3 text complexity band). - Ask students to select all statements that accurately ref..."
     ],
     "CCSS.ELA-LITERACY.RL.2.2|easy|msq": [
       "- Replace the meta-stem with a student-friendly prompt tied to a short story or fable (e.g., “What is the lesson of the story?”). - Remove any self-referential labeling of corre...",
@@ -593,34 +768,6 @@
       "- Replace the meta stem with a student-facing task aligned to RL.2.2. Example: Provide a 3–5 sentence fable and ask, “Which sentences tell the lesson (moral) of the story? Selec...",
       "- Replace the meta stem with a student-friendly prompt aligned to RL.2.2, e.g., “Read the short fable. Which two sentences tell the lesson (moral) of the story? Select all that ...",
       "- Replace the meta stem with a student-friendly prompt connected to a short story (or fable): e.g., “What is the lesson of the story?” or “Which sentence tells the story’s messa..."
-    ],
-    "CCSS.ELA-LITERACY.SL.2.1.A|hard|msq": [
-      "- Replace meta language with child-friendly behavior scenarios (e.g., “Which actions show good rules for class talks? Select all that show good rules.”). - Remove any reference ...",
-      "- Replace meta-labeled options with grade-appropriate, concrete scenarios depicting discussion behaviors (e.g., raising a hand before speaking, listening without interrupting, s...",
-      "- Replace meta/placeholder text with concrete, age-appropriate behaviors tied to SL.2.1.A. Example stem: “Which actions follow class discussion rules? (Select all that apply).” ...",
-      "- Replace meta labels with age-appropriate scenarios that show discussion behaviors (e.g., “Jay raises his hand and waits to be called on before speaking.”). - Remove the standa...",
-      "- Replace meta placeholders with concrete, grade-appropriate scenarios depicting discussion behaviors (e.g., students taking turns, raising hands, listening and responding). - R..."
-    ],
-    "CCSS.ELA-LITERACY.SL.2.1.B|hard|msq": [
-      "Revise the stem to remove ambiguity: for example, “Which responses build on what both Sam and Kira said? Select all that apply.” or “Choose all responses that connect to both Sa...",
-      "- Replace the meta reference to “SL.2.1.B” with student-friendly language: e.g., “Read this short conversation. Which sentences build on what someone else just said? Select ALL ...",
-      "- Replace meta-labeled options with authentic, student-friendly utterances showing or not showing linking to a peer’s remark (e.g., “I agree with Rosa because she said we should...",
-      "- Replace meta labels with concrete, age-appropriate dialogue turns from a multi-speaker conversation. Ask: “Which responses build on what others said? Select all that apply.” -...",
-      "- Replace the stem with student-friendly language: “Read the short conversation. Which replies link to what the other person said? Select all that apply.” - Provide a brief two-..."
-    ],
-    "CCSS.ELA-LITERACY.SL.2.1.C|easy|msq": [
-      "- Rewrite the stem in student-friendly language without standard codes, e.g., “Which sentences show a student politely asking for help to understand better? Select all that are ...",
-      "- Replace meta phrasing with age-appropriate student utterances about a topic/text. Example stem: \"Which sentences show someone asking for help to understand better? (Select ALL...",
-      "Rewrite with student-friendly language and authentic behaviors. Example stem: 'Which of these are good ways to ask for help or to understand better during a discussion? Select a...",
-      "- Replace meta language with student-friendly wording: e.g., “Which of these are good ways to ask for help when you don’t understand? Select all that are true.” - Provide concre...",
-      "- Replace placeholder options with authentic Grade 2-appropriate utterances. Examples of correct options (aligned to SL.2.1.C): “Can you explain what ‘main idea’ means?”, “What ..."
-    ],
-    "CCSS.ELA-LITERACY.SL.2.4|hard|msq": [
-      "- Replace meta option text with concrete, student-facing scenarios or short transcripts of children recounting experiences. Ask students to select all that meet SL.2.4 (appropri...",
-      "- Replace the meta-stem with a kid-friendly prompt aligned to SL.2.4 (e.g., \"Which student tells about an experience using clear, complete sentences and helpful details? Select ...",
-      "- Replace the stem with student-friendly language referencing the skill: e.g., “Which examples show a speaker telling about an experience with clear sentences and descriptive de...",
-      "- Replace meta-labeled options with short, age-appropriate student speech samples (2–3 sentences each) recounting an experience. - Reword the stem for students: e.g., \"Which stu...",
-      "- Replace placeholder option text with authentic, age-appropriate short transcripts of students telling/recounting experiences. Ask: “Which responses tell a story or recount an ..."
     ],
     "CCSS.ELA-LITERACY.W.2.5|medium|msq": [
       "- Replace the meta stem with a student-friendly statement of the skill (e.g., “Read the sentence. Which changes help make the writing clearer? Select all that apply.”) and inclu...",
@@ -632,17 +779,15 @@
     "CCSS.ELA-LITERACY.W.2.6|easy|msq": [
       "Reword the stem to avoid the conjunctive ambiguity, e.g., “Which activities use digital tools to produce or publish writing? Select all that apply.” Alternatively, keep the curr..."
     ],
-    "CCSS.ELA-LITERACY.W.2.6|medium|msq": [
-      "Clarify the stem or option B to resolve ambiguity. For example: change stem to “produce and/or publish writing,” or revise B to “Working with a partner to create and share a dig...",
-      "Revise option C to explicitly include publishing/sharing, e.g., \"Using a tablet with a partner to create and share a digital storybook with the class.\" Alternatively, soften the..."
-    ],
     "CCSS.ELA-LITERACY.W.2.8|easy|msq": [
       "Revise incorrect options to reflect realistic misconceptions while remaining incorrect. For example: - “Read a storybook about a magic beanstalk.” (fiction vs informational sour..."
     ],
     "CCSS.ELA-LITERACY.L.2.1.A|hard|fill-in": [
       "To support mastery, add an application element. Examples: 1) Provide two or three sentences and ask students to choose which one correctly uses a collective noun for fish and ex...",
       "Remove “colony” from acceptable_answers, or revise the sentence to fit “colony” (e.g., remove the flying context). Optionally clarify in directions that specific collective noun...",
-      "Either (a) expand acceptable answers to include “group,” or (b) clarify the stem to ask for the special collective noun used for fish (e.g., “Type the special collective noun we..."
+      "Either (a) expand acceptable answers to include “group,” or (b) clarify the stem to ask for the special collective noun used for fish (e.g., “Type the special collective noun we...",
+      "Revise to require reasoning or application, for example: provide several plausible collective nouns (e.g., group, school, pack, herd) and ask students to choose and explain thei...",
+      "To strengthen mastery: 1) Ask students to choose the correct collective noun in a sentence context (e.g., “The ______ of fish moved together through the coral.”), 2) Prompt stud..."
     ],
     "CCSS.ELA-LITERACY.L.2.1.F|easy|fill-in": [
       "Align answer fields: either make acceptable_answers include \"little\" (lowercase) or set grading to case-insensitive. Preferably set acceptable_answers to [\"little\", \"Little\"] or..."
@@ -651,19 +796,24 @@
       "Remove the capitalized variant from acceptable_answers or enforce case-sensitive grading to require “don’t” (lowercase) in this mid-sentence blank. Alternatively, adjust the sen..."
     ],
     "CCSS.ELA-LITERACY.L.2.3.A|hard|fill-in": [
-      "Remove or revise acceptable_answers so only “going to” is accepted, or adjust the stem to allow any appropriate formal replacement (e.g., “Replace ‘gonna’ with a more formal phr..."
+      "Remove or revise acceptable_answers so only “going to” is accepted, or adjust the stem to allow any appropriate formal replacement (e.g., “Replace ‘gonna’ with a more formal phr...",
+      "Relabel difficulty to easy or medium for Grade 2, or increase complexity (e.g., provide multiple sentences where students must decide if informal language should be revised and ..."
     ],
     "CCSS.ELA-LITERACY.L.2.4.B|hard|fill-in": [
       "Revise grading to only accept responses that fit the sentence grammatically (e.g., “before”). If you want to accept synonyms, adjust the stem: for example, “The word prepay mean..."
     ],
     "CCSS.ELA-LITERACY.L.2.4.B|medium|fill-in": [
       "Remove “re-build” from acceptable_answers. Keep the single correct conventional spelling: “rebuild.” Optionally, add a brief note in teacher guidance that hyphenation is not use...",
-      "Remove the explicit synonym from the setup so students must use the prefix meaning, e.g., “My teacher said I needed to change my story. She asked me to rewrite it. The word rewr..."
+      "Remove the explicit synonym from the setup so students must use the prefix meaning, e.g., “My teacher said I needed to change my story. She asked me to rewrite it. The word rewr...",
+      "Remove “over” from acceptable answers. Keep “again,” “once more,” and optionally “it again.” If you want to allow a broader phrase, consider adding “do it over” (but not “over” ...",
+      "Avoid giving away the exact word in the stem. Options: (a) Replace the definition with a synonym so the exact target word isn’t present (e.g., “The prefix re- means ‘one more ti..."
     ],
     "CCSS.ELA-LITERACY.L.2.4.D|medium|fill-in": [
       "Remove “book shelf” from acceptable_answers so only “bookshelf” is scored correct. Optionally add targeted feedback for the spaced response (e.g., “Compound words are written as...",
       "Add lowercase \"lighthouse\" to acceptable_answers (or make grading case-insensitive). Ensure acceptable_answers aligns with the primary answer and the sentence position (mid-sent...",
-      "Align acceptable answers with the keyed answer and grading logic: include both \"bookshelf\" and \"Bookshelf\" (or use case-insensitive matching). Optionally add a note in teacher s..."
+      "Align acceptable answers with the keyed answer and grading logic: include both \"bookshelf\" and \"Bookshelf\" (or use case-insensitive matching). Optionally add a note in teacher s...",
+      "- Align acceptable_answers with the answer’s casing and the sentence context: include “bookshelf” (lowercase). Consider making grading case-insensitive. - Optionally accept mino...",
+      "Fix the explanation to avoid overgeneralization, e.g., “Many compound words are written as one word (closed compounds), but some use a hyphen or a space (open compounds). ‘Noteb..."
     ],
     "CCSS.ELA-LITERACY.L.2.5.A|hard|fill-in": [
       "To better match a hard difficulty label: remove the word bank and require an open response, or replace “curious” with a more plausible distractor (e.g., sleepy, rested, active) ...",
@@ -672,7 +822,8 @@
       "Remove or correct the acceptable_answers list to align with the prompt. Accept only single-word responses that truly match the intended meaning (e.g., “stale”). If you wish to a..."
     ],
     "CCSS.ELA-LITERACY.L.2.6|medium|fill-in": [
-      "Align scoring metadata with the student-facing instructions. Either: (a) remove “scared” and “frightened” from acceptable_answers, or (b) revise the stem to say “Type a word tha..."
+      "Align scoring metadata with the student-facing instructions. Either: (a) remove “scared” and “frightened” from acceptable_answers, or (b) revise the stem to say “Type a word tha...",
+      "Make grading case-insensitive and/or include multiple acceptable variants, e.g., [\"loudly\", \"Loudly\"]. Optionally trim whitespace and ignore trailing punctuation for robustness."
     ],
     "CCSS.ELA-LITERACY.RF.2.3.C|medium|fill-in": [
       "Remove “inviting” from acceptable_answers. Keep “invite” (case-insensitive) as the sole correct response to match the two-syllable constraint and the sentence frame with “will.”"
@@ -685,19 +836,16 @@
     ],
     "CCSS.ELA-LITERACY.RF.2.4.B|medium|fill-in": [
       "Align grading metadata with the student task: either remove synonyms not in the word bank from acceptable_answers or add those synonyms to the word bank. Alternatively, change t...",
-      "Remove “slowly” from acceptable_answers or change the prompt to “... should read the sentence ______.” (without “at a ____ speed”), if you wish to accept “slowly.” Keeping the c..."
-    ],
-    "CCSS.ELA-LITERACY.RI.2.1|hard|fill-in": [
-      "Either relabel difficulty to Easy, or increase cognitive demand to justify Hard (e.g., require a two-part answer explaining both what the dog does and why, or ask students to ci...",
-      "Align difficulty labeling with the actual cognitive demand (rename to Easy/Medium). If “Hard” is required, increase complexity (e.g., ask a why/how question requiring inference ...",
-      "To match the “hard” label, increase cognitive demand: for example, ask a why/how question requiring inference (“Why do chameleons turn dark colors when they are cold?”) or requi...",
-      "Remove “hot” from acceptable_answers. Keep text-supported variants like “warm,” “warmer,” “to warm up,” or “get warm.”"
+      "Remove “slowly” from acceptable_answers or change the prompt to “... should read the sentence ______.” (without “at a ____ speed”), if you wish to accept “slowly.” Keeping the c...",
+      "- Align acceptable_answers with the Word Bank. Either: (a) remove \"quick\" and \"rapid\" and accept only \"fast\"; or (b) expand the Word Bank to include \"quick\" and \"rapid\" if you i..."
     ],
     "CCSS.ELA-LITERACY.RI.2.10|easy|fill-in": [
       "Revise the stem to match the exact wording of the passage. For example: “The text says ants work together in a ______.” Alternatively, update the passage to include “live” if th..."
     ],
     "CCSS.ELA-LITERACY.RI.2.3|medium|fill-in": [
-      "Remove “so” from acceptable_answers so only “before” (the labeled correct answer) is accepted. Optionally remove the acceptable_answers field entirely if only one correct answer..."
+      "Remove “so” from acceptable_answers so only “before” (the labeled correct answer) is accepted. Optionally remove the acceptable_answers field entirely if only one correct answer...",
+      "Align acceptable_answers with the prompt and correct answer: include lowercase \"before\" (and consider case-insensitive grading). For robustness, set acceptable_answers to [\"befo...",
+      "Align acceptable answers with the keyed answer and instructions: include both 'after' and 'After' (and consider case-insensitive grading). Optionally accept trimmed variants to ..."
     ],
     "CCSS.ELA-LITERACY.RI.2.4|hard|fill-in": [
       "Remove “correct” from acceptable_answers. Optionally keep “adequate” and “plenty” (both commonly align with “enough” in US English), but consider noting that “plenty” may imply ...",
@@ -721,7 +869,8 @@
     ],
     "CCSS.ELA-LITERACY.RL.2.1|hard|fill-in": [
       "- Remove “spot” from acceptable_answers. Use: [\"shady spot\", \"a shady spot\", \"shady place\", \"a shady place\", \"shade\" (if you adjust the stem to remove the article \"a\")]. - If yo...",
-      "Adjust the labeled difficulty to Easy (or slightly increase cognitive demand to justify Hard, e.g., remove the explicit “because” clause and require inference across sentences)...."
+      "Adjust the labeled difficulty to Easy (or slightly increase cognitive demand to justify Hard, e.g., remove the explicit “because” clause and require inference across sentences)....",
+      "- Update labeled difficulty to “easy” (or make the task harder by requiring inference across sentences or asking for two connected details). - Consider broadening acceptable ans..."
     ],
     "CCSS.ELA-LITERACY.RL.2.3|hard|fill-in": [
       "To better match a hard difficulty: (a) remove or rephrase the explicit “decided to be helpful” so students infer the trait from actions, (b) ask students to explain how Sam’s re...",
@@ -734,7 +883,8 @@
       "To improve mastery alignment, modify the prompt to require application, e.g., (1) Remove the explicit cue: \"Read the lines: ... What do we call words like glow and blow that end..."
     ],
     "CCSS.ELA-LITERACY.RL.2.4|hard|fill-in": [
-      "- Remove “rhythm” from acceptable_answers to maintain consistency with the rhyme requirement and the explanation. - If you want to allow “rhythm,” revise the stem to focus on me..."
+      "- Remove “rhythm” from acceptable_answers to maintain consistency with the rhyme requirement and the explanation. - If you want to allow “rhythm,” revise the stem to focus on me...",
+      "Relabel difficulty to Easy (or Medium), or increase complexity to justify Hard (e.g., require students to choose from multiple rhyming possibilities and explain how rhyme suppor..."
     ],
     "CCSS.ELA-LITERACY.RL.2.5|easy|fill-in": [
       "To strengthen mastery learning, include a short 3–4 sentence story and ask students to identify which part introduces the characters and setting (e.g., “Which part is this?”) or..."
@@ -747,18 +897,22 @@
     ],
     "CCSS.ELA-LITERACY.SL.2.1.A|hard|fill-in": [
       "Revise the prompt to avoid cueing the exact phrase and/or remove the explicit target word from the pre-attempt display. For example: - Ask: “Which rule did Max break?” and requi...",
-      "Revise acceptable_answers to only include forms that explicitly mean “topic,” e.g., [\"topic\", \"the topic\", \"subject\", \"the subject\"]. Remove \"track\" and \"task,\" or reword the st..."
+      "Revise acceptable_answers to only include forms that explicitly mean “topic,” e.g., [\"topic\", \"the topic\", \"subject\", \"the subject\"]. Remove \"track\" and \"task,\" or reword the st...",
+      "Revise acceptable answers to match the stem grammar. Options: (a) Keep the stem as “staying on the ______” and restrict acceptable answers to [“topic”, “subject”]; or (b) Change...",
+      "- Align acceptable answers with the stem’s grammar. Either: 1) Keep the stem as “He needs to stay on the ______.” and set acceptable answers to [\"topic\", \"subject\"], OR 2) Chang..."
     ],
     "CCSS.ELA-LITERACY.SL.2.1.C|hard|fill-in": [
       "Remove “clarify” from acceptable_answers or change the sentence frame so it fits (“Can you please ______ this for me?”). Keeping “explain” as correct (and optionally “describe”)...",
       "- Clarify the expected response by adding a word bank (e.g., explain, describe, clarify) or broadening acceptable answers (include “define”). Alternatively, rephrase to narrow t...",
       "To better match a hard difficulty, add nuance or multi-step reasoning, e.g., provide several possible responses (explain, repeat, show an example, define the word) and ask stude...",
-      "Revise acceptable_answers to only include words that produce a correct, natural request for clarification in the given sentence and match the standard’s intent, e.g., [\"explain\"..."
+      "Revise acceptable_answers to only include words that produce a correct, natural request for clarification in the given sentence and match the standard’s intent, e.g., [\"explain\"...",
+      "Adjust the labeled difficulty to Easy/Medium, or increase task complexity to justify Hard (e.g., require composing a full clarifying question, or selecting the best verb among c..."
     ],
     "CCSS.ELA-LITERACY.SL.2.3|hard|fill-in": [
       "Remove “What” and “what” from acceptable_answers. Keep “Which” (and optionally lowercase “which” if case-insensitive scoring is desired). Optionally note in the explanation that...",
       "- Remove the answer giveaway: Revise the lead-in to avoid using the target word. For example: “To know exactly the right one to use, the student asks: \"______ bin should I use?\"...",
-      "Add both capitalization variants to acceptable answers (e.g., [\"Which\",\"which\"]) or ensure case-insensitive grading. Optionally, accept the full sentence if the platform support..."
+      "Add both capitalization variants to acceptable answers (e.g., [\"Which\",\"which\"]) or ensure case-insensitive grading. Optionally, accept the full sentence if the platform support...",
+      "Adjust difficulty labeling to Easy (or modify the task to make it genuinely Hard, e.g., ask students to generate a full clarifying question or choose between multiple plausible ..."
     ],
     "CCSS.ELA-LITERACY.SL.2.4|easy|fill-in": [
       "Revise acceptable_answers to require the plural form only (e.g., [\"details\"]). Alternatively, change the sentence to singular (e.g., “The word ‘gray’ is a descriptive detail…”) ..."
@@ -766,7 +920,9 @@
     "CCSS.ELA-LITERACY.SL.2.4|hard|fill-in": [
       "Strengthen the word bank with more plausible distractors that reflect real confusions (e.g., descriptive | factual | opinion; or descriptive | sequence | setting). This will bet...",
       "Adjust the labeled difficulty to “easy” (or at most “medium”), or increase cognitive demand: e.g., ask students to choose which of several detail sets is most descriptive and re...",
-      "- Replace the implausible distractor “silent” with a more plausible alternative such as “relevant,” “off-topic,” or “unnecessary.” - Adjust the labeled difficulty to “easy” (or ..."
+      "- Replace the implausible distractor “silent” with a more plausible alternative such as “relevant,” “off-topic,” or “unnecessary.” - Adjust the labeled difficulty to “easy” (or ...",
+      "Replace the weak distractor “loud” with a more plausible but still incorrect choice that fits grammatically, such as “important,” “helpful,” or “connected,” so the phrase “_____...",
+      "Revise the word bank for grammatical parallelism: change “sequence” to “sequential” or “sequencing” so all options fit the blank before “details.” Optionally, remove the explici..."
     ],
     "CCSS.ELA-LITERACY.SL.2.6|medium|fill-in": [
       "Remove “were” from acceptable_answers to match the present-tense context and explanation, or revise the context to past tense (e.g., Dad: “What were the kittens doing?”) if you ...",
@@ -789,15 +945,6 @@
     "CCSS.ELA-LITERACY.L.2.4.D|hard|mcq": [
       "Revise distractor D to be a more plausible misconception, e.g., “a sign that shows where people can cross the street,” which keeps it incorrect but better reflects likely confus..."
     ],
-    "CCSS.ELA-LITERACY.RF.2.3.C|easy|mcq": [
-      "Revise distractors to be verbs that could plausibly complete the sentence while differing in vowel patterns (e.g., invite, visit, carry, follow). Alternatively, make the phonics..."
-    ],
-    "CCSS.ELA-LITERACY.RF.2.3.C|medium|mcq": [
-      "- Make all options the same part of speech (verbs) and two syllables to ensure students must decode, not just use grammar. For example, revise the sentence and choices so severa..."
-    ],
-    "CCSS.ELA-LITERACY.RL.2.9|easy|mcq": [
-      "- Remove the answer giveaway by not stating the exact similarity in the stem. For example: “Little Red Riding Hood and Lon Po Po are two versions of a similar story. Which choic..."
-    ],
     "CCSS.ELA-LITERACY.W.2.3|hard|mcq": [
       "Provide the referenced draft (e.g., a simple 1–2 sentence bike-riding draft) or remove the “Read the draft…” sentence. Optionally, mention closure in the stem to mirror the full..."
     ],
@@ -806,21 +953,13 @@
     ],
     "CCSS.ELA-LITERACY.L.2.1.A|hard|msq": [
       "To better match a “hard” level, include less common or more easily confused collective nouns (e.g., colony of ants vs swarm of bees, gaggle of geese vs flock, pride of lions vs ...",
-      "- Replace the meta stem with a Grade 2–friendly prompt about collective nouns (e.g., “Which sentences use a collective noun? Select ALL that apply.”). - Provide authentic option..."
-    ],
-    "CCSS.ELA-LITERACY.L.2.1.D|easy|msq": [
-      "- Replace the stem with a student-friendly prompt that directly targets L.2.1.D (e.g., “Choose the sentence that shows the correct past tense of the verb.”). - Remove meta optio..."
-    ],
-    "CCSS.ELA-LITERACY.L.2.4.A|medium|msq": [
-      "- Replace the meta options with authentic 2nd-grade sentences where a target word’s meaning must be inferred from sentence-level context. - Avoid referencing the standard code i...",
-      "- Replace with a real L.2.4.A item: Provide a sentence with a highlighted word and ask for its meaning using sentence-level context. Example: “Maya zipped up her coat because th...",
-      "- Replace the meta stem with a Grade 2-friendly task that uses sentence-level context. Example MSQ formats: - “Read: ‘We trudged up the hill, our legs heavy after the long day.’...",
-      "- Replace the meta stem with a student-facing context-clue task (e.g., a short sentence with an underlined word and choices for its meaning based on the sentence). - Remove any ...",
-      "- Replace meta-language with a real Grade 2 context-clues task: Provide a short sentence with an unfamiliar word and ask students to use the sentence to choose the meaning of th..."
+      "- Replace the meta stem with a Grade 2–friendly prompt about collective nouns (e.g., “Which sentences use a collective noun? Select ALL that apply.”). - Provide authentic option...",
+      "Align the item to the stated standard by focusing on collective nouns. For example: Replace options with sentences requiring recognition/usage of collective nouns (e.g., \"The fl..."
     ],
     "CCSS.ELA-LITERACY.L.2.4.B|medium|msq": [
       "Revise the stem and/or formatting to remove ambiguity: either bold the target words in each option or change the stem to “Select ALL the choices that correctly define the quoted...",
-      "- Rewrite the stem in student-friendly language, removing the standard code. Example: “Select ALL words that use a prefix to change the meaning.” or “Which words mean ‘do it aga..."
+      "- Rewrite the stem in student-friendly language, removing the standard code. Example: “Select ALL words that use a prefix to change the meaning.” or “Which words mean ‘do it aga...",
+      "To align with L.2.4.B, revise to focus on prefixes (e.g., “Which words show the meaning of unhappy?” with options about not happy; or “Which word is formed by adding re- to tell..."
     ],
     "CCSS.ELA-LITERACY.L.2.4.E|hard|msq": [
       "- Replace the stem with student-appropriate language that directly targets L.2.4.E (avoid standard codes). Example: “You find the word ‘bark’ in a story. Which steps would help ..."
@@ -828,13 +967,6 @@
     "CCSS.ELA-LITERACY.RF.2.3.E|medium|msq": [
       "Correct the phonetic notation in the explanation or avoid IPA altogether. For example: “In ‘have’ (B), the ‘a’ is short /æ/ rather than the long a /eɪ/ expected with silent e; i...",
       "- Replace the stem with student-friendly language: “Select all the words that do NOT make their usual sounds.” Avoid referencing the standard code in the student-facing stem. - ..."
-    ],
-    "CCSS.ELA-LITERACY.RF.2.4.B|easy|msq": [
-      "- Replace meta-labeled options with concrete, student-facing evidence of oral reading (e.g., brief audio clips or short written descriptions of how a sentence was read: smooth a...",
-      "- Replace the standard code with student-friendly language (e.g., “reading aloud smoothly, at a good speed, and with expression”). - Provide an evidence-based task aligned to RF...",
-      "- Replace meta options with authentic, student-facing content aligned to RF.2.4.B: include brief grade-level sentences and audio clips; ask students to select recordings that de...",
-      "- Replace meta-labeled options with age-appropriate, observable scenarios or audio clips. For example, provide short audio recordings and ask: “Select ALL readings that sound sm...",
-      "- Replace meta-labeled options with authentic, student-facing tasks aligned to RF.2.4.B. Examples: - Provide a 1–2 sentence grade-level passage and short audio clips of differen..."
     ],
     "CCSS.ELA-LITERACY.RI.2.10|easy|msq": [
       "- Replace the meta-level stem with a student-friendly task aligned to RI.2.10. Example: “Read the short passage about frogs. Which sentences tell facts from the passage? (Select...",
@@ -844,7 +976,8 @@
       "- Replace meta labels with authentic, student-appropriate content. Provide a short grade-2 informational passage (2–4 sentences). - Ask a clear, kid-friendly question tied to RI..."
     ],
     "CCSS.ELA-LITERACY.RI.2.4|hard|msq": [
-      "Revise the stem to remove ambiguity, for example: “Which words in the text mean the same as timid? Select all that apply.” or “Which words in the text help define timid by telli..."
+      "Revise the stem to remove ambiguity, for example: “Which words in the text mean the same as timid? Select all that apply.” or “Which words in the text help define timid by telli...",
+      "- Remove visual cues that reveal the answers: do not bold the synonym words in the passage (bold only the target word “energy,” or remove bolding entirely). - If keeping emphasi..."
     ],
     "CCSS.ELA-LITERACY.RI.2.4|medium|msq": [
       "- Replace the meta-level stem with a student-facing RI.2.4 task. Keep MSQ by asking about multiple clues or multiple acceptable meanings. Example: “Read: ‘Beavers build sturdy l...",
@@ -853,27 +986,19 @@
       "- Replace meta placeholders with an actual Grade 2 informational sentence/short paragraph and ask for the meaning of a target word/phrase from context. - Remove any self-referen...",
       "- Replace the meta stem with a student-friendly task aligned to RI.2.4 (e.g., provide a short informational sentence with a highlighted word and ask what it means using context ..."
     ],
-    "CCSS.ELA-LITERACY.RL.2.5|medium|msq": [
-      "- Replace the standard code with student-friendly language (e.g., “Which sentences show how the beginning introduces the story and which show how the ending concludes it?”). - P...",
-      "- Replace the meta stem with a child-friendly prompt tied to a short passage or scenario. Example: “Read the sentences. Which ones show the beginning that introduces the story? ...",
-      "- Replace the meta-task with a student-facing prompt aligned to RL.2.5 (e.g., provide a short story and ask which sentence shows the beginning introducing the story, or which en...",
-      "- Replace meta-language with a child-friendly stem tied to RL.2.5, e.g., “Which sentences tell how the beginning or ending of the story works? Choose all that are true.” - Provi...",
-      "- Replace meta language with a student-friendly, RL.2.5-aligned task using a brief story or scenario. - Use a clear stem, e.g., “Read this short story. Which sentences tell how ..."
-    ],
-    "CCSS.ELA-LITERACY.RL.2.9|easy|msq": [
-      "- Replace the meta stem with a student-facing prompt aligned to RL.2.9. Example: \"Read the two short versions of Cinderella. Which sentences show how the stories are the same? (...",
-      "Rewrite the item to authentically assess RL.2.9 at an easy level: (a) Provide two very short versions of a familiar tale (e.g., two Cinderella variants) or short summaries; (b) ...",
-      "- Replace meta stem with a student-facing prompt aligned to RL.2.9 (e.g., provide two brief versions of a familiar tale and ask students to choose a statement that shows a simil...",
-      "- Replace meta-language with student-friendly content. Provide two brief versions of a familiar tale (2–3 sentences each) or a short description of two versions (author/cultural...",
-      "- Replace meta-labeled options with concrete, Grade 2-appropriate content: provide two brief versions of a familiar tale (or short summaries) and ask students to select all stat..."
-    ],
     "CCSS.ELA-LITERACY.SL.2.2|medium|msq": [
       "To align with SL.2.2, present the information orally (audio clip or teacher read-aloud) and keep the question the same. Alternatively, retag the standard to a reading comprehens...",
-      "- Replace the meta stem with a Grade 2–friendly prompt tied to an actual short read-aloud (4–6 sentences) or brief audio/video summary. - Ask students to choose the sentences th..."
+      "- Replace the meta stem with a Grade 2–friendly prompt tied to an actual short read-aloud (4–6 sentences) or brief audio/video summary. - Ask students to choose the sentences th...",
+      "- Replace meta-option labels with authentic, student-facing content aligned to SL.2.2 (e.g., play/read a brief audio/text and ask students to select sentences that recount key i...",
+      "- Replace meta-labeled options with authentic, age-appropriate prompts tied to SL.2.2 (e.g., play a short audio or provide a brief read-aloud transcript, then ask students to se...",
+      "Align the standard to a speaking-delivery standard (e.g., SL.2.4 or SL.2.6) OR revise the question to target SL.2.2 (e.g., ask students to identify key ideas/details after liste..."
     ],
     "CCSS.ELA-LITERACY.SL.2.6|hard|msq": [
       "- Replace meta option texts with concrete, grade-appropriate utterances. Example stem: “Which sentences best answer a classmate’s request for more detail? Select all that apply....",
-      "Rewrite as a true Grade 2 SL.2.6 item with student-friendly language and authentic responses. Suggestions: - Stem: “Which sentences answer the question with a complete sentence ..."
+      "Rewrite as a true Grade 2 SL.2.6 item with student-friendly language and authentic responses. Suggestions: - Stem: “Which sentences answer the question with a complete sentence ...",
+      "- Remove meta labels. Replace options with authentic student responses to a prompt that requires providing requested detail/clarification in complete sentences. Example stem: “Y...",
+      "Revise the instruction to remove ambiguity. For example: “Select the TWO answers that use complete sentences to provide the requested details.” Remove the parenthetical “(Select...",
+      "- Remove meta labels; replace options with concrete, student-friendly examples of responses to a prompt, where some are complete, appropriate sentences that add clarification an..."
     ],
     "CCSS.ELA-LITERACY.W.2.3|easy|msq": [
       "- Replace meta option texts with concrete, age-appropriate examples that either demonstrate or fail to demonstrate W.2.3 (e.g., short story snippets with/without temporal words,...",
@@ -889,18 +1014,12 @@
       "- Replace meta/jargon stem with student-friendly language, e.g., “Which activities show kids working together to learn about a topic and write about it? Select all that show thi...",
       "- Replace meta phrasing with age-appropriate language: e.g., “Which activities show doing research and writing together? Select all that show working with your class to learn ab..."
     ],
-    "CCSS.ELA-LITERACY.L.2.1.C|easy|fill-in": [
-      "Align grading fields: add lowercase \"herself\" to acceptable_answers (or make grading case-insensitive but prefer capturing the grammatically correct lowercase), and/or remove th..."
-    ],
     "CCSS.ELA-LITERACY.L.2.2.B|hard|fill-in": [
       "Align difficulty labeling (set to Easy) or increase complexity (e.g., include both greeting and closing, or a short letter with multiple missing punctuation marks). Optionally a...",
       "Adjust the labeled difficulty to “easy,” or increase complexity to justify “hard” (e.g., present several greetings/closings to punctuate, or include distractor punctuation in a ...",
       "Remove incorrect acceptable answers that include a space before the comma. Accept only “Your friend,” (and, if you wish to ignore capitalization, optionally also “your friend,”)...",
       "Adjust the labeled difficulty to Easy (or increase complexity to match Hard, e.g., edit multiple lines including greeting/closing with distractors).",
       "Either relabel the item as Easy (or possibly Medium), or increase complexity to justify “Hard,” e.g., require adding commas to both greeting and closing in a short letter excerp..."
-    ],
-    "CCSS.ELA-LITERACY.RF.2.3.B|easy|fill-in": [
-      "Add the lowercase form to acceptable_answers and remove or de-prioritize the capitalized form for mid-sentence use. For example: acceptable_answers: [\"sea\", \"Sea\"], with the pri..."
     ],
     "CCSS.ELA-LITERACY.RF.2.3.C|hard|fill-in": [
       "Revise the prompt to remove ambiguity or expand accepted answers. Options: - Narrow the phonics cue: “Type the two-syllable word that has a long i formed by i_e (silent e) that ..."
@@ -919,19 +1038,27 @@
     "CCSS.ELA-LITERACY.RL.2.10|medium|fill-in": [
       "Relabel the item as “easy,” or increase demand (e.g., require a simple inference or integrate information across two sentences) to justify “medium.”",
       "Revise the target to be explicitly text-based and uniquely identifiable. For example: change the sentence to “...stopped him from playing with his ______.” and set the correct a...",
-      "Align grading with the prompt: either (a) restrict acceptable_answers to [\"hole\"] to match “from the story,” or (b) revise the prompt to allow synonyms (e.g., “Fill in the blank..."
+      "Align grading with the prompt: either (a) restrict acceptable_answers to [\"hole\"] to match “from the story,” or (b) revise the prompt to allow synonyms (e.g., “Fill in the blank...",
+      "Align the scoring fields: add “tree” to acceptable_answers (and consider also “the oak tree” / “the big oak tree” in case students include the article). Alternatively, make the ...",
+      "Revise acceptable answers and explanation to remove “Spot,” or change the sentence frame to remove “her” (e.g., “Jenny saw that ______ had the hat.”). Keep acceptable answers th..."
     ],
     "CCSS.ELA-LITERACY.RL.2.4|medium|fill-in": [
       "Remove “beats” from acceptable_answers. Keep the key as “beat” only; it both rhymes exactly with “feet” and fits the collocation “the steady beat.” Consider case-insensitive mat...",
-      "Align grading fields: include both “beat” and “Beat” (or make grading case-insensitive), and consider stripping punctuation/spaces so entries like “beat ” or “beat.” are also ac..."
+      "Align grading fields: include both “beat” and “Beat” (or make grading case-insensitive), and consider stripping punctuation/spaces so entries like “beat ” or “beat.” are also ac...",
+      "Align the scoring fields: include both \"play\" and \"Play\" in acceptable_answers or enable case-insensitive matching; also consider trimming whitespace to avoid false negatives.",
+      "Revise the explanation to accurately reflect the excerpt’s scheme, e.g., \"The word 'beat' rhymes with 'street' and 'feet,' creating an AAA rhyme scheme in this excerpt. 'Steady ...",
+      "Tighten the prompt so only one reasonable answer fits, e.g., “Type a verb that rhymes with ‘day’ and describes a fun activity you do outside,” or “Type the missing word that rhy..."
     ],
     "CCSS.ELA-LITERACY.RL.2.5|hard|fill-in": [
       "Either relabel the item’s difficulty to Easy/Medium or increase cognitive demand to match “Hard” (e.g., require identifying both beginning and ending from a longer passage and e...",
-      "Adjust the difficulty label to Easy (or at most Medium). Alternatively, increase rigor to fit “Hard” by asking students to explain with evidence how the ending concludes the act..."
+      "Adjust the difficulty label to Easy (or at most Medium). Alternatively, increase rigor to fit “Hard” by asking students to explain with evidence how the ending concludes the act...",
+      "- Adjust the labeled difficulty to “easy,” or increase complexity to justify “hard” (e.g., include multiple events and ask which sentence best shows the ending, or ask students ...",
+      "Clarify the stem or broaden accepted answers. Options: (a) Reword to cue structure explicitly, e.g., “Which story structure part is this: beginning, middle, or ending? The part ..."
     ],
     "CCSS.ELA-LITERACY.RL.2.7|hard|fill-in": [
       "Align grading fields to avoid case sensitivity issues: add \"winter\" (lowercase) to acceptable_answers or make evaluation case-insensitive. Optionally standardize the word bank c...",
-      "Replace the distractors with more plausible, misconception-revealing choices. For example: (lost | confident | tired) or (lost | sure | happy). These wrong choices could tempt s..."
+      "Replace the distractors with more plausible, misconception-revealing choices. For example: (lost | confident | tired) or (lost | sure | happy). These wrong choices could tempt s...",
+      "Provide the actual illustration referenced (e.g., embed the image showing Mike with eyes shut, tight grip, pale face). Alternatively, revise wording to avoid referencing a missi..."
     ],
     "CCSS.ELA-LITERACY.RL.2.9|hard|fill-in": [
       "To better match a hard difficulty: use longer passages or ask students to identify two differences and explain each with text evidence, or require a full-sentence contrast using...",
@@ -941,13 +1068,16 @@
       "To meet a 'hard' difficulty label for RL.2.9, require students to: (a) state one similarity and one difference with text evidence from both versions, (b) explain how the moral c..."
     ],
     "CCSS.ELA-LITERACY.SL.2.6|hard|fill-in": [
-      "Align the declared format and the content structure. Either (a) relabel this item as multiple-choice to match the A–D options, or (b) if a true fill-in is required, remove the l..."
+      "Align the declared format and the content structure. Either (a) relabel this item as multiple-choice to match the A–D options, or (b) if a true fill-in is required, remove the l...",
+      "Do not accept lowercase “i”. Set acceptable_answers to [\"I\"] only (or auto-normalize but still score lowercase as incorrect with feedback like “Capitalize the pronoun I.”). Opti...",
+      "Resolve the format mismatch with the requested type. Either (a) convert this to a true fill-in by removing choices and prompting students to write a complete sentence naming a g..."
     ],
     "CCSS.ELA-LITERACY.W.2.2|hard|fill-in": [
       "Adjust the difficulty label to “easy” (or at most “medium”) to reflect the actual cognitive demand. If maintaining a “hard” label is required, increase inference demand while ke...",
       "Revise the inaccurate sentence to something age-appropriate and correct, e.g., “They float because there is very little gravity in space.” or “They feel weightless in space beca...",
       "Remove the plural “kangaroos” from acceptable_answers or revise the stem to allow plural (e.g., “the amazing bodies of ______”). Keep singular options like “kangaroo” and “mothe...",
-      "Either relabel the item as Easy/Medium or increase cognitive demand to meet “Hard” (e.g., ask students to write an appropriate concluding sentence or choose the best concluding ..."
+      "Either relabel the item as Easy/Medium or increase cognitive demand to meet “Hard” (e.g., ask students to write an appropriate concluding sentence or choose the best concluding ...",
+      "To align with “hard,” require students to write a complete concluding sentence without a frame, or provide multiple plausible nouns (e.g., mountain, volcano, geyser) and ask for..."
     ],
     "CCSS.ELA-LITERACY.L.2.1.F|hard|mcq": [
       "Revise the stem to: “Which choice best combines these two sentences to show cause and effect?” This ensures only B is correct. Alternatively, revise option A so it no longer cor..."
@@ -975,23 +1105,12 @@
       "- Replace meta option text with actual sentence examples requiring students to identify correct irregular past tense usage (e.g., “Yesterday, I went to the park.” vs “Yesterday,...",
       "- Replace meta-labeled options with real grade-appropriate sentences requiring identification or use of irregular past tense (e.g., “Yesterday we (go) to the park.” with choices..."
     ],
-    "CCSS.ELA-LITERACY.L.2.1.F|easy|msq": [
-      "- Replace meta-labeled options with actual Grade 2 sentence examples that either demonstrate producing, expanding, or rearranging simple sentences, or do not, so students must d...",
-      "Refocus the stem to a student-friendly task aligned to L.2.1.F (e.g., \"Select all sentences that are complete and show more detail\" or \"Select all sentences that rearrange the w...",
-      "- Replace the meta stem with student-friendly language (e.g., “Select all the complete sentences.” or “Select all the ways to expand this sentence: ‘The boy watched the movie.’”...",
-      "- Replace meta-labeled options with actual Grade 2 sentences and tasks (e.g., choose all options that are complete sentences; select all rearrangements that make a complete sent...",
-      "- Replace the meta stem with a student-friendly task that directly targets L.2.1.F (e.g., \"Choose the sentences that are complete\"; \"Which sentences show adding a small detail?\"..."
-    ],
     "CCSS.ELA-LITERACY.L.2.1.F|hard|msq": [
       "Revise the explanation for Option A to avoid calling “soccer” an adjective. For example: “Option A is correct because it expands the sentence by adding an adjective (‘happy’), a...",
       "- Replace the meta stem with student-friendly language that targets L.2.1.F directly (e.g., “Select ALL sentences that correctly expand the idea by adding details without changi...",
       "- Replace meta-labeled options with actual sentence examples that require identifying production, expansion, or rearrangement of complete simple/compound sentences. - Reword the...",
-      "- Replace meta option text with actual sentences. Include examples that: (a) are complete simple sentences, (b) are complete compound sentences using appropriate conjunctions, (..."
-    ],
-    "CCSS.ELA-LITERACY.L.2.4.D|hard|msq": [
-      "- Replace meta-text options with real, student-friendly content aligned to L.2.4.D (e.g., present compound words and ask students to choose meanings or which are real compound w...",
-      "- Replace the stem with a student-friendly prompt aligned to L.2.4.D (e.g., “What does the compound word ‘birdhouse’ most likely mean?” or “Choose the meaning of ‘raincoat’.”). ...",
-      "Rewrite as a real Grade 2 compound-words MSQ. Example: “Which words are compound words? (Select ALL that apply)” Options: birdhouse, notebook, carpet, sunshine, housefly, pencil..."
+      "- Replace meta option text with actual sentences. Include examples that: (a) are complete simple sentences, (b) are complete compound sentences using appropriate conjunctions, (...",
+      "- Replace meta phrasing with a clear, age-appropriate task tied to L.2.1.F. For example: \"Select all sentences that correctly expand or rearrange this sentence: The boy watched ..."
     ],
     "CCSS.ELA-LITERACY.L.2.6|hard|msq": [
       "Rewrite as a genuine Grade 2 L.2.6 multi-select item: 1) Replace the code with student-friendly language (e.g., “Which sentences use adjectives or adverbs to describe?”). 2) Pro...",
@@ -1006,7 +1125,9 @@
     ],
     "CCSS.ELA-LITERACY.RI.2.10|medium|msq": [
       "- Replace the stem with a Grade 2–appropriate task that includes a short informational passage (50–120 words) and a concrete question (e.g., main idea, key details, use of headi...",
-      "- Replace the meta prompt with a student-facing task: include a short, grade-appropriate informational paragraph (2–4 sentences) and ask a comprehension question aligned to RI.2..."
+      "- Replace the meta prompt with a student-facing task: include a short, grade-appropriate informational paragraph (2–4 sentences) and ask a comprehension question aligned to RI.2...",
+      "- Replace the meta stem with a real Grade 2-appropriate prompt tied to a short informational passage (grades 2–3 text complexity band). - Remove all self-referential labels in o...",
+      "- Replace the meta-stem with a student-friendly, grade-appropriate task: include a short informational paragraph (grades 2–3 band) and ask a question aligned to RI.2.10 (e.g., m..."
     ],
     "CCSS.ELA-LITERACY.RI.2.2|medium|msq": [
       "Add explicit paragraph numbers or labels to the passage (e.g., [1], [2], [3]) or rephrase options to avoid numeric references (e.g., “The second body paragraph…”).",
@@ -1033,16 +1154,11 @@
       "- Replace the stem with a concrete, student-friendly prompt tied to a brief read-aloud or image/audio clip (e.g., “Listen to the short story. Which sentences tell the most impor...",
       "- Replace the meta prompt with a student-friendly stem tied to a short read-aloud or media (e.g., “Listen to the paragraph. Which sentences tell the main ideas? Select all that ..."
     ],
-    "CCSS.ELA-LITERACY.SL.2.3|medium|msq": [
-      "- Replace the meta stem with a student-facing prompt featuring a brief speaker statement (audio or short transcript) and ask: “Which questions could you ask to better understand...",
-      "- Replace meta-labeled options with authentic, Grade 2–appropriate scenarios. Include a brief speaker statement (1–3 sentences) and ask students to select all questions that wou...",
-      "- Replace placeholder option texts with authentic, grade-appropriate scenarios involving a speaker (short audio transcript or brief teacher talk) and ask students to choose ques...",
-      "- Replace the stem with a student-friendly prompt that describes the skill without using the code (e.g., “After listening to a speaker, which questions would help you understand...",
-      "- Replace the meta prompt with a Grade 2-appropriate task aligned to SL.2.3, e.g., provide a short audio/text from a speaker and ask students to choose a good clarifying questio..."
-    ],
     "CCSS.ELA-LITERACY.L.2.2.A|hard|fill-in": [
       "Clarify the instruction/acceptance: Either (a) keep the instruction and remove “the Golden Gate Bridge” from acceptable answers, or (b) revise the stem to “Rewrite the landmark ...",
-      "Adjust the difficulty label to Easy (or increase complexity to justify Hard), e.g., include multiple proper nouns in one sentence or require identifying which words to capitaliz..."
+      "Adjust the difficulty label to Easy (or increase complexity to justify Hard), e.g., include multiple proper nouns in one sentence or require identifying which words to capitaliz...",
+      "Align grading with instructions. Either: (a) remove “the Pacific Ocean” from acceptable_answers so only “Pacific Ocean” is correct; or (b) revise the instruction to allow the ar...",
+      "Remove “the Rocky Mountains” from acceptable_answers or revise the instruction to allow the article (e.g., “Rewrite the phrase with correct capitalization”), then adjust the rub..."
     ],
     "CCSS.ELA-LITERACY.L.2.2.B|medium|fill-in": [
       "Remove the incorrect variant from acceptable_answers. Keep only \"Sincerely,\" (no space before the comma). Optionally add minor guidance in the stem like “no space before the com..."
@@ -1052,7 +1168,8 @@
       "Revise the instruction to remove ambiguity, e.g., \"Use a word with the root 'agree' to complete the sentence\" or \"Use a word formed from the root 'agree' that best completes the..."
     ],
     "CCSS.ELA-LITERACY.RF.2.3.D|hard|fill-in": [
-      "Remove “misspelt” from acceptable_answers (or adjust the prompt/locale if accepting British variants). Keep only “misspelled” as correct for en-US and for the stated -ed suffix ..."
+      "Remove “misspelt” from acceptable_answers (or adjust the prompt/locale if accepting British variants). Keep only “misspelled” as correct for en-US and for the stated -ed suffix ...",
+      "- Fix grading fields to accept the correct lowercase form: set acceptable_answers to [\"unplugged\"] or make evaluation case-insensitive. - Optionally, add guidance in the explana..."
     ],
     "CCSS.ELA-LITERACY.RF.2.3.E|hard|fill-in": [
       "Update acceptable_answers to include both \"great\" and \"Great\" (or use case-insensitive matching). Optionally allow minor variations like surrounding whitespace to prevent inadve...",
@@ -1060,27 +1177,35 @@
     ],
     "CCSS.ELA-LITERACY.RF.2.3.F|hard|fill-in": [
       "Revise the explanation to accurately describe the irregularity, for example: “The correct answer is ‘Wednesday.’ It’s an irregularly spelled word because the ‘d’ is silent and t...",
-      "Do not accept the lowercase form. Restrict acceptable answers to “Wednesday” (properly capitalized). Optionally state “Use correct capitalization.” Consider adding common-misspe..."
+      "Do not accept the lowercase form. Restrict acceptable answers to “Wednesday” (properly capitalized). Optionally state “Use correct capitalization.” Consider adding common-misspe...",
+      "To better support mastery learning without changing the item type, consider adding a brief second prompt that requires reasoning about the word form, e.g., “Underline the silent..."
     ],
     "CCSS.ELA-LITERACY.RI.2.1|medium|fill-in": [
       "Restrict acceptable answers to forms that fit the sentence frame: use adverbs such as “quietly” (text-based) and “silently.” Remove “quiet” and “silent,” or alternatively revise...",
       "Make distractors grammatically parallel to the correct answer, e.g., use adverbs: “silently | loudly | slowly.” Optionally revise the stem to ensure all options fit naturally (e...",
-      "Remove or revise the acceptable answer to match the task format: either (a) delete “silently” from acceptable_answers, or (b) explicitly allow free-text responses and add “silen..."
+      "Remove or revise the acceptable answer to match the task format: either (a) delete “silently” from acceptable_answers, or (b) explicitly allow free-text responses and add “silen...",
+      "Correct the explanation to remove the inaccurate claim, e.g., “The text states the fat helps them ‘swim in cold water,’ so ‘swim’ is the correct choice.”",
+      "- Restrict acceptable_answers to match the Word Bank (e.g., accept only \"cold\" with case-insensitive variants). Remove \"freezing\" and \"chilly\". Alternatively, revise the Word Ba..."
     ],
     "CCSS.ELA-LITERACY.RI.2.3|hard|fill-in": [
       "- Resolve ambiguity by constraining responses, e.g., “Fill in with ‘before’ or ‘after’,” or provide MC options [before / after / until / after]. Alternatively, rephrase: “Choose...",
       "Replace “spins a chrysalis” with “forms a chrysalis” (or “pupates in a chrysalis”) to avoid the scientific error while preserving the sequencing task.",
-      "Relabel the item’s difficulty to “easy” (or at most “medium”) to match its straightforward sequencing demand. Optionally add a distractor-free fill-in without a word bank or req..."
+      "Relabel the item’s difficulty to “easy” (or at most “medium”) to match its straightforward sequencing demand. Optionally add a distractor-free fill-in without a word bank or req...",
+      "Resolve the grading mismatch: make acceptable_answers case-insensitive or include both cases (e.g., [\"after\",\"After\"]) and ensure it aligns with the instruction to type lowercas..."
     ],
     "CCSS.ELA-LITERACY.RL.2.10|hard|fill-in": [
       "Relabel the item’s difficulty to Easy (or at most Medium), or increase challenge (e.g., ask for the fox’s feeling/motivation with textual evidence, or include multiple plausible...",
       "Remove “lemon juice” from acceptable answers. Keep acceptable variants like “fresh lemonade,” and consider adding simple variants (e.g., “a cup of lemonade,” “cold lemonade”) an...",
-      "Adjust the difficulty label to “easy,” or increase cognitive demand to justify “hard” (e.g., require inference across multiple sentences, ask for textual evidence, or introduce ..."
+      "Adjust the difficulty label to “easy,” or increase cognitive demand to justify “hard” (e.g., require inference across multiple sentences, ask for textual evidence, or introduce ...",
+      "Adjust the labeled difficulty to Easy or Medium, or increase complexity to merit Hard (e.g., use subtler or mixed clues, a slightly longer passage, or require citing two textual...",
+      "Make acceptable answers align with the stem’s grammar. Options: (a) Remove “soccer practice” from acceptable answers and keep “soccer,” “with his team,” and “with the team”; or ..."
     ],
     "CCSS.ELA-LITERACY.RL.2.2|hard|fill-in": [
       "- Expand acceptable answers to include “impatient.” - Alternatively, revise the lead-in sentence to reduce the impatience cue (remove “too fast”) or add a small word bank (e.g.,...",
       "Remove “jealous” and “selfish” from acceptable answers (keep only “greedy”). If broader acceptance is desired, adjust the stem and hint to explicitly allow multiple traits and r...",
-      "- To better match a “hard” label: remove the parenthetical hint, use a less obvious fable or require a short sentence explaining the moral using evidence from the story. - Optio..."
+      "- To better match a “hard” label: remove the parenthetical hint, use a less obvious fable or require a short sentence explaining the moral using evidence from the story. - Optio...",
+      "Correct the explanation to match the passage: e.g., “The Wind uses force, but the Sun shines quietly and warmly. This gentle approach succeeds, showing that being gentle (kind/p...",
+      "Correct the acceptable_answers list to remove “greediness.” Optionally add adjective synonyms that fit grammatically and semantically (e.g., “greedy,” “envious,” “selfish”), and..."
     ],
     "CCSS.ELA-LITERACY.RL.2.5|medium|fill-in": [
       "Revise the stem to accurately reflect the passage, e.g., “The part of the story where Rover brings back the ball and Ben hugs him is the ______.” or “...where Ben gets his ball ..."
@@ -1109,11 +1234,9 @@
       "- Relabel difficulty to Easy (or Medium) or increase rigor while keeping fill-in (e.g., provide a brief on-screen scenario requiring identifying and naming the cursor’s function...",
       "Relabel the item’s difficulty from “hard” to “easy” (or at most “medium”). Optionally accept case-insensitive answers and consider adding reasonable variants handling (e.g., tri..."
     ],
-    "CCSS.ELA-LITERACY.RL.2.9|hard|mcq": [
-      "Replace option D with a more plausible misconception-based distractor, e.g., \"In Story 1, the villagers come to help at the end, but in Story 2, they do not come,\" or \"In Story ..."
-    ],
     "CCSS.ELA-LITERACY.L.2.2.A|medium|msq": [
-      "Revise the stem to remove ambiguity, e.g.: \"Which sentences correctly capitalize the names of holidays, products, and places? Select all that apply.\" or \"Which sentences correct..."
+      "Revise the stem to remove ambiguity, e.g.: \"Which sentences correctly capitalize the names of holidays, products, and places? Select all that apply.\" or \"Which sentences correct...",
+      "Revise the stem to remove potential ambiguity, e.g., \"Which sentences correctly capitalize holidays, product names, or geographic names? Select all that apply.\""
     ],
     "CCSS.ELA-LITERACY.L.2.2.E|hard|msq": [
       "Correct the explanation for Option A to avoid the false morphology claim. Suggested revision: “Option A (star) is incorrect because ‘star’ comes before ‘start’ alphabetically; ‘..."
@@ -1123,24 +1246,15 @@
       "Revise the rationale for B and D to note that the first syllable “re-” is typically pronounced with a reduced vowel (schwa/short i), not a long e, e.g., relax (/rɪˈlæks/), resul..."
     ],
     "CCSS.ELA-LITERACY.RF.2.3.F|hard|msq": [
-      "Correct the explanation: change “long /i/ or long /i/ sound found in words like ‘chief’ or ‘pie’” to “long /e/ (as in ‘chief’) or long /i/ (as in ‘pie’).” Optionally add brief I..."
+      "Correct the explanation: change “long /i/ or long /i/ sound found in words like ‘chief’ or ‘pie’” to “long /e/ (as in ‘chief’) or long /i/ (as in ‘pie’).” Optionally add brief I...",
+      "Clarify pronunciation expectations to avoid dialect ambiguity (e.g., add “Use American English pronunciations as in uh-GEN for ‘again’,” include audio, or choose a less dialect-..."
     ],
     "CCSS.ELA-LITERACY.RL.2.10|hard|msq": [
-      "Correct Option D to match the exact sentence from the passage or adjust the stem to allow phrases rather than exact sentences. For example, replace D with: \"Mom tried to cheer h..."
-    ],
-    "CCSS.ELA-LITERACY.RL.2.4|medium|msq": [
-      "- Replace the stem with student-friendly language that names the task, not the standard code (e.g., “Read the short poem. Which lines rhyme?” or “Which words show alliteration?”...",
-      "- Replace meta-labeled options with authentic, student-facing content. Provide a brief poem or 3–4 lines from a poem/song. - Use a kid-friendly stem, e.g., “Which lines use rhym...",
-      "- Replace the stem with a student-friendly prompt that references a short poem or song excerpt (2–4 lines). - Ask students to select lines/phrases that rhyme, show alliteration,...",
-      "- Replace meta-labeled options with authentic Grade 2 content. Provide a short poem or 2–3 lines from a song/story. - Ask students to select all phrases that show alliteration/r...",
-      "- Replace meta-language with a student-friendly prompt connected to a short poem or song excerpt. Example: “Read the poem. Which lines use rhyming words that create a beat? Sele..."
+      "Correct Option D to match the exact sentence from the passage or adjust the stem to allow phrases rather than exact sentences. For example, replace D with: \"Mom tried to cheer h...",
+      "Clarify the stem to remove ambiguity, for example: \"Which sentences from the story show that the bird was getting better? Select all that apply.\" (keeps B and D) OR \"Which sente..."
     ],
     "CCSS.ELA-LITERACY.RL.2.7|medium|msq": [
       "Rephrase the stem to avoid implying each selection must be explicitly supported by both sources, or adjust the picture description to explicitly include water/waves so B is clea..."
-    ],
-    "CCSS.ELA-LITERACY.L.2.1.F|hard|fill-in": [
-      "Unify the answer key: either include the period in both 'answer' and 'acceptable_answers' or allow both variants. Suggested acceptable answers: [\"was pushed by the girl\", \"was p...",
-      "Clarify the response format. For example: “Complete the sentence so it starts with ‘The picture’ and uses the word ‘by.’ Write the missing words in the blank.” Show the sentence..."
     ],
     "CCSS.ELA-LITERACY.RF.2.3.B|hard|fill-in": [
       "Align acceptable_answers with the labeled answer and expected casing. For example: acceptable_answers: [\"piece\",\"Piece\"] or ensure case-insensitive grading. Optionally add feedb...",
@@ -1151,7 +1265,8 @@
       "Correct the explanation to: “The ‘ow/ou’ sound (as in ‘out’) is often spelled ‘ou’ in the middle of words like ‘ground,’ ‘found,’ and ‘sound.’” or use IPA /aʊ/ if appropriate fo..."
     ],
     "CCSS.ELA-LITERACY.RI.2.10|medium|fill-in": [
-      "Resolve the inconsistency: either (a) keep the instruction \"exact word\" and remove the misspelled acceptable answer, or (b) change the instruction to something like \"Complete th..."
+      "Resolve the inconsistency: either (a) keep the instruction \"exact word\" and remove the misspelled acceptable answer, or (b) change the instruction to something like \"Complete th...",
+      "Update acceptable_answers to include the exact lowercase word from the passage (\"flippers\"), and ideally support case-insensitive matching. Alternatively, clarify the instructio..."
     ],
     "CCSS.ELA-LITERACY.RI.2.6|hard|fill-in": [
       "Revise the passage to correct the life-cycle detail, e.g.: “it forms a hard shell called a chrysalis” or “it hangs and sheds its skin to form a chrysalis.” Optionally adjust “ov...",
@@ -1171,45 +1286,54 @@
       "To better match a “hard” difficulty, make the fear cues subtler or mixed (e.g., remove explicit words like “scary,” avoid direct emotion labels, include conflicting or nuanced a...",
       "To match the labeled difficulty (“hard”), increase subtlety: remove explicit adverbs like “softly,” avoid exclamations, or include multiple characters with more nuanced cues req..."
     ],
-    "CCSS.ELA-LITERACY.RL.2.6|medium|fill-in": [
-      "Align accepted responses with the Word Bank. Either remove “mad” and “upset” from acceptable_answers, or revise the prompt to accept typed synonyms and remove/expand the word ba..."
-    ],
     "CCSS.ELA-LITERACY.SL.2.5|hard|fill-in": [
       "To match the labeled difficulty, either relabel as Medium/Easy or make the task more complex (e.g., include multiple sentences with mixed cues or require choosing between closel...",
       "Fix the grammatical inconsistency between the sentence frame and acceptable answers. Options: (a) keep the frame as “...of the ______” and accept only bare noun phrases (e.g., “...",
-      "Align grading with the stem’s requirement. Either: (a) keep the prompt “match the text exactly” and limit accepted answers to [“silver”, “silver color”], removing “metallic,” “g..."
+      "Align grading with the stem’s requirement. Either: (a) keep the prompt “match the text exactly” and limit accepted answers to [“silver”, “silver color”], removing “metallic,” “g...",
+      "To avoid an answer giveaway, revise the quoted sentence to remove the explicit emotion word or replace it with actions that imply fear without naming it (e.g., remove “nervously...",
+      "Relabel the item difficulty to Easy (or possibly Medium). Optionally broaden acceptable answers to handle case/spacing/article variations (e.g., accept “a surprised face,” “Surp..."
     ],
     "CCSS.ELA-LITERACY.L.2.2.A|hard|msq": [
-      "Clarify the stem to remove ambiguity, e.g., “Which sentences correctly capitalize any holidays, product names, and geographic names they include? Select all that apply.”"
+      "Clarify the stem to remove ambiguity, e.g., “Which sentences correctly capitalize any holidays, product names, and geographic names they include? Select all that apply.”",
+      "Clarify the stem to remove ambiguity. For example: \"Which sentences capitalize all holidays, product names, and geographic names correctly? Select all that apply.\" Optionally, r...",
+      "Clarify the stem to avoid implying that each sentence must include all three types. For example: “Which sentences correctly capitalize any holidays, product names, or geographic..."
     ],
     "CCSS.ELA-LITERACY.RL.2.7|hard|msq": [
       "Revise the prompt to remove ambiguity, e.g., “Based on the story and the picture together, which statements are true? Select all that apply.” or “Which statements are supported ...",
       "Revise the stem to avoid implying that a correct plot statement must be present. For example: “Based on the story and the picture, which statements correctly describe the settin..."
     ],
     "CCSS.ELA-LITERACY.L.2.1.C|hard|fill-in": [
-      "To better match a “hard” difficulty label, remove the strong cue and/or increase ambiguity, e.g., “After the long hike, we treated ______ to ice cream.” or “The twins made lunch..."
+      "To better match a “hard” difficulty label, remove the strong cue and/or increase ambiguity, e.g., “After the long hike, we treated ______ to ice cream.” or “The twins made lunch...",
+      "Relabel difficulty to easy or medium, or increase difficulty by using a less-cued context (e.g., remove the “by ___” collocation, use varied sentence structures, or require sele..."
     ],
     "CCSS.ELA-LITERACY.RF.2.3.F|medium|fill-in": [
       "Revise the explanation to avoid the overgeneralization. Example: \"The correct answer is 'people.' It’s an irregularly spelled word because the letters 'eo' represent the long /e...",
-      "Revise the explanation to remove the inconsistency, e.g.: “The correct answer is ‘Wednesday.’ It’s irregular because the ‘d’ is silent and it’s pronounced /ˈwɛnzdeɪ/ (sounds lik..."
+      "Revise the explanation to remove the inconsistency, e.g.: “The correct answer is ‘Wednesday.’ It’s irregular because the ‘d’ is silent and it’s pronounced /ˈwɛnzdeɪ/ (sounds lik...",
+      "To increase mastery value, add a brief second prompt that requires application, e.g., “Explain why this is the correct spelling,” or include two sentences where only one choice ..."
     ],
     "CCSS.ELA-LITERACY.RI.2.2|medium|fill-in": [
-      "Remove \"trunks\" from acceptable_answers. Keep only \"trunk\" (optionally allow trimmed variations like exact-case insensitivity). Alternatively, if you intend to accept the plural..."
+      "Remove \"trunks\" from acceptable_answers. Keep only \"trunk\" (optionally allow trimmed variations like exact-case insensitivity). Alternatively, if you intend to accept the plural...",
+      "Revise the prompt to remove ambiguity, e.g.: - “Paragraph 2 is mostly about animals that sleep during the ______.” (Answer: winter) - or “Complete this sentence from Paragraph 2..."
     ],
     "CCSS.ELA-LITERACY.RI.2.6|medium|fill-in": [
       "Remove \"describe\" from acceptable_answers (or adjust the passage/rationale) so only \"explain\" is accepted. Ensure metadata fields (correct answer, acceptable answers, explanatio...",
       "Align grading fields: include both \"explain\" and \"Explain\" in acceptable_answers or make grading case-insensitive. Optionally present the three words as selectable chips/buttons...",
-      "Add lowercase \"explain\" to acceptable_answers (and consider making matching case-insensitive). Also consider trimming whitespace and accepting minor capitalization variations to..."
+      "Add lowercase \"explain\" to acceptable_answers (and consider making matching case-insensitive). Also consider trimming whitespace and accepting minor capitalization variations to...",
+      "- Add lowercase \"explain\" to acceptable_answers or make evaluation case-insensitive. Example: [\"explain\",\"Explain\",\"EXPLAIN\"]. - Optionally accept trimmed whitespace and minor v...",
+      "Add lowercase \"explain\" to acceptable_answers (e.g., [\"explain\", \"Explain\", \"EXPLAIN\"]) so common correct inputs are scored correctly; consider also accepting minor punctuation/..."
     ],
     "CCSS.ELA-LITERACY.RI.2.9|medium|fill-in": [
-      "Align acceptable_answers with the student-facing word bank and text wording. Remove “sun,” or add “sun” to the word bank and revise the stem to allow synonyms (e.g., “Use a word..."
+      "Align acceptable_answers with the student-facing word bank and text wording. Remove “sun,” or add “sun” to the word bank and revise the stem to allow synonyms (e.g., “Use a word...",
+      "Remove “time” from acceptable_answers or add “time” to the Word Bank and adjust the sentence (e.g., “different time of day”) so both singular and plural are valid in context."
     ],
     "CCSS.ELA-LITERACY.W.2.6|medium|fill-in": [
-      "Align acceptable_answers with the visible Word Bank. Either: (a) remove [\"post\", \"share\", \"upload\"] from acceptable_answers and keep only \"publish\", or (b) expand the Word Bank ..."
+      "Align acceptable_answers with the visible Word Bank. Either: (a) remove [\"post\", \"share\", \"upload\"] from acceptable_answers and keep only \"publish\", or (b) expand the Word Bank ...",
+      "Align acceptable_answers with the key and word bank: add lowercase \"publish\" (and ideally make grading case-insensitive). Example: acceptable_answers: [\"publish\", \"Publish\"]."
     ],
     "CCSS.ELA-LITERACY.W.2.7|medium|fill-in": [
       "- Fix field consistency: Either remove “shared research” from acceptable_answers or add it to the word bank and adjust the blank to accept a two-word response. - Improve distrac...",
-      "Improve distractor quality and grammatical parallelism. Options: (1) Remove “doing” from the stem: “Reading books to find facts for a report is called ________.” (Word Bank: res..."
+      "Improve distractor quality and grammatical parallelism. Options: (1) Remove “doing” from the stem: “Reading books to find facts for a report is called ________.” (Word Bank: res...",
+      "Align acceptable_answers with the correct answer. Add both case variants and consider case-insensitive grading, e.g., acceptable_answers: [\"research\", \"Research\"]. Optionally al..."
     ],
     "CCSS.ELA-LITERACY.RI.2.2|easy|msq": [
       "Revise Paragraph 2 to be factually correct for butterflies, e.g., “The caterpillar forms a chrysalis and changes into a butterfly,” or “The caterpillar forms a chrysalis (a hard..."
@@ -1217,18 +1341,17 @@
     "CCSS.ELA-LITERACY.W.2.3|hard|msq": [
       "Revise the stem to remove ambiguity, for example: “Which sentences help improve the draft by adding one or more of these elements (time-order words, details about thoughts or fe..."
     ],
-    "CCSS.ELA-LITERACY.L.2.1.A|medium|fill-in": [
-      "Align grading fields: include \"pack\" in acceptable_answers (or make evaluation case-insensitive). Example: acceptable_answers: [\"pack\", \"Pack\", \"PACK\"].",
-      "Clarify the stem or broaden accepted responses. Options: - Revise stem to specify specificity: “Type the specific collective noun used for a group of wolves.” - Or accept additi...",
-      "Clarify the prompt to target the specific conventional noun (e.g., “Type the best/specific collective noun we commonly use for wolves”) or expand accepted responses to include v..."
-    ],
     "CCSS.ELA-LITERACY.RF.2.4.A|hard|fill-in": [
       "To align with a “hard” label, reduce explicit cues or require multi-step inference. For example: remove “hoop,” add less direct clues (e.g., “dribbled,” “free throw line,” “boun...",
       "Restrict acceptable_answers to [\"dentist\"] to match both sentence grammar and the instruction to use a word from the box. If you wish to allow possessive, change the sentence to...",
-      "Relabel difficulty to Easy (or Medium) or increase challenge: remove the explicit “through the net” detail, replace “orange ball” with a less direct clue, or ask students to cit..."
+      "Relabel difficulty to Easy (or Medium) or increase challenge: remove the explicit “through the net” detail, replace “orange ball” with a less direct clue, or ask students to cit...",
+      "- Adjust the difficulty label to Easy (or at most Medium) to reflect the straightforward nature of the task. - Optionally replace vertical bars in the word bank with commas or b..."
     ],
     "CCSS.ELA-LITERACY.SL.2.1.C|medium|fill-in": [
-      "Replace the distractor “hide” with a more plausible, non-target verb that fits grammatically but reflects a common misconception, such as “repeat,” “tell,” or “read.” For exampl..."
+      "Replace the distractor “hide” with a more plausible, non-target verb that fits grammatically but reflects a common misconception, such as “repeat,” “tell,” or “read.” For exampl...",
+      "Improve distractor quality with more plausible alternatives that students might confuse in this context (e.g., replace “hide” and “sleep” with “repeat,” “show,” “tell,” or “read...",
+      "Replace the distractor “count” with a more contextually plausible but still incorrect option (e.g., “spell” or “show”), keeping “read” as a plausible alternative. This will impr...",
+      "Update acceptable_answers to include lowercase \"explain\" and ideally make matching case-insensitive (e.g., [\"explain\", \"Explain\"]). Optionally accept minor variants like trimmed..."
     ],
     "CCSS.ELA-LITERACY.L.2.1.F|medium|msq": [
       "Revise the explanation for Option D to: “Option D is incorrect because it changes the sentence to an imperative (command) with an implied subject ‘you’ rather than expanding or ...",
@@ -1236,7 +1359,10 @@
     ],
     "CCSS.ELA-LITERACY.L.2.3.A|hard|msq": [
       "- Replace meta-labeled options with authentic sentence pairs or short scenarios requiring students to identify or compare formal vs. informal language (e.g., text message vs. cl...",
-      "- Replace meta option text with real sentence examples. For example: • Formal: “Dear Principal Lopez, I am writing to request…” • Informal: “Hey! Wanna hang out later?” • Provid..."
+      "- Replace meta option text with real sentence examples. For example: • Formal: “Dear Principal Lopez, I am writing to request…” • Informal: “Hey! Wanna hang out later?” • Provid...",
+      "Either relabel difficulty to Easy/Medium or increase difficulty by using subtler sentence pairs (e.g., avoiding obvious slang like \"wanna\"/\"totally cool\") or requiring brief rew...",
+      "- Replace placeholder options with authentic Grade 2–appropriate sentences or scenarios that differ in register (formal vs informal) and ask students to select all that match a ...",
+      "- Replace meta-labeled options with authentic, age-appropriate sentence pairs or short dialogues showing formal vs informal English (e.g., “Could you please help me?” vs “Can yo..."
     ],
     "CCSS.ELA-LITERACY.L.2.5.B|medium|msq": [
       "- Replace meta stem with a student-facing prompt that directly targets L.2.5.B. Example (multi-select): \"Which words are stronger ways to say throw? (Select all that apply)\" wit..."
@@ -1246,7 +1372,10 @@
     ],
     "CCSS.ELA-LITERACY.RI.2.10|hard|msq": [
       "- Replace meta-labeled options with actual content-based choices derived from a short informational passage in the grade 2–3 text complexity band. - For MSQ at hard difficulty, ...",
-      "- Replace meta-language with a short informational passage (grades 2–3 band). Ask an age-appropriate question (e.g., main idea, key details, using text features). - Remove refer..."
+      "- Replace meta-language with a short informational passage (grades 2–3 band). Ask an age-appropriate question (e.g., main idea, key details, using text features). - Remove refer...",
+      "- Replace meta options with authentic, student-facing tasks grounded in an informational text at the appropriate complexity; avoid revealing correctness in option text. - Refram...",
+      "- Replace the meta prompt with a short, grade-appropriate informational passage (2–3 band). Ask students to answer an MSQ that requires integrating information (e.g., select two...",
+      "- Replace the meta prompt with a student-friendly, age-appropriate task. Provide a short informational passage (Grades 2–3 band) and ask a comprehension question (e.g., identify..."
     ],
     "CCSS.ELA-LITERACY.RI.2.7|hard|msq": [
       "- Replace meta-referential stem with a student-friendly prompt that includes a short informational text and related image(s). Ask how the image helps explain or clarify a specif...",
@@ -1257,7 +1386,9 @@
     ],
     "CCSS.ELA-LITERACY.L.2.2.A|medium|fill-in": [
       "Clarify the prompt or expand accepted responses. For example: change the instruction to “Type only the geographic name (do not include ‘the’).” Also add acceptable variants like...",
-      "Revise acceptable_answers to align with the exact task. Suggested: acceptable_answers = [\"United States\"]. If broader naming is desired, adjust the stem (e.g., “Type the country..."
+      "Revise acceptable_answers to align with the exact task. Suggested: acceptable_answers = [\"United States\"]. If broader naming is desired, adjust the stem (e.g., “Type the country...",
+      "- Remove the lowercase \"florida\" from acceptable_answers. Accept only capitalized \"Florida\" (and optionally handle punctuation by trimming or normalizing input). - Consider remo...",
+      "Remove partially capitalized entries from acceptable_answers. Accept only \"North America\" (optionally allow minor whitespace). Optionally embed the blank in the sentence for add..."
     ],
     "CCSS.ELA-LITERACY.L.2.2.C|hard|fill-in": [
       "Replace “hard contraction” with “irregular contraction” in the explanation. Consider accepting typographic apostrophe variants (e.g., won’t with ’) and case-insensitive matching...",
@@ -1267,34 +1398,44 @@
       "Remove \"water melon\" from acceptable_answers. Accept only \"watermelon\" (one word). Optionally, cue the skill explicitly (e.g., “Use the parts you hear in the description to writ...",
       "Align difficulty by either (a) relabeling as Easy/Medium, or (b) increasing challenge (e.g., remove bolding of the base words and rely on context clues, or choose a less common ...",
       "Correct the explanation to: “The insect lives in the grass and is a hopper. Combining ‘grass’ and ‘hopper’ makes the compound word ‘grasshopper.’” Optionally allow both lowercas...",
-      "To match a Hard difficulty label, increase complexity (e.g., use a less familiar compound, provide a description that requires inference without bolding the parts, or ask studen..."
-    ],
-    "CCSS.ELA-LITERACY.L.2.4.E|hard|fill-in": [
-      "Restrict acceptable answers to numeric-only to match the instruction: acceptable_answers should be [\"2\"] (optionally allow \" 2 \" with whitespace handling). Consider removing \"tw..."
+      "To match a Hard difficulty label, increase complexity (e.g., use a less familiar compound, provide a description that requires inference without bolding the parts, or ask studen...",
+      "Remove the plural from acceptable answers or adjust the stem to plural if you intend to accept plural responses. Best fix: set acceptable_answers to [] (or include only orthogra..."
     ],
     "CCSS.ELA-LITERACY.W.2.3|hard|fill-in": [
       "To match a “hard” label, increase complexity: require students to write their own closing sentence using an appropriate temporal word; expand the word bank with more nuanced or ...",
-      "Either relabel the item as Easy/Medium or increase difficulty: e.g., remove the word bank and require students to generate a closing word/sentence; provide multiple plausible cl..."
+      "Either relabel the item as Easy/Medium or increase difficulty: e.g., remove the word bank and require students to generate a closing word/sentence; provide multiple plausible cl...",
+      "- Relabel difficulty to Easy (or at most Medium) for Grade 2. - Consider accepting capitalization and punctuation variants (e.g., “Finally”, “finally,”) to match how it appears ...",
+      "Add the capitalized form \"Finally\" to acceptable_answers (and consider case-insensitive grading). Optionally add guidance like “Use one word such as ‘finally’ or ‘lastly.’” to r...",
+      "- Relabel difficulty to “easy” (or at most “medium”), OR - Increase challenge: ask students to write a full concluding sentence using a temporal word (e.g., “Finally, …”) or pro..."
     ],
     "CCSS.ELA-LITERACY.RF.2.3.F|medium|msq": [
-      "Revise the explanation for “again.” Example: “Option C is correct because ‘again’ is irregular: the first ‘a’ is a schwa (/ə/), and in one common pronunciation ‘ai’ says /ɛ/ (uh..."
+      "Revise the explanation for “again.” Example: “Option C is correct because ‘again’ is irregular: the first ‘a’ is a schwa (/ə/), and in one common pronunciation ‘ai’ says /ɛ/ (uh...",
+      "- Replace all placeholder texts with authentic Grade 2 content. Example stem: “Select all words that are irregularly spelled (they don’t follow common sound-spelling rules). Sel..."
     ],
     "CCSS.ELA-LITERACY.L.2.1.F|medium|fill-in": [
       "Revise the explanation for “so.” For example: \"'So' signals cause and effect. In this sentence, using 'so' would suggest that Lila’s wanting to go caused it to rain, which doesn...",
-      "Clarify the prompt to remove ambiguity or broaden acceptable answers. Options: (1) Revise stem: “Choose the best word to show cause and effect: (and, but, so, or).” or “Which wo..."
+      "Clarify the prompt to remove ambiguity or broaden acceptable answers. Options: (1) Revise stem: “Choose the best word to show cause and effect: (and, but, so, or).” or “Which wo...",
+      "Add lowercase \"so\" to acceptable_answers (e.g., [\"so\", \"So\", \"SO\"]) and consider case-insensitive grading to avoid penalizing correct responses. Optionally clarify: “Type the wo...",
+      "Add the lowercase \"so\" to acceptable_answers (e.g., [\"so\", \"So\", \"SO\"]) and, ideally, enable case-insensitive matching."
     ],
     "CCSS.ELA-LITERACY.L.2.4.C|medium|fill-in": [
       "Remove the explicit appearance of the answer word from the stem. For example: \"The prefix re- means 'again.' To rebuild a house means to ______ it again.\" (omit the sentence tha...",
-      "Correct the explanation: “The suffix ‘-ful’ means ‘full of’ or ‘having.’ Adding ‘-ful’ to the root ‘use’ makes ‘useful,’ which means ‘helpful.’ Remove ‘able to,’ which applies t..."
+      "Correct the explanation: “The suffix ‘-ful’ means ‘full of’ or ‘having.’ Adding ‘-ful’ to the root ‘use’ makes ‘useful,’ which means ‘helpful.’ Remove ‘able to,’ which applies t...",
+      "Revise the stem to remove ambiguity, e.g., “Use the root word write to form a new word that fits the sentence,” or “Add a prefix to write to complete the sentence.” Optionally, ..."
     ],
     "CCSS.ELA-LITERACY.RF.2.3.A|hard|fill-in": [
       "Add lowercase \"snake\" to acceptable_answers (or enable case-insensitive matching). Consider accepting minor punctuation/spacing variants to prevent false negatives.",
-      "Remove “the snake” from acceptable_answers. Accept case-insensitive variants of the single word only (e.g., “snake”, “Snake”, “SNAKE”). Optionally allow minor trailing punctuati..."
+      "Remove “the snake” from acceptable_answers. Accept case-insensitive variants of the single word only (e.g., “snake”, “Snake”, “SNAKE”). Optionally allow minor trailing punctuati...",
+      "Relabel difficulty to Easy (or at most Medium), or increase challenge to justify Hard (e.g., include 3–4 words mixing CVCe and vowel teams like ai/ay, or ask for brief justifica...",
+      "- Relabel difficulty from “hard” to “easy” (or at most “medium”). - Optionally add lowercase \"shape\" to acceptable_answers for redundancy, though the canonical answer already co...",
+      "Correct the explanation terminology. Example: “The word ‘strip’ has a short i sound in a one-syllable word with consonant clusters (CCVCC). Adding a silent e makes ‘stripe’ (CCV..."
     ],
     "CCSS.ELA-LITERACY.W.2.7|hard|fill-in": [
       "Remove “researching” from acceptable_answers or change the stem to “This activity is called ________.” If you want to accept “researching,” also include it in the word bank and ...",
       "- Align the labeled difficulty: relabel as Easy (or Medium if you remove the word bank), OR - Increase difficulty to match “Hard”: remove the word bank; present multiple stateme...",
-      "Adjust the labeled difficulty to Easy (or at most Medium), OR increase rigor to match Hard (e.g., require identifying multiple sources vs. non-sources, or selecting a fact that ..."
+      "Adjust the labeled difficulty to Easy (or at most Medium), OR increase rigor to match Hard (e.g., require identifying multiple sources vs. non-sources, or selecting a fact that ...",
+      "Align acceptable answers with the word bank and stem grammar. Options: (a) keep the stem as written and accept only “observations”; remove “observation” from acceptable_answers;...",
+      "Align grading with the student-facing prompt: remove “observation” (singular) from acceptable answers, or adjust the stem to permit singular (e.g., “recording a science ________..."
     ],
     "CCSS.ELA-LITERACY.W.2.8|medium|fill-in": [
       "Either relabel the difficulty as Easy or increase complexity slightly to fit Medium (e.g., ask for two details, extend the paragraph, or include more potentially confusable body...",
@@ -1309,41 +1450,49 @@
     "CCSS.ELA-LITERACY.RF.2.3.D|medium|msq": [
       "Redesign as a true Grade 2 phonics multiple-select item aligned to RF.2.3.D. For example: “Select ALL words that have a common prefix.” Options might include: unhappy, redo, car...",
       "- Replace the stem with a student-friendly decoding task, e.g., “Select ALL the words that have the prefix un- and mean ‘not …’.” or “Which words show past tense with -ed? Selec...",
-      "Rewrite as a genuine Grade 2 multiple-select item assessing RF.2.3.D without telegraphing answers. Example: Stem: “Which words have a common prefix or suffix? Select all that ap..."
+      "Rewrite as a genuine Grade 2 multiple-select item assessing RF.2.3.D without telegraphing answers. Example: Stem: “Which words have a common prefix or suffix? Select all that ap...",
+      "- Replace meta-language with a student-friendly prompt that actually assesses decoding prefixes/suffixes (e.g., “Which words have a prefix?” or “Which meaning matches the word u..."
     ],
     "CCSS.ELA-LITERACY.RL.2.1|hard|msq": [
       "Revise the stem to remove ambiguity, e.g., “Which details tell who the characters in the scene are (the people who are there)?” or “Which details tell who is there at the librar...",
-      "Revise the stem for precision, e.g., “Which details from the story tell who the characters are in the library? Select all that apply.” or “Who are the characters in the story? S..."
+      "Revise the stem for precision, e.g., “Which details from the story tell who the characters are in the library? Select all that apply.” or “Who are the characters in the story? S...",
+      "- Adjust the labeled difficulty to Easy or Medium OR - Make the item genuinely hard by lengthening the passage, removing explicit sequencing words, adding more plausible non-\"ho..."
     ],
     "CCSS.ELA-LITERACY.SL.2.4|medium|msq": [
-      "Revise the stem to remove ambiguity, e.g., “...speaking clearly and loudly enough to be heard” or “...speaking audibly and clearly,” OR revise options so A and C each state “Spe..."
+      "Revise the stem to remove ambiguity, e.g., “...speaking clearly and loudly enough to be heard” or “...speaking audibly and clearly,” OR revise options so A and C each state “Spe...",
+      "Revise Option C or the stem to align on the audibility criterion. For example: change Option C to “Jay speaks loudly and clearly and says, ‘My hamster has tiny paws and keeps fo..."
     ],
     "CCSS.ELA-LITERACY.RI.2.7|hard|fill-in": [
       "Align accepted answers with the word bank. Either: (a) remove “position” from acceptable_answers; (b) add “position” to the word bank and adjust the prompt to allow synonyms; or...",
-      "To meet a “hard” label: remove the word bank; ask students to explain in a sentence how the diagram clarifies the text; include multiple labeled parts and require identifying tw..."
+      "To meet a “hard” label: remove the word bank; ask students to explain in a sentence how the diagram clarifies the text; include multiple labeled parts and require identifying tw...",
+      "Revise acceptable answers to target the concept precisely: allow only “cycle” and “life cycle.” Remove “circle” and “loop.” Optionally adjust the prompt to: “The diagram’s arrow..."
     ],
     "CCSS.ELA-LITERACY.L.2.2.C|easy|msq": [
       "- Replace generic/meta options with short, grade-appropriate sentences or word pairs that include correctly and incorrectly formed contractions and possessives (e.g., “It’s rain..."
     ],
     "CCSS.ELA-LITERACY.RF.2.3.B|hard|msq": [
-      "Revise explanation for Option B to avoid attributing the long e to the silent e. For example: “Option B is incorrect because in ‘breathe’ the vowel team ‘ea’ makes the long e so..."
+      "Revise explanation for Option B to avoid attributing the long e to the silent e. For example: “Option B is incorrect because in ‘breathe’ the vowel team ‘ea’ makes the long e so...",
+      "Rewrite as a genuine Grade 2 phonics multi-select item assessing vowel teams. Example: “Select ALL words that use the vowel team ‘oa’ to make the long o sound.” Options: boat (c..."
     ],
     "CCSS.ELA-LITERACY.RL.2.6|easy|msq": [
       "Revise the selection instruction to remove conflicting cues. Example: “Select two answers.” or “Which two are correct? Select two.”",
-      "- Replace the stem with student-friendly language and include a short dialogue (2–4 lines) between characters. - Ask a concrete RL.2.6 task, e.g., “Who is speaking in the second..."
+      "- Replace the stem with student-friendly language and include a short dialogue (2–4 lines) between characters. - Ask a concrete RL.2.6 task, e.g., “Who is speaking in the second...",
+      "- Replace meta-labeled options with concrete, student-facing tasks aligned to RL.2.6 (e.g., show a short dialogue and ask “Who is speaking this line?” or “Which line should be r...",
+      "- Replace the meta stem with a student-friendly prompt tied to a brief dialogue (2–3 lines) between two characters. - Ask students to pick which line shows a character’s point o...",
+      "- Replace the meta stem with kid-friendly language and include a short dialogue between two characters. Example: “Read the dialogue. Which choices show using a different voice f..."
     ],
     "CCSS.ELA-LITERACY.W.2.6|hard|msq": [
       "Simplify student-facing language. For example: Stem: \"Which activities show second graders using digital tools to write and share their writing with help from an adult? Choose a..."
     ],
     "CCSS.ELA-LITERACY.SL.2.1.B|hard|fill-in": [
-      "Remove the giveaway sentence. Suggested stem: \"Read the conversation about a story. Kira: 'I think the bear in the book was sad.' Sam: 'Real bears like to eat honey.' Jax: 'I ag..."
-    ],
-    "CCSS.ELA-LITERACY.L.2.4.C|hard|msq": [
-      "- Replace meta placeholders with authentic Grade 2-appropriate root-word items. Example stem: “Some words share a root. If you know the word add, which words are about adding? S...",
-      "Rewrite as an authentic Grade 2 multi-select item aligned to L.2.4.C using student-friendly language and concrete words. Example: - Stem: “Use what you know about the word ‘help..."
+      "Remove the giveaway sentence. Suggested stem: \"Read the conversation about a story. Kira: 'I think the bear in the book was sad.' Sam: 'Real bears like to eat honey.' Jax: 'I ag...",
+      "Relabel the difficulty to Easy or Medium. Alternatively, to justify “Hard,” increase complexity: remove the explicit agreement phrase, include multiple plausible linking stateme...",
+      "Relabel difficulty to Easy (or possibly Medium), or increase challenge to justify Hard by removing the explicit linking phrase, adding more turns/speakers, or asking students to...",
+      "Either relabel difficulty to Easy/Medium or increase challenge: remove the explicit phrase “I agree with Mia,” add another student who also seems to build on the idea but less d..."
     ],
     "CCSS.ELA-LITERACY.RI.2.5|medium|msq": [
-      "- Replace meta options with authentic Grade 2 content targeting RI.2.5. Example stem: “Look at this nonfiction page. Which text features help you find key facts about penguins? ..."
+      "- Replace meta options with authentic Grade 2 content targeting RI.2.5. Example stem: “Look at this nonfiction page. Which text features help you find key facts about penguins? ...",
+      "To better align with RI.2.5, revise the correct set to include only text features. For example, replace option D with “Captions,” “Glossary,” or “Index,” and keep A. Alternative..."
     ],
     "CCSS.ELA-LITERACY.RI.2.8|easy|msq": [
       "Revise the inaccurate sentence in the text to maintain factual correctness, e.g., change “They also have two wings.” to “They have four wings.” or “They have wings.” Ensure the ..."
@@ -1361,19 +1510,25 @@
       "Revise the stem to use a standard representation of the sound: e.g., “Which words contain a vowel team that makes the /ow/ sound, like in ‘mouse’?” or “...the /ou/ sound...” or ..."
     ],
     "CCSS.ELA-LITERACY.RL.2.9|medium|msq": [
-      "Revise Option A to avoid the verb mismatch, e.g., “In both stories, the main character is food that gets away (runs or rolls) from a woman.” Everything else can remain as is."
+      "Revise Option A to avoid the verb mismatch, e.g., “In both stories, the main character is food that gets away (runs or rolls) from a woman.” Everything else can remain as is.",
+      "Revise Option A to avoid the verb mismatch. For example: “In both stories, the main character is food that escapes from the cook.” or “...that gets away from the cook.”"
     ],
     "CCSS.ELA-LITERACY.L.2.4.A|medium|fill-in": [
-      "Revise acceptable_answers to reflect the precise meaning of damp: keep \"slightly wet\" and \"moist\"; remove \"soaked\" and \"soggy\". Optionally set the primary answer to \"slightly we..."
+      "Revise acceptable_answers to reflect the precise meaning of damp: keep \"slightly wet\" and \"moist\"; remove \"soaked\" and \"soggy\". Optionally set the primary answer to \"slightly we...",
+      "Tighten the acceptable answer list to true synonyms of “furious” (e.g., angry, very angry, mad, very mad, really angry) and remove “upset” or treat it only as partial credit if ..."
     ],
     "CCSS.ELA-LITERACY.RL.2.1|medium|fill-in": [
-      "Remove \"door\" from acceptable_answers. Keep \"back door\" as the primary answer and allow reasonable variants preserving the key detail, such as \"backdoor\" (no space). Ensure case..."
+      "Remove \"door\" from acceptable_answers. Keep \"back door\" as the primary answer and allow reasonable variants preserving the key detail, such as \"backdoor\" (no space). Ensure case...",
+      "Remove or revise unacceptable acceptable_answers: allow only text-supported responses such as \"porch\" (case-insensitive). Optionally clarify in the prompt: \"Write one word from ..."
     ],
     "CCSS.ELA-LITERACY.L.2.2.B|hard|msq": [
       "To better match a hard difficulty label, add more nuanced options (e.g., multiple greetings/closings with subtle punctuation differences like missing commas after multi-word clo..."
     ],
     "CCSS.ELA-LITERACY.RF.2.4.C|medium|fill-in": [
-      "Align acceptable_answers with the keyed answer and typical casing in a sentence. For example, set acceptable_answers to [\"brush\", \"Brush\"] or use case-insensitive grading. Optio..."
+      "Align acceptable_answers with the keyed answer and typical casing in a sentence. For example, set acceptable_answers to [\"brush\", \"Brush\"] or use case-insensitive grading. Optio...",
+      "Align acceptable_answers with the intended student response: include both \"sweep\" and \"Sweep\" (or make grading case-insensitive). Optionally add common misspellings or whitespac...",
+      "Align acceptable_answers with the answer key and likely student inputs. Include both \"horse\" and \"Horse\" (or use case-insensitive matching), and consider trimming whitespace. Ex...",
+      "Add the lowercase variant to acceptable_answers (e.g., [\"bench\", \"Bench\", \"BENCH\"]) or make evaluation case-insensitive to ensure correct responses are accepted."
     ],
     "CCSS.ELA-LITERACY.W.2.1|medium|fill-in": [
       "Revise the explanation to acknowledge that “so” forms a grammatical sentence expressing a purpose/result, but “because” is the best choice for explicitly introducing a reason in..."
@@ -1383,29 +1538,34 @@
     ],
     "CCSS.ELA-LITERACY.RL.2.7|easy|msq": [
       "- Replace the meta stem with a student-friendly prompt tied to an actual short passage and illustration (e.g., “Look at the picture and read the sentence. Where is the story set...",
-      "Make the student-facing picture description include the nighttime detail (e.g., “A dark sky with many stars is above the tent”) if A should be correct; or change the correct key..."
+      "Make the student-facing picture description include the nighttime detail (e.g., “A dark sky with many stars is above the tent”) if A should be correct; or change the correct key...",
+      "- Replace meta-language with a student-friendly prompt that includes a short sentence (or 1–2 lines from a story) and an illustration. Ask a concrete question that requires usin...",
+      "- Replace meta option text with concrete, grade-appropriate content: include a short illustration and one or two simple sentences. Ask students to select statements that show un..."
     ],
     "CCSS.ELA-LITERACY.L.2.1.E|hard|fill-in": [
-      "Align acceptable_answers with the answer field: include \"well\" (lowercase) and consider case-insensitive grading. Optionally accept punctuation variants (e.g., \"well.\") if the p..."
+      "Align acceptable_answers with the answer field: include \"well\" (lowercase) and consider case-insensitive grading. Optionally accept punctuation variants (e.g., \"well.\") if the p...",
+      "Align grading fields: include \"well\" (lowercase, no punctuation) in acceptable_answers. Consider normalizing input to be case-insensitive and punctuation-insensitive (accept \"we..."
     ],
     "CCSS.ELA-LITERACY.L.2.1.E|medium|fill-in": [
       "Align acceptable_answers with the labeled answer and typical student input. For example: acceptable_answers: [\"quickly\", \"Quickly\"], and ensure case-insensitive grading. Optiona..."
     ],
     "CCSS.ELA-LITERACY.L.2.2.D|hard|fill-in": [
-      "Update acceptable_answers to include both lowercase and uppercase forms (e.g., [\"bridge\", \"Bridge\"]) or enable case-insensitive grading. Optionally note in instructions whether ..."
+      "Update acceptable_answers to include both lowercase and uppercase forms (e.g., [\"bridge\", \"Bridge\"]) or enable case-insensitive grading. Optionally note in instructions whether ...",
+      "Align grading fields to prevent mis-scoring: add lowercase “bridge” to acceptable_answers and/or make grading case-insensitive. Example: acceptable_answers: [\"bridge\", \"Bridge\"].",
+      "- Align grading fields: include \"bridge\" (lowercase) in acceptable_answers or make grading case-insensitive. Example: acceptable_answers = [\"bridge\", \"Bridge\", \"BRIDGE\"]."
     ],
     "CCSS.ELA-LITERACY.L.2.2.D|medium|fill-in": [
       "Align acceptable_answers with the prompt. Use case-insensitive matching for the single word “bridge” only (e.g., [\"bridge\", \"Bridge\"]). Remove phrase variants like “a bridge” an..."
     ],
     "CCSS.ELA-LITERACY.RI.2.7|medium|fill-in": [
-      "- Make acceptable answers case-insensitive or include both variants: [\"lever\", \"Lever\"]. - Optionally note in instructions that answers are not case-sensitive to avoid student p..."
-    ],
-    "CCSS.ELA-LITERACY.RI.2.9|hard|fill-in": [
-      "To align with a hard difficulty label, increase complexity: use longer texts, remove the word bank, and/or require identifying multiple shared points or explaining how the texts..."
+      "- Make acceptable answers case-insensitive or include both variants: [\"lever\", \"Lever\"]. - Optionally note in instructions that answers are not case-sensitive to avoid student p...",
+      "Replace implausible distractors with options that reflect common confusions about what images clarify. For example: (position | function | label) or (position | size | color). C..."
     ],
     "CCSS.ELA-LITERACY.W.2.1|hard|fill-in": [
       "Update acceptable_answers to include the lowercase form (\"because\") and ideally handle case-insensitive grading. Since the word occurs mid-sentence, consider removing the capita...",
-      "Revise the explanation to: \"The correct answer is 'because' because it introduces the reason. In this sentence order, 'so' would not work; 'so' would be correct only if the caus..."
+      "Revise the explanation to: \"The correct answer is 'because' because it introduces the reason. In this sentence order, 'so' would not work; 'so' would be correct only if the caus...",
+      "Relabel difficulty to easy or medium for Grade 2 W.2.1, or increase complexity to justify “hard” (e.g., multiple blanks across two sentences, more/closer distractors like becaus...",
+      "Relabel difficulty to Easy/Medium, or increase complexity to justify Hard (e.g., include multiple blanks with different connector types, remove the word bank, or require explana..."
     ],
     "CCSS.ELA-LITERACY.L.2.1.E|medium|msq": [
       "Clarify the stem to remove ambiguity, e.g., \"Select ALL the sentences in which every adjective and adverb is used correctly\" or \"Select ALL the sentences that use adjectives and..."
@@ -1418,6 +1578,109 @@
     ],
     "CCSS.ELA-LITERACY.RL.2.9|hard|msq": [
       "Revise option wording to match the labels used in the summaries. For example, change “Story A” to “Summary 1” and “Story B” to “Summary 2,” or add labels above each summary like..."
+    ],
+    "CCSS.ELA-LITERACY.L.2.1.B|hard|msq": [
+      "If a hard difficulty level is desired, increase complexity by: using a wider range of irregular plurals (e.g., children, feet, mice), including a sentence with two irregular plu...",
+      "Clarify the stem to remove ambiguity. For example: \"Which sentences have all irregular plural nouns used correctly? Select all that apply.\" Alternatively: \"Select the sentences ..."
+    ],
+    "CCSS.ELA-LITERACY.L.2.4.A|hard|msq": [
+      "Either relabel the difficulty to Easy/Medium or increase complexity to justify “Hard,” e.g., use subtler or mixed clues across two sentences, include at least one plausible but ..."
+    ],
+    "CCSS.ELA-LITERACY.RI.2.5|easy|msq": [
+      "Clarify selection instruction. Use either “Which two text features should you use? Select two.” or “Which text features should you use? Select all that apply.” (without stating ..."
+    ],
+    "CCSS.ELA-LITERACY.RL.2.5|hard|msq": [
+      "- Relabel difficulty from “hard” to “easy” or “medium.” - Refine Option B to match the passage text more closely (e.g., “The ending concludes the action when Farmer Bill cooks d..."
+    ],
+    "CCSS.ELA-LITERACY.SL.2.6|medium|msq": [
+      "Revise the explanation for Option D to: “Option D is a fragment because it is a dependent clause beginning with ‘Because’ and lacks an independent (main) clause. Although it has..."
+    ],
+    "CCSS.ELA-LITERACY.L.2.1.B|medium|fill-in": [
+      "To improve mastery alignment, require a small application step, such as: (a) provide two sentences—one needing singular and one plural—and have students supply each form; (b) as..."
+    ],
+    "CCSS.ELA-LITERACY.L.2.2.E|hard|fill-in": [
+      "- Align fields for autograding: include both “scent” and “Scent” (or make matching case-insensitive) so acceptable_answers matches the labeled answer. Example: acceptable_answer...",
+      "- Resolve answer key inconsistency: include lowercase \"elephant\" in acceptable_answers and/or make grading case-insensitive; ideally, accept only lowercase for this sentence con..."
+    ],
+    "CCSS.ELA-LITERACY.L.2.2.E|medium|fill-in": [
+      "Add \"2\" to acceptable_answers (and optionally remove \"two\" or adjust the prompt to accept words) so student inputs match the requested response format.",
+      "Align acceptable_answers with the input instruction. Either: (a) keep instruction “Type 1 or 2” and set acceptable_answers to [\"2\"] (and possibly \"1\" for completeness in other i..."
+    ],
+    "CCSS.ELA-LITERACY.L.2.4.A|hard|fill-in": [
+      "Relabel difficulty to Easy (or Medium at most), or to justify Hard, revise the sentence to use a less explicit clue (e.g., remove the word “break” and use indirect clues like “p...",
+      "Remove “upset” from acceptable_answers. Keep “angry” (primary) and “mad” (acceptable). Optionally add “very angry” if the platform allows multi-word responses."
+    ],
+    "CCSS.ELA-LITERACY.SL.2.1.A|medium|fill-in": [
+      "Convert to an application-based prompt to support mastery, e.g., present a short scenario with multiple choices of behaviors (raise hand and wait, shout out, talk over others) o...",
+      "Either (a) relabel difficulty to Easy, or (b) increase complexity to justify Medium—for example, present two behaviors (interrupt vs. raise hand/wait) and ask which follows disc..."
+    ],
+    "CCSS.ELA-LITERACY.L.2.4.B|hard|msq": [
+      "- Replace meta-language with a real Grade 2 prompt aligned to L.2.4.B. Example: “Select ALL words that mean ‘do again’.” Choices: retell, redo, replay, unhappy (last is incorrec...",
+      "- Replace meta option text with real, student-facing content that targets L.2.4.B. Example for MSQ: Provide several word pairs with prefixes (happy/unhappy, heat/reheat, kind/un..."
+    ],
+    "CCSS.ELA-LITERACY.L.2.4.E|medium|fill-in": [
+      "Fix the explanation wording: e.g., “The sentence says the bat was sleeping upside down in a cave, which refers to the animal. This matches definition 2 (‘a small animal that fli..."
+    ],
+    "CCSS.ELA-LITERACY.RI.2.2|hard|fill-in": [
+      "Remove “see well” from acceptable answers. Keep acceptable responses to forms of “see” that match the text’s meaning (e.g., “see,” possibly “see at all” if multi-word responses ...",
+      "To align with a 'hard' label, increase cognitive demand: remove the explicit term from paragraph 1 (describe the concept without naming 'hibernation'), or ask students to identi...",
+      "Relabel difficulty to Easy or Medium, or increase complexity to justify Hard (e.g., add more paragraphs with varied details, include closer distractors like “families,” “homes,”..."
+    ],
+    "CCSS.ELA-LITERACY.RI.2.5|hard|fill-in": [
+      "- Remove or mask the heading “Glossary.” Show only sample entries with bold headwords and definitions, or replace the heading with something neutral (e.g., “Words and meanings”)..."
+    ],
+    "CCSS.ELA-LITERACY.SL.2.2|medium|fill-in": [
+      "Resolve the scoring inconsistency: either remove “home” from acceptable_answers, or adjust the stem and/or word bank so both the prompt and scoring align (e.g., “build a home ca...",
+      "Either relabel as Easy or increase cognitive demand to fit Medium (e.g., ask for two details from the passage or require a brief description: “According to what you heard, what ...",
+      "Either relabel difficulty to Easy or increase complexity to fit Medium (e.g., remove the word bank, paraphrase the key detail, or ask for two related details).",
+      "Align acceptable_answers with the student-facing word bank and response format. For example, limit acceptable_answers to [\"sunny\"], or expand the word bank to include “fair”/“fa..."
+    ],
+    "CCSS.ELA-LITERACY.RI.2.6|easy|msq": [
+      "Resolve the singular/plural purpose mismatch. Options: (a) Keep multiple-select and revise the stem to “What purpose(s) does this text have? Select all that apply.” or “Which st...",
+      "Revise the stem for consistency: either remove “main” (e.g., “What is the author’s purpose…? Select all that apply.”) or make it single-select (e.g., “What is the author’s main ..."
+    ],
+    "CCSS.ELA-LITERACY.SL.2.1.C|medium|msq": [
+      "Revise at least one incorrect option to be a question that is NOT a clarifying question about the text (e.g., “When is recess?”, “Can I go to the bathroom?”, or “Can I read the ..."
+    ],
+    "CCSS.ELA-LITERACY.W.2.8|hard|msq": [
+      "Revise the stem to remove ambiguity, for example: “Which notes from the text help answer the question ‘How do Emperor Penguins stay warm?’ Select all that apply.” or “Which note..."
+    ],
+    "CCSS.ELA-LITERACY.RL.2.4|easy|msq": [
+      "Revise distractor D to a more plausible misconception, e.g., “They tell us how fast the dinosaur is running” or “They show the dinosaur is tiptoeing,” to better diagnose misunde..."
+    ],
+    "CCSS.ELA-LITERACY.RF.2.4.C|hard|fill-in": [
+      "Add the lowercase form to acceptable_answers (e.g., [\"scent\", \"Scent\", \"SCENT\"]) or ensure case-insensitive grading. Optionally accept minor whitespace variations to prevent acc..."
+    ],
+    "CCSS.ELA-LITERACY.L.2.3.A|medium|fill-in": [
+      "- Align acceptable_answers with the displayed answer and expected capitalization: include \"Dear\" (and consider accepting case-insensitive variants). - Optionally clarify accepta...",
+      "Either relabel the difficulty to Easy OR increase complexity to justify Medium (e.g., provide more choices in the Word Bank, remove the labels “Informal/Formal” and rely on cont..."
+    ],
+    "CCSS.ELA-LITERACY.L.2.5.A|medium|fill-in": [
+      "Tighten the prompt to signal the specific target word or constrain responses: - Add a word bank including “stale.” - Or cue the vocabulary explicitly (e.g., “Type the specific w..."
+    ],
+    "CCSS.ELA-LITERACY.RF.2.3.E|medium|fill-in": [
+      "Add lowercase \"great\" to acceptable_answers (and consider case-insensitive grading). Example: acceptable_answers: [\"great\", \"Great\"]. Optionally clarify the hint slightly: “This..."
+    ],
+    "CCSS.ELA-LITERACY.RL.2.3|medium|fill-in": [
+      "Improve the word bank to include more plausible alternatives that fit the sentence frame and test understanding (e.g., help | advice | instructions), or remove “from her sister”..."
+    ],
+    "CCSS.ELA-LITERACY.W.2.5|medium|fill-in": [
+      "- Align acceptable_answers with the listed answer to avoid grading issues (e.g., include both \"zoomed\" and \"Zoomed\", or enforce case-insensitive grading)."
+    ],
+    "CCSS.ELA-LITERACY.L.2.2.D|hard|msq": [
+      "Correct the D explanation to avoid implying the correct spelling uses -dg. For example: “D is incorrect because the misspelling ‘dodg’ omits the final ‘e’. With a short vowel so..."
+    ],
+    "CCSS.ELA-LITERACY.L.2.2.E|medium|msq": [
+      "Revise the correct answers to only include A (A beginning dictionary). Replace option B with a truly appropriate spelling resource (e.g., “A word wall,” “An online dictionary,” ..."
+    ],
+    "CCSS.ELA-LITERACY.SL.2.5|easy|msq": [
+      "- Replace placeholder options with concrete, age-appropriate examples aligned to SL.2.5 (e.g., “Record yourself reading your poem and share it,” “Add drawings to your story to s..."
+    ],
+    "CCSS.ELA-LITERACY.L.2.1.B|hard|fill-in": [
+      "Relabel the item to Easy or Medium for Grade 2, or increase challenge to justify “Hard” (e.g., use a less common irregular, include multiple blanks, or craft near-miss scaffoldi..."
+    ],
+    "CCSS.ELA-LITERACY.RI.2.4|medium|fill-in": [
+      "Revise acceptable_answers to remove “powerful.” Consider limiting acceptable synonyms to those that fit the sentence naturally and match the context clue (e.g., keep “strong,” “..."
     ]
   }
 }

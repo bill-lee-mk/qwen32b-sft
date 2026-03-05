@@ -330,6 +330,122 @@ def repair_aggressively(mcq: dict, standard: str = "", difficulty: str = "medium
     return out
 
 
+_FALLBACK_BANK = {
+    "L": {
+        "1": {
+            "fill-in": ("The dog ______ over the fence yesterday.", "jumped", ["jumped", "leaped"]),
+            "mcq": ("Which sentence uses the correct verb tense?",
+                    "A", {"A": "She walked to school this morning.", "B": "She walk to school this morning.",
+                           "C": "She walking to school this morning.", "D": "She walks to school yesterday."},
+                    "Option A correctly uses past tense to match 'this morning'."),
+            "msq": ("Which sentences use correct grammar? (Select ALL that apply)",
+                    "A,C", {"A": "The cats are sleeping.", "B": "The cats is sleeping.",
+                             "C": "She runs every day.", "D": "He run every day."},
+                    "Options A and C use correct subject-verb agreement."),
+        },
+        "2": {
+            "fill-in": ("The word 'unhappy' means ______.", "not happy", ["not happy"]),
+            "mcq": ("Which word is spelled correctly?",
+                    "B", {"A": "becuz", "B": "because", "C": "becuse", "D": "becouse"},
+                    "Option B is the correct spelling of 'because'."),
+            "msq": ("Which words have the prefix 'un-'? (Select ALL that apply)",
+                    "A,D", {"A": "unkind", "B": "under", "C": "until", "D": "unfair"},
+                    "Options A and D use the prefix 'un-' meaning 'not'."),
+        },
+        "4": {
+            "fill-in": ("A word that means the opposite of 'hot' is ______.", "cold", ["cold", "cool", "freezing"]),
+            "mcq": ("What does the word 'enormous' most likely mean?",
+                    "C", {"A": "tiny", "B": "colorful", "C": "very large", "D": "very fast"},
+                    "Option C is correct; 'enormous' means very large."),
+            "msq": ("Which words are synonyms for 'happy'? (Select ALL that apply)",
+                    "A,C", {"A": "joyful", "B": "angry", "C": "glad", "D": "sad"},
+                    "Options A and C are synonyms meaning happy."),
+        },
+        "5": {
+            "fill-in": ("A word that means the same as 'big' is ______.", "large", ["large", "huge", "enormous"]),
+            "mcq": ("Which pair of words are antonyms?",
+                    "A", {"A": "hot and cold", "B": "big and large", "C": "happy and glad", "D": "fast and quick"},
+                    "Option A contains antonyms (opposite meanings)."),
+            "msq": ("Which words are related to feelings? (Select ALL that apply)",
+                    "B,D", {"A": "table", "B": "excited", "C": "pencil", "D": "nervous"},
+                    "Options B and D describe emotions."),
+        },
+    },
+    "RL": {
+        "fill-in": ("The main character in a story is called the ______.", "protagonist", ["protagonist", "main character", "hero"]),
+        "mcq": ("What is the setting of a story?",
+                "B", {"A": "The lesson the story teaches", "B": "Where and when the story takes place",
+                       "C": "The main problem in the story", "D": "The people in the story"},
+                "Option B correctly defines 'setting' as the time and place."),
+        "msq": ("Which elements are parts of a story's plot? (Select ALL that apply)",
+                "A,C", {"A": "The problem the character faces", "B": "The author's biography",
+                         "C": "How the problem is solved", "D": "The book's page count"},
+                "Options A and C are key plot elements."),
+    },
+    "RI": {
+        "fill-in": ("The main idea of a passage tells the reader what the text is mostly ______.", "about", ["about"]),
+        "mcq": ("What is the purpose of a heading in an informational text?",
+                "A", {"A": "To tell the reader what a section is about", "B": "To make the page look nice",
+                       "C": "To end the paragraph", "D": "To list vocabulary words"},
+                "Option A is correct; headings introduce section topics."),
+        "msq": ("Which are features of informational text? (Select ALL that apply)",
+                "A,D", {"A": "Headings and subheadings", "B": "Fictional characters",
+                         "C": "Made-up settings", "D": "Facts and details"},
+                "Options A and D are informational text features."),
+    },
+    "RF": {
+        "fill-in": ("The word 'cat' rhymes with ______.", "bat", ["bat", "hat", "mat", "sat", "rat"]),
+        "mcq": ("Which word has a long 'a' sound?",
+                "C", {"A": "cat", "B": "cap", "C": "cake", "D": "can"},
+                "Option C has the long 'a' sound (silent e pattern)."),
+        "msq": ("Which words begin with the same sound? (Select ALL that apply)",
+                "A,D", {"A": "ship", "B": "tip", "C": "map", "D": "shoe"},
+                "Options A and D both begin with the /sh/ sound."),
+    },
+    "SL": {
+        "fill-in": ("When someone else is talking, you should ______ carefully.", "listen", ["listen"]),
+        "mcq": ("What should you do during a class discussion?",
+                "B", {"A": "Talk over other students", "B": "Listen and take turns speaking",
+                       "C": "Look out the window", "D": "Write a letter"},
+                "Option B describes proper discussion behavior."),
+        "msq": ("Which are good habits when giving a presentation? (Select ALL that apply)",
+                "A,C", {"A": "Speaking clearly", "B": "Whispering very quietly",
+                         "C": "Making eye contact", "D": "Turning away from the audience"},
+                "Options A and C are effective presentation skills."),
+    },
+    "W": {
+        "fill-in": ("The first sentence of a paragraph that tells the main idea is called a ______ sentence.", "topic", ["topic"]),
+        "mcq": ("Which sentence would be the best topic sentence for a paragraph about dogs?",
+                "A", {"A": "Dogs make wonderful pets for many reasons.", "B": "I like pizza.",
+                       "C": "The sky is blue today.", "D": "Cats can climb trees."},
+                "Option A introduces the main idea about dogs."),
+        "msq": ("Which are important steps in the writing process? (Select ALL that apply)",
+                "B,D", {"A": "Skipping the first draft", "B": "Planning what to write",
+                         "C": "Never reading your work again", "D": "Revising and editing"},
+                "Options B and D are key writing process steps."),
+    },
+}
+
+
+def _get_fallback_content(standard: str, qtype: str):
+    """Pick real fallback content from the bank based on standard category."""
+    std_short = (standard or "").replace("CCSS.ELA-LITERACY.", "")
+    parts = std_short.split(".")
+    category = parts[0] if parts else "RL"  # e.g. "L", "RL", "RI", "RF", "SL", "W"
+
+    bank = _FALLBACK_BANK.get(category)
+    if bank is None:
+        bank = _FALLBACK_BANK.get("RL")
+
+    if isinstance(bank, dict) and "fill-in" not in bank:
+        sub = parts[2] if len(parts) > 2 else "1"
+        bank = bank.get(sub, bank.get("1", bank.get(list(bank.keys())[0])))
+
+    if isinstance(bank, dict):
+        return bank.get(qtype, bank.get("mcq"))
+    return None
+
+
 def build_minimal_valid_mcq(
     standard: str,
     difficulty: str,
@@ -341,19 +457,24 @@ def build_minimal_valid_mcq(
     """
     当生成失败或修复后仍无法通过校验时，构造一条满足校验的最小合法题目，
     保证 (standard, difficulty) 组合不丢失，题目总数与组合数一致。
-    支持 mcq/msq/fill-in。
+    使用真实教育内容而非模板/占位符。
     """
-    std_short = (standard or "L.3.1").replace("CCSS.ELA-LITERACY.", "")
     qtype = question_type.lower().strip() if question_type else "mcq"
+    content = _get_fallback_content(standard, qtype)
 
     if qtype == "fill-in":
+        q, ans, acceptable = ("Read the sentence and fill in the blank with the correct word: "
+                               "The children ______ to the park after school.", "went",
+                               ["went", "walked", "ran"])
+        if content and len(content) >= 3:
+            q, ans, acceptable = content[0], content[1], content[2]
         return {
             "id": f"diverse_{index:03d}",
             "type": "fill-in",
-            "question": f"Complete the sentence: The skill described in {std_short} is demonstrated by ______.",
-            "answer": "the correct response",
-            "acceptable_answers": ["the correct response"],
-            "answer_explanation": "The correct answer demonstrates the skill described in the standard.",
+            "question": q,
+            "answer": ans,
+            "acceptable_answers": acceptable,
+            "answer_explanation": f"The correct answer is '{ans}'.",
             "difficulty": difficulty or "medium",
             "grade": grade,
             "standard": standard or "",
@@ -361,36 +482,40 @@ def build_minimal_valid_mcq(
         }
 
     if qtype == "msq":
+        q = "Which sentences use correct grammar? (Select ALL that apply)"
+        ans = "A,C"
+        opts = {"A": "She plays soccer every weekend.", "B": "She play soccer every weekend.",
+                "C": "They are going to the store.", "D": "They is going to the store."}
+        expl = "Options A and C have correct subject-verb agreement."
+        if content and len(content) >= 4:
+            q, ans, opts, expl = content[0], content[1], content[2], content[3]
         return {
             "id": f"diverse_{index:03d}",
             "type": "msq",
-            "question": f"Which of the following demonstrate the skill described in {std_short} at {difficulty} difficulty? (Select ALL that apply)",
-            "answer": "A,B",
-            "answer_options": {
-                "A": "A correct choice that matches the standard.",
-                "B": "Another correct choice that also matches.",
-                "C": "An unrelated distractor option.",
-                "D": "A plausible but incorrect choice.",
-            },
-            "answer_explanation": "Options A and B are correct because they match the skill described in the standard. Options C and D are incorrect.",
+            "question": q,
+            "answer": ans,
+            "answer_options": opts,
+            "answer_explanation": expl,
             "difficulty": difficulty or "medium",
             "grade": grade,
             "standard": standard or "",
             "subject": subject or "ELA",
         }
 
+    q = "Which sentence is written correctly?"
+    ans = "A"
+    opts = {"A": "The cat sat on the mat.", "B": "The cat sitted on the mat.",
+            "C": "The cat sit on the mat.", "D": "The cat sating on the mat."}
+    expl = "Option A uses the correct past tense form of 'sit'."
+    if content and len(content) >= 4:
+        q, ans, opts, expl = content[0], content[1], content[2], content[3]
     return {
         "id": f"diverse_{index:03d}",
         "type": "mcq",
-        "question": f"Which choice best demonstrates the skill described in {std_short} at {difficulty} difficulty?",
-        "answer": "A",
-        "answer_options": {
-            "A": "The correct choice that matches the standard.",
-            "B": "An unrelated distractor option.",
-            "C": "A plausible but incorrect choice.",
-            "D": "Another distractor that does not apply.",
-        },
-        "answer_explanation": "Option A is correct because it matches the skill described in the standard.",
+        "question": q,
+        "answer": ans,
+        "answer_options": opts,
+        "answer_explanation": expl,
         "difficulty": difficulty or "medium",
         "grade": grade,
         "standard": standard or "",

@@ -19,9 +19,9 @@ _EVALUATOR_FALLBACK_URL = "https://api.inceptbench.com/evaluate"
 def _get_evaluator_endpoints() -> List[Tuple[str, str]]:
     """
     解析多套 (url, token) 配置，全部从环境变量读取。
-    优先使用 EVALUATOR_TOKEN（api.inceptbench.com，速度更快）；
-    INCEPTBENCH_API_KEY/INCEPTBENCH_TOKEN 作为备用。
-    可通过 EVALUATOR_PRIMARY=inceptlabs 强制主端点优先。
+    默认优先使用 INCEPTBENCH_API_KEY（inceptlabs.ai，更稳定）；
+    EVALUATOR_TOKEN (api.inceptbench.com) 作为备用。
+    可通过 EVALUATOR_PRIMARY=inceptbench 强制 api.inceptbench.com 优先。
     """
     def _pair(url: str, token: Optional[str]) -> Optional[Tuple[str, str]]:
         if not token or not token.strip():
@@ -36,18 +36,18 @@ def _get_evaluator_endpoints() -> List[Tuple[str, str]]:
     tok_main = os.environ.get("INCEPTBENCH_API_KEY") or os.environ.get("INCEPTBENCH_TOKEN")
     p_main = _pair(_PRIMARY_URL, tok_main)
 
-    prefer_main = (os.environ.get("EVALUATOR_PRIMARY", "").lower() == "inceptlabs")
+    prefer_eval = (os.environ.get("EVALUATOR_PRIMARY", "").lower() == "inceptbench")
 
-    if prefer_main:
-        if p_main:
-            pairs.append(p_main)
-        if p_eval and p_eval not in pairs:
-            pairs.append(p_eval)
-    else:
+    if prefer_eval:
         if p_eval:
             pairs.append(p_eval)
         if p_main and p_main not in pairs:
             pairs.append(p_main)
+    else:
+        if p_main:
+            pairs.append(p_main)
+        if p_eval and p_eval not in pairs:
+            pairs.append(p_eval)
 
     return pairs
 
@@ -383,6 +383,7 @@ class InceptBenchEvaluator:
         last_err: Dict[str, Any] = {}
 
         for attempt in range(max_retries + 1):
+            any_retryable = False
             for idx, (url, token) in enumerate(self.endpoints):
                 result = _do_evaluate_catch(url, token, payload, self.timeout)
                 if result.get("status") != "error":
@@ -393,18 +394,15 @@ class InceptBenchEvaluator:
                     "timeout", "timed out", "connection", "reset",
                     "500", "502", "503", "504", "429",
                     "could not save", "save evaluation", "internal",
+                    "insufficient_quota", "quota",
                 ))
                 if is_retryable:
-                    if attempt < max_retries:
-                        import time as _time
-                        wait = min(10 * (attempt + 1), 60)
-                        _time.sleep(wait)
-                        break
-                    return last_err
-                if idx < len(self.endpoints) - 1:
-                    continue
+                    any_retryable = True
+            if not any_retryable:
                 return last_err
-            else:
-                return last_err
+            if attempt < max_retries:
+                import time as _time
+                wait = min(10 * (attempt + 1), 60)
+                _time.sleep(wait)
 
         return last_err

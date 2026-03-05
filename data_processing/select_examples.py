@@ -83,7 +83,7 @@ def _is_placeholder(mcq: Dict) -> bool:
     q = str(mcq.get("question", "")).lower()
     opts = mcq.get("answer_options", {})
     opt_vals = " ".join(str(v).lower() for v in opts.values()) if isinstance(opts, dict) else ""
-    placeholder_q = "demonstrate the skill" in q or "described in" in q and "select all" in q
+    placeholder_q = ("demonstrate the skill" in q) or ("skill described in" in q and "select all" in q)
     placeholder_opts = ("correct choice" in opt_vals and "distractor" in opt_vals) or \
                        ("matches the standard" in opt_vals) or \
                        (opt_vals.count("correct") >= 2 and opt_vals.count("incorrect") >= 1)
