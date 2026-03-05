@@ -78,10 +78,24 @@ def extract_json_from_text(text: str) -> Optional[Dict]:
     return None
 
 
+def _is_placeholder(mcq: Dict) -> bool:
+    """检测模板/占位题：模型未生成真实内容，而是输出了元描述。"""
+    q = str(mcq.get("question", "")).lower()
+    opts = mcq.get("answer_options", {})
+    opt_vals = " ".join(str(v).lower() for v in opts.values()) if isinstance(opts, dict) else ""
+    placeholder_q = "demonstrate the skill" in q or "described in" in q and "select all" in q
+    placeholder_opts = ("correct choice" in opt_vals and "distractor" in opt_vals) or \
+                       ("matches the standard" in opt_vals) or \
+                       (opt_vals.count("correct") >= 2 and opt_vals.count("incorrect") >= 1)
+    return placeholder_q or placeholder_opts
+
+
 def is_valid_mcq(mcq: Dict) -> Tuple[bool, str]:
     """校验题目是否符合 InceptBench 要求（支持 mcq/msq/fill-in）"""
     if not isinstance(mcq, dict):
         return False, "not a dict"
+    if _is_placeholder(mcq):
+        return False, "placeholder/template question detected (no real content)"
     qtype = str(mcq.get("type", "mcq")).lower().strip()
 
     if qtype == "fill-in":
