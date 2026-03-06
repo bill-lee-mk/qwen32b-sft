@@ -86,7 +86,9 @@ def _is_placeholder(mcq: Dict) -> bool:
     placeholder_q = ("demonstrate the skill" in q) or ("skill described in" in q and "select all" in q)
     placeholder_opts = ("correct choice" in opt_vals and "distractor" in opt_vals) or \
                        ("matches the standard" in opt_vals) or \
-                       (opt_vals.count("correct") >= 2 and opt_vals.count("incorrect") >= 1)
+                       ("a correct" in opt_vals and "an incorrect" in opt_vals) or \
+                       ("correct answer" in opt_vals and "incorrect answer" in opt_vals and
+                        opt_vals.count("correct answer") >= 2)
     return placeholder_q or placeholder_opts
 
 
