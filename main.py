@@ -1175,7 +1175,9 @@ def main():
                 _eval_grade = getattr(args, "grade", None)
                 if not _eval_grade and args.input:
                     import re as _re
-                    _m = _re.search(r'(?:mcqs|results)_(\d+)_', os.path.basename(args.input))
+                    _m = _re.search(r'_(\d+)_[A-Za-z]+\.json', os.path.basename(args.input))
+                    if not _m:
+                        _m = _re.search(r'(?:mcqs|results)_(\d+)_', os.path.basename(args.input))
                     if _m:
                         _eval_grade = _m.group(1)
                 _eval_grade = _eval_grade or "?"

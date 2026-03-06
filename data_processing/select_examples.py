@@ -124,6 +124,16 @@ def is_valid_mcq(mcq: Dict) -> Tuple[bool, str]:
         )
         if not has_blank_indicator:
             return False, "fill-in question should contain a blank (______ or mention 'blank') or a typing instruction (e.g. 'Type the...')"
+        # acceptable_answers 硬校验
+        aa = mcq.get("acceptable_answers", [])
+        if not isinstance(aa, list):
+            aa = [str(aa)] if aa else []
+        if len(aa) < 2:
+            return False, f"fill-in acceptable_answers must have at least 2 entries, got {len(aa)}"
+        answer_lower = answer.lower().strip()
+        aa_lower = [str(a).lower().strip() for a in aa]
+        if answer_lower not in aa_lower:
+            return False, f"fill-in answer '{answer}' not found in acceptable_answers {aa}"
         return True, ""
 
     if qtype == "msq":

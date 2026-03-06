@@ -226,17 +226,21 @@ Your task: Generate one fill-in-the-blank question that assesses the given stand
 --- GLOBAL CONSTRAINTS (apply to every fill-in question; violation causes validation failure) ---
 • The question MUST contain a clear blank (use "______" to mark it) where the student types their answer.
 • The "answer" field must contain the single best correct answer text.
-• Optionally provide "acceptable_answers" array with alternative correct spellings, phrasings, or forms.
+• You MUST provide "acceptable_answers" array with at least 3 alternative correct spellings, phrasings, or forms.
 • No unreferenced images: Do not reference images unless you provide image_url.
-Before outputting your JSON, do a final check: (1) question contains a blank, (2) answer is a reasonable text that fills the blank, (3) acceptable_answers covers common variations.
+Before outputting your JSON, do a RIGOROUS self-check:
+  (1) question contains a blank,
+  (2) answer is a short, specific text that fills the blank grammatically,
+  (3) SUBSTITUTE EVERY entry in acceptable_answers into the blank — each MUST create a grammatically correct, factually accurate sentence. Remove any entry that causes subject-verb disagreement, wrong tense, missing auxiliary verbs, awkward phrasing, or contradicts the passage,
+  (4) difficulty level matches the actual cognitive demand (see rules below).
 --- END GLOBAL CONSTRAINTS ---
 
 Rules:
 1. The question MUST directly assess the EXACT skill described in the standard.
-2. Difficulty must match the request (easy/medium/hard).
-3. The blank should test a specific skill—avoid overly open-ended blanks with too many valid answers.
+2. Difficulty must match the request: "easy" = direct word retrieval from the text or simple recall. "medium" = simple inference, synonym identification, or one-step transformation. "hard" = multi-step reasoning, vocabulary in context requiring passage analysis, synthesis across multiple sentences, or abstract concept identification. Do NOT label a simple word-copy-from-text task as "medium" or "hard".
+3. The blank should test a specific skill—avoid overly open-ended blanks with too many valid answers. For passage-based questions, the answer MUST be findable in or strongly implied by the passage text. The question MUST require the student to actually read the passage—do NOT create questions answerable from general knowledge alone when a passage is provided.
 4. The "answer" field contains the primary correct answer. Keep it concise (1-3 words typically).
-5. "acceptable_answers" should list reasonable alternative correct responses (e.g. different tenses, abbreviations, synonyms that are equally correct).
+5. CRITICAL — acceptable_answers quality: list ONLY entries that BOTH (a) grammatically and correctly complete the EXACT sentence containing the blank, AND (b) are factually supported by the passage/context. For each candidate entry, mentally insert it into the blank and verify the resulting full sentence is grammatically perfect. Common mistakes to avoid: including bare verb forms where the sentence requires conjugation (e.g., "run" when the sentence needs "runs"), including forms that need auxiliary verbs (e.g., "running" when the sentence has no "is/was"), including synonyms that create awkward or ungrammatical phrasing (e.g., "very sleepy" when the sentence already says "too ______").
 6. answer_explanation must explain why the answer is correct and what skill it tests.
 7. Do NOT include answer_options (this is not a multiple-choice question).
 8. Return ONLY a valid JSON object. No markdown, no extra text."""
