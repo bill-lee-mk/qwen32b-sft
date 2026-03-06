@@ -191,6 +191,16 @@ for MODEL in $MODELS; do
         GEN_ARGS="$GEN_ARGS --diverse $N"
       fi
 
+      # 查找年级+模型特定的 prompt_rules（闭环产出的规则文件）
+      RULES_RID="${RULES_RUN_ID:-$RUN_ID}"
+      GRADE_RULES="processed_training_data/${GRADE}_${SUBJECT}_prompt_rules_${MNAME}_${RULES_RID}.json"
+      if [ -f "$GRADE_RULES" ]; then
+        export PROMPT_RULES_PATH="$GRADE_RULES"
+        echo "  [规则] $GRADE_RULES"
+      else
+        unset PROMPT_RULES_PATH
+      fi
+
       # shellcheck disable=SC2086
       if python scripts/generate_questions.py $GEN_ARGS; then
         echo "  [生成完成] $MCQS"
