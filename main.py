@@ -152,6 +152,7 @@ def _run_closed_loop_one_model(project_root, model, args, use_model_specific_pat
         prompt_rules_path = os.path.join(project_root, "processed_training_data", "prompt_rules.json")
     target = getattr(args, "pass_rate_target", 95.0)
     pilot_batch = getattr(args, "pilot_batch", None)
+    sample_size = getattr(args, "sample_size", None)
     max_rounds = getattr(args, "max_rounds", 10)
     start_round = getattr(args, "start_round", 1) or 1
     patience = getattr(args, "patience", 5)
@@ -314,7 +315,8 @@ def _run_closed_loop_one_model(project_root, model, args, use_model_specific_pat
                 grade = getattr(args, "grade", "3")
                 subject = getattr(args, "subject", "ELA")
                 qtype = getattr(args, "question_type", "all") or "all"
-                gen_mode = ["--diverse", str(pilot_batch)] if pilot_batch else ["--all-combinations"]
+                _gen_n = sample_size or pilot_batch
+                gen_mode = ["--diverse", str(_gen_n)] if _gen_n else ["--all-combinations"]
                 gen_cmd = [sys.executable, os.path.join(project_root, "scripts", "generate_questions.py"),
                            "--model", model, *gen_mode, "--output", mcqs_path,
                            "--examples", examples_path, "--grade", grade, "--subject", subject,
@@ -892,6 +894,7 @@ def main():
     loop_parser.add_argument("--log-file", nargs="?", default=None, const=None, help="综合 JSON 日志路径；不传时用默认 evaluation_output/log_237_<model>.json；传路径则用该路径")
     loop_parser.add_argument("--run-id", default=None, help="运行批次 ID；指定后 examples/prompt_rules/mcqs/results 均加此后缀，不同批次互不覆盖（如 --run-id exp1）")
     loop_parser.add_argument("--pilot-batch", type=int, default=None, help="试水批量：先用小批量跑闭环积累范例和规则，最后自动全量生成（如 --pilot-batch 50 表示每轮试水 50 题）；不设则每轮全量")
+    loop_parser.add_argument("--sample-size", type=int, default=None, help="每轮抽样题数（--diverse N），不触发全量生成；不设则全量覆盖所有标准×难度组合")
     loop_parser.add_argument("--grade", default="3", help="年级（1-12），默认 3")
     loop_parser.add_argument("--subject", default="ELA", help="学科缩写（ELA, MATH, SCI, USHIST 等），默认 ELA")
     loop_parser.add_argument("--type", default="all", dest="question_type", help="题型：all / mcq / msq / fill-in（逗号分隔多选，如 msq,fill-in；默认 all = 同时生成三种题型）")

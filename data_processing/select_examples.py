@@ -134,6 +134,38 @@ def is_valid_mcq(mcq: Dict) -> Tuple[bool, str]:
         aa_lower = [str(a).lower().strip() for a in aa]
         if answer_lower not in aa_lower:
             return False, f"fill-in answer '{answer}' not found in acceptable_answers {aa}"
+
+        # --- 硬校验: AA-passage 一致性 ---
+        # 当问题要求 "from the text/passage/story" 时，AA 条目必须出现在 passage 中
+        _from_text_cues = ["from the text", "from the passage", "from the story",
+                           "from the paragraph", "word from the"]
+        requires_text_word = any(cue in q_lower for cue in _from_text_cues)
+        if requires_text_word:
+            passage_text = ""
+            for line in question.split("\n"):
+                stripped = line.strip()
+                if stripped and "______" not in stripped and not stripped.startswith("**") and "type " not in stripped.lower():
+                    passage_text += " " + stripped.lower()
+            if len(passage_text) > 30:
+                for entry in aa:
+                    entry_clean = str(entry).strip().lower()
+                    if entry_clean and entry_clean not in passage_text:
+                        return False, f"fill-in AA entry '{entry}' not found in passage text (question requires word from text)"
+
+        # --- 硬校验: 引用 passage 必须存在 ---
+        _ref_cues = ["based on the text", "based on the passage", "according to the text",
+                      "according to the passage", "read the passage", "read the text",
+                      "read the story", "read the paragraph"]
+        refs_passage = any(cue in q_lower for cue in _ref_cues)
+        if refs_passage:
+            non_instruction_text = ""
+            for line in question.split("\n"):
+                stripped = line.strip()
+                if stripped and "______" not in stripped and not stripped.startswith("**"):
+                    non_instruction_text += stripped + " "
+            if len(non_instruction_text.split()) < 20:
+                return False, "fill-in references a text/passage but no substantial passage found in question (need >=20 words)"
+
         return True, ""
 
     if qtype == "msq":

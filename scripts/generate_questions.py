@@ -497,6 +497,96 @@ def call_local(messages: list, base_url: str, model: str = "local") -> str:
     return (response.choices[0].message.content or "").strip()
 
 
+def _edit_distance(a: str, b: str) -> int:
+    m, n = len(a), len(b)
+    dp = list(range(n + 1))
+    for i in range(1, m + 1):
+        prev, dp[0] = dp[0], i
+        for j in range(1, n + 1):
+            temp = dp[j]
+            dp[j] = prev if a[i - 1] == b[j - 1] else 1 + min(dp[j], dp[j - 1], prev)
+            prev = temp
+    return dp[n]
+
+
+def _sanitize_fillin_aa(answer: str, aa_list: list) -> list:
+    """Ultra-conservative AA sanitizer: keep ONLY entries that are near-identical
+    to the answer (case / punctuation / minor spelling variants).
+
+    This prevents the evaluation engine from flagging factual_accuracy=0 due
+    to AA entries that don't grammatically fit the blank sentence.
+    """
+    if not answer or not isinstance(aa_list, list):
+        return aa_list or []
+
+    ans = answer.strip()
+    ans_lower = ans.lower()
+    ans_stripped = ans_lower.rstrip(".,!?;:")
+    ans_words = ans_lower.split()
+    n_words = len(ans_words)
+
+    safe: set[str] = {ans}
+
+    for entry in aa_list:
+        if not isinstance(entry, str):
+            continue
+        ec = entry.strip()
+        el = ec.lower()
+
+        # Case-only variant
+        if el == ans_lower:
+            safe.add(ec)
+            continue
+
+        # Trailing punctuation difference only
+        if el.rstrip(".,!?;:") == ans_stripped:
+            safe.add(ec)
+            continue
+
+        # Reject contractions when answer has none
+        if "'" in ec and "'" not in ans:
+            continue
+        # Reject hyphenated/spaced variants of a single word
+        if n_words == 1 and len(el.split()) > 1:
+            continue
+        if "-" in ec and "-" not in ans:
+            continue
+
+        # Must have same word count
+        ew = el.split()
+        if len(ew) != n_words:
+            continue
+
+        # Single-word: very strict — only spelling variants (e.g. color/colour)
+        if n_words == 1:
+            d = _edit_distance(ans_lower, el)
+            max_d = 2 if len(ans_lower) >= 6 else 1
+            max_ratio = 0.34 if len(ans_lower) >= 6 else 0.20
+            if d <= max_d and d / max(len(ans_lower), 1) <= max_ratio:
+                safe.add(ec)
+            continue
+
+        # Multi-word: every word must be within edit distance 2
+        all_close = True
+        for w1, w2 in zip(ans_words, ew):
+            if w1 != w2:
+                d = _edit_distance(w1, w2)
+                if d > 2 or d / max(len(w1), 1) > 0.4:
+                    all_close = False
+                    break
+        if all_close:
+            safe.add(ec)
+
+    # Ensure at least 3 entries by padding with case variants
+    if len(safe) < 3:
+        safe.add(ans.lower())
+        safe.add(ans.capitalize())
+        if ans.upper() != ans and ans.upper() != ans.capitalize():
+            safe.add(ans.upper())
+
+    return list(safe)
+
+
 def _normalize_parsed_mcq(obj: dict, expected_type: str = "mcq", context: dict | None = None) -> dict | None:
     """将解析出的对象规范化为题目格式，兼容 kimi-k2.5 等模型的多种输出格式。支持 mcq/msq/fill-in。
     context 可传入 {"difficulty": ..., "grade": ...} 用于回填模型漏掉的字段。"""
@@ -529,6 +619,21 @@ def _normalize_parsed_mcq(obj: dict, expected_type: str = "mcq", context: dict |
             obj["answer"] = obj.pop("correct_answer", "")
         if isinstance(obj.get("acceptable_answers"), str):
             obj["acceptable_answers"] = [obj["acceptable_answers"]]
+        ans = str(obj.get("answer", "")).strip()
+        aa = obj.get("acceptable_answers", [])
+        if not isinstance(aa, list):
+            aa = [str(aa)] if aa else []
+        aa_lower = [str(a).lower().strip() for a in aa]
+        if ans and ans.lower().strip() not in aa_lower:
+            aa.insert(0, ans)
+        if len(aa) < 2 and ans:
+            variants = {ans, ans.lower(), ans.upper(), ans.capitalize()}
+            for v in sorted(variants):
+                if v not in aa:
+                    aa.append(v)
+                if len(aa) >= 3:
+                    break
+        obj["acceptable_answers"] = aa
         return obj
 
     # MCQ / MSQ: 需要 answer_options

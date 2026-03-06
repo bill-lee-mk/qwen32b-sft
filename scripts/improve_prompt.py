@@ -79,6 +79,97 @@ def extract_failure_feedback(
     return out
 
 
+def extract_dimension_feedback(
+    results_path: str,
+    mcqs_path: str,
+    threshold: float = 0.85,
+) -> list[dict]:
+    """
+    解析维度级分数，返回每个失败题的详细维度信息。
+    返回 [{"standard", "difficulty", "qtype", "overall_score",
+           "failed_dims": {"dim_name": {"score": float, "reasoning": str}}}]
+    """
+    with open(results_path, "r", encoding="utf-8") as f:
+        results = json.load(f)
+    with open(mcqs_path, "r", encoding="utf-8") as f:
+        mcqs = json.load(f)
+    result_list = results.get("results") or []
+    items = mcqs if isinstance(mcqs, list) else [mcqs]
+    out = []
+    for i in range(min(len(items), len(result_list))):
+        score = _score_from_result(result_list[i])
+        if score is not None and score >= threshold:
+            continue
+        m = items[i]
+        failed_dims = {}
+        evals = result_list[i].get("evaluations") or {}
+        if isinstance(evals, dict):
+            for _key, ev in evals.items():
+                inc = ev.get("inceptbench_new_evaluation") or {}
+                if not isinstance(inc, dict):
+                    continue
+                for dim_name, dim_data in inc.items():
+                    if dim_name == "overall" or not isinstance(dim_data, dict):
+                        continue
+                    ds = dim_data.get("score")
+                    if ds is not None and isinstance(ds, (int, float)) and ds < threshold:
+                        failed_dims[dim_name] = {
+                            "score": ds,
+                            "reasoning": (dim_data.get("reasoning") or "")[:400],
+                        }
+                break
+        if failed_dims:
+            out.append({
+                "standard": m.get("standard", "unknown"),
+                "difficulty": m.get("difficulty", "medium"),
+                "qtype": m.get("type", "mcq"),
+                "overall_score": score,
+                "failed_dims": failed_dims,
+            })
+    return out
+
+
+# 维度级规则：当某维度低分时，根据 reasoning 中的关键词自动匹配精准规则
+_DIMENSION_THEME_RULES: dict[str, list[tuple[list[str], str]]] = {
+    "factual_accuracy": [
+        (["acceptable_answers", "contradict", "conflict", "inconsisten", "mismatch"],
+         "CRITICAL for fill-in: Every entry in acceptable_answers must be consistent with what the question asks AND what answer_explanation states. Perform a FINAL CONSISTENCY CHECK before outputting JSON."),
+        (["not in the text", "not present", "not in the passage", "not in the story", "synonyms not"],
+         "For fill-in: If the question says 'from the text/passage/story', acceptable_answers must ONLY contain words that appear VERBATIM in the text. Do NOT add synonyms not found in the passage."),
+        (["overstate", "always", "never", "incorrectly claims", "inaccurately", "misrepresent"],
+         "For fill-in: answer_explanation must be factually precise. Do NOT overstate grammar rules. Do NOT claim the answer is the ONLY correct response while listing alternatives."),
+        (["capitali", "spacing", "incorrect form", "double-space"],
+         "For fill-in: Every acceptable_answers entry must use correct capitalization and spacing for its position in the sentence. Do NOT include entries with wrong case or extra spaces."),
+    ],
+    "educational_accuracy": [
+        (["trivial", "copy", "already visible", "pre-attempt"],
+         "For fill-in: The answer must NOT be directly copyable from the question text. The student should need to apply a skill to produce the answer."),
+        (["not the specific", "not accurate", "does not match"],
+         "For fill-in: Ensure the educational content precisely matches the skill described in the standard. Do not test a related but different skill."),
+    ],
+    "difficulty_alignment": [
+        (["labeled", "hard", "but", "straightforward", "low", "cognitive"],
+         "For fill-in hard: The task MUST genuinely require multi-step reasoning, inference, or synthesis. If a student can answer by simply locating a word in the passage, it is NOT hard."),
+        (["labeled", "medium", "but", "simple"],
+         "For fill-in medium: The task should require at least one inference step beyond direct word retrieval from text."),
+    ],
+    "clarity_precision": [
+        (["ambig", "unclear", "confus"],
+         "For fill-in: Ensure the question and blank are unambiguous. The student should clearly understand what to type."),
+        (["duplicate", "already present", "repeat"],
+         "For fill-in punctuation questions: Do NOT require the student to retype a word already visible in the question. The blank should test ONLY the punctuation or corrected form."),
+    ],
+    "passage_reference": [
+        (["not provided", "external", "unstated"],
+         "For fill-in: If the question references a text/passage, the FULL text MUST be included in the question field. Do NOT reference unstated texts."),
+    ],
+    "mastery_learning_alignment": [
+        (["not aligned", "does not assess", "different skill"],
+         "For fill-in: The question MUST directly assess the EXACT skill described in the standard, not a related or broader skill."),
+    ],
+}
+
+
 # 关键词 → 全局规则文案（当失败反馈中出现该主题时，加入这条全局规则，适用所有题目）
 _GLOBAL_THEME_RULES = [
     (["distractor", "non-word", "implausible", "plausible"], "Use only plausible, real-word distractors; avoid non-words or invented forms."),
@@ -148,10 +239,11 @@ def aggregate_rules(
     max_per_standard: int = 2,
     max_per_standard_difficulty: int = 3,
     only_targeted_keys: set[tuple[str, str]] | None = None,
+    dimension_feedback: list[dict] | None = None,
 ) -> tuple[list[str], dict[str, list[str]], dict[str, list[str]]]:
     """
     将 (std, diff, qtype, suggested_improvements, reasoning) 聚合成：
-    - global_rules: 列表（来自所有失败反馈的主题）
+    - global_rules: 列表（来自所有失败反馈的主题 + 维度级规则）
     - by_standard / by_standard_difficulty_type: key 为 'std|diff|type'，
       仅当 only_targeted_keys 为 None 或 (std,diff) 在 only_targeted_keys 时加入
     """
@@ -179,7 +271,7 @@ def aggregate_rules(
             if snip not in by_standard_difficulty[key]:
                 by_standard_difficulty[key].append(snip)
 
-    # 全局规则：按主题匹配
+    # 全局规则：按主题匹配（原有逻辑）
     snip_lower = " ".join(all_snippets).lower()
     for keywords, rule_text in _GLOBAL_THEME_RULES:
         if any(kw in snip_lower for kw in keywords) and rule_text not in global_rules:
@@ -187,13 +279,41 @@ def aggregate_rules(
             if len(global_rules) >= max_global:
                 break
 
+    # --- 维度级规则：从 dimension_feedback 中按维度+关键词精准匹配 ---
+    if dimension_feedback:
+        dim_reasoning_pool: dict[str, list[str]] = defaultdict(list)
+        for item in dimension_feedback:
+            for dim_name, dim_info in item.get("failed_dims", {}).items():
+                reasoning = dim_info.get("reasoning", "")
+                if reasoning:
+                    dim_reasoning_pool[dim_name].append(reasoning.lower())
+                std = item.get("standard", "unknown")
+                diff = item.get("difficulty", "medium")
+                qtype = item.get("qtype", "mcq")
+                key = f"{std}|{diff}|{qtype}"
+                if only_targeted_keys is None or (std, diff) in only_targeted_keys:
+                    dim_rule_snip = _normalize_snippet(
+                        f"[{dim_name}] {reasoning}", 200
+                    )
+                    if dim_rule_snip not in by_standard_difficulty.get(key, []):
+                        by_standard_difficulty[key] = by_standard_difficulty.get(key, [])
+                        by_standard_difficulty[key].append(dim_rule_snip)
+
+        for dim_name, reasoning_list in dim_reasoning_pool.items():
+            combined = " ".join(reasoning_list)
+            dim_rules = _DIMENSION_THEME_RULES.get(dim_name, [])
+            for keywords, rule_text in dim_rules:
+                if any(kw in combined for kw in keywords):
+                    if rule_text not in global_rules:
+                        global_rules.append(rule_text)
+
     # 标准级规则：按失败标准注入（置于列表前部，优先保留）
     for std in failed_standards:
         for rule in _STANDARD_SPECIFIC_RULES.get(std, []):
             if rule not in by_standard[std]:
                 by_standard[std].insert(0, rule)
 
-    # 截断（by_standard 已放宽，max_per_standard 建议≥4 以容纳标准规则+反馈）
+    # 截断
     for k in list(by_standard.keys()):
         by_standard[k] = by_standard[k][:max_per_standard]
     for k in list(by_standard_difficulty.keys()):
@@ -270,6 +390,8 @@ def run(
     if not feedback:
         return {"updated": False, "reason": "no_failures", "feedback_count": 0}
 
+    dim_feedback = extract_dimension_feedback(results_path, mcqs_path, threshold)
+
     only_targeted_keys = load_example_keys(examples_path) if examples_path else None
 
     global_rules, by_std, by_key = aggregate_rules(
@@ -278,6 +400,7 @@ def run(
         max_per_standard=max_per_standard,
         max_per_standard_difficulty=max_per_standard_difficulty,
         only_targeted_keys=only_targeted_keys,
+        dimension_feedback=dim_feedback,
     )
     merged = merge_into_prompt_rules(
         global_rules, by_std, by_key,

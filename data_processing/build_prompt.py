@@ -241,13 +241,20 @@ Rules:
 3. The blank should test a specific skill—avoid overly open-ended blanks with too many valid answers. For passage-based questions, the answer MUST be findable in or strongly implied by the passage text. The question MUST require the student to actually read the passage—do NOT create questions answerable from general knowledge alone when a passage is provided.
 4. The "answer" field contains the primary correct answer. Keep it concise (1-3 words typically).
 5. CRITICAL — acceptable_answers quality: list ONLY entries that BOTH (a) grammatically and correctly complete the EXACT sentence containing the blank, AND (b) are factually supported by the passage/context. For each candidate entry, mentally insert it into the blank and verify the resulting full sentence is grammatically perfect. Common mistakes to avoid: including bare verb forms where the sentence requires conjugation (e.g., "run" when the sentence needs "runs"), including forms that need auxiliary verbs (e.g., "running" when the sentence has no "is/was"), including synonyms that create awkward or ungrammatical phrasing (e.g., "very sleepy" when the sentence already says "too ______").
-6. answer_explanation must explain why the answer is correct and what skill it tests.
-7. Do NOT include answer_options (this is not a multiple-choice question).
-8. Return ONLY a valid JSON object. No markdown, no extra text."""
+6. CRITICAL — acceptable_answers CONSISTENCY: Every entry in acceptable_answers MUST be consistent with what the question asks AND what answer_explanation states. Common fatal mistakes:
+   (a) If the question says "type a word FROM THE TEXT/PASSAGE/STORY", then acceptable_answers must ONLY contain words that literally appear in the text — do NOT add synonyms not in the passage.
+   (b) If answer_explanation says the answer is correct for a specific reason, do NOT include acceptable_answers entries that violate that reason (e.g., explanation says "the passage uses X to show Y" but AA includes "Z" which doesn't show Y).
+   (c) Do NOT include overly broad alternatives (e.g., "shoes" when the passage specifically says "boots") or incorrect synonyms.
+   (d) The answer field value MUST always appear in acceptable_answers.
+7. answer_explanation must be precise and factually accurate — do NOT overstate rules (avoid "always", "must always", "never" unless the rule is truly absolute). Do NOT claim the answer is the only correct option while simultaneously listing alternative correct answers in acceptable_answers. Explain specifically why the answer is correct referencing the passage/context.
+8. If your question references "the text", "the passage", "the paragraph", or "the story", the FULL text MUST be included in the question field. Do NOT reference any text that is not provided within the question itself.
+9. For punctuation/mechanics questions (commas, quotation marks, capitalization): design the blank so it tests the PUNCTUATION SKILL, not word retrieval. Do NOT make the student retype a word already visible in the question — instead, have the blank cover ONLY the punctuation mark(s) or the corrected form. Ensure the answer does NOT duplicate words that appear immediately before the blank.
+10. Do NOT include answer_options (this is not a multiple-choice question).
+11. Return ONLY a valid JSON object. No markdown, no extra text."""
     if include_think_chain:
-        base += "\n\n9. You may optionally include <think>...</think> before the JSON, but the output MUST end with a complete JSON object."
+        base += "\n\n12. You may optionally include <think>...</think> before the JSON, but the output MUST end with a complete JSON object."
     else:
-        base += "\n\n9. Output ONLY the JSON object."
+        base += "\n\n12. Output ONLY the JSON object."
     return base
 
 
@@ -308,10 +315,16 @@ _USER_VERIFICATION_REMINDER = {
         "(4) at least 2 and at most 3 options are correct."
     ),
     "fill-in": (
-        "Before returning the JSON: verify (1) the question contains a clear blank (______); "
-        "(2) the answer is concise and directly fills the blank; "
-        "(3) acceptable_answers covers reasonable alternative correct responses; "
-        "(4) do NOT include answer_options (this is not multiple-choice)."
+        "Before returning the JSON: verify "
+        "(1) the question contains a clear blank (______); "
+        "(2) the answer is concise and directly fills the blank GRAMMATICALLY; "
+        "(3) SUBSTITUTE each acceptable_answer into the blank — every one MUST produce a grammatically correct sentence; "
+        "(4) CONSISTENCY CHECK: if the question says 'type/write a word from the text/passage/story', then EVERY acceptable_answer MUST literally appear in the provided text — remove any synonym NOT found in the passage; "
+        "(5) CONSISTENCY CHECK: answer_explanation must NOT contradict acceptable_answers — if the explanation says the answer is X for reason R, do NOT include acceptable_answers that violate reason R; "
+        "(6) answer_explanation must be precise — avoid overstatements like 'always' or 'must always' unless the rule is truly absolute; "
+        "(7) if difficulty is 'hard', the question MUST require inference or synthesis, NOT simple word retrieval from text; "
+        "(8) if a passage/text is included, the answer MUST only be findable by reading it — do NOT create questions answerable from general knowledge alone; "
+        "(9) do NOT include answer_options (this is not multiple-choice)."
     ),
 }
 
@@ -365,11 +378,20 @@ def build_user_prompt(
     desc = standard_description or ""
     desc_line = f"Description: {desc}\n" if desc else ""
     reminder = _USER_VERIFICATION_REMINDER.get(qtype, _USER_VERIFICATION_REMINDER["mcq"])
+    fillin_diff_guide = ""
+    if qtype == "fill-in":
+        _diff_guides = {
+            "easy": "Easy fill-in: the answer word/phrase should be directly stated in the text. Simple retrieval.",
+            "medium": "Medium fill-in: requires a simple inference, synonym identification, or one-step transformation. Not a direct copy from the text.",
+            "hard": "Hard fill-in: requires multi-step reasoning, synthesis across sentences, or applying advanced vocabulary knowledge. The answer must NOT appear verbatim in the passage. The student must INFER the answer.",
+        }
+        fillin_diff_guide = "\n" + _diff_guides.get(difficulty, "") + "\n"
+
     text = f"""Generate one {type_label} question for Grade {grade} {subject}.
 
 Standard: {standard}
 {desc_line}Difficulty: {difficulty}
-
+{fillin_diff_guide}
 Return only the JSON object. The question MUST assess exactly the skill described above—not a related skill.
 
 {reminder}"""

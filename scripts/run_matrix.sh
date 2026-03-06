@@ -130,6 +130,8 @@ for MODEL in $MODELS; do
       fi
       if [ -n "$PILOT" ]; then
         LOOP_ARGS="$LOOP_ARGS --pilot-batch $PILOT"
+      elif [ -n "$N" ] && [ "$N" != "0" ]; then
+        LOOP_ARGS="$LOOP_ARGS --sample-size $N"
       fi
       if [ -n "$WORKERS" ]; then
         LOOP_ARGS="$LOOP_ARGS --workers $WORKERS"
