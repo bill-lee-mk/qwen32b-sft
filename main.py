@@ -316,7 +316,12 @@ def _run_closed_loop_one_model(project_root, model, args, use_model_specific_pat
                 subject = getattr(args, "subject", "ELA")
                 qtype = getattr(args, "question_type", "all") or "all"
                 _gen_n = sample_size or pilot_batch
-                gen_mode = ["--diverse", str(_gen_n)] if _gen_n else ["--all-combinations"]
+                focus_failures = getattr(args, "focus_failures", False)
+                if focus_failures and round_num == 1:
+                    gen_mode = ["--all-combinations"]
+                    _log(f"  聚焦失败模式: 第1轮使用 --all-combinations 覆盖全部组合")
+                else:
+                    gen_mode = ["--diverse", str(_gen_n)] if _gen_n else ["--all-combinations"]
                 gen_cmd = [sys.executable, os.path.join(project_root, "scripts", "generate_questions.py"),
                            "--model", model, *gen_mode, "--output", mcqs_path,
                            "--examples", examples_path, "--grade", grade, "--subject", subject,
@@ -330,7 +335,6 @@ def _run_closed_loop_one_model(project_root, model, args, use_model_specific_pat
                 if weak_threshold is not None and current_best_results_path and os.path.exists(current_best_results_path):
                     gen_cmd.extend(["--weak-threshold", str(weak_threshold), "--weak-results", current_best_results_path])
                 # 聚焦失败模式：从上轮结果提取失败的 (standard, difficulty) 仅重生成这些
-                focus_failures = getattr(args, "focus_failures", False)
                 if focus_failures and round_num > 1:
                     prev_results = f"{base_results}_round{round_num - 1}.json"
                     prev_mcqs = f"{base_mcqs}_round{round_num - 1}.json"
