@@ -1042,6 +1042,67 @@ def _classify_error(err_str: str) -> tuple[str, bool]:
     return "未知异常", True
 
 
+_CRITIQUE_PROMPT = """You are a strict quality reviewer for K-12 ELA fill-in-the-blank questions.
+
+Review the question JSON below against these 6 critical dimensions. For EACH dimension, identify any issue.
+
+1. DIFFICULTY_ALIGNMENT: Does the cognitive demand match the labeled difficulty?
+   - "hard" needs ≥3 reasoning steps. A single word-lookup is NEVER hard.
+   - "medium" needs ≥2 steps. Direct text copying is NOT medium.
+2. FACTUAL_ACCURACY: Are ALL acceptable_answers factually correct and supported by the passage?
+   - Remove any AA entry that contradicts the passage or is not a valid answer.
+3. CURRICULUM_ALIGNMENT: Does the question test the EXACT skill in the standard, not a related one?
+4. EDUCATIONAL_ACCURACY: Is the answer NOT trivially obvious from the question text?
+   - The answer should not appear right next to the blank.
+5. MASTERY_LEARNING: Does the question require understanding, not just rote recall?
+6. CLARITY: Are instructions clear and unambiguous?
+
+Standard: {standard}
+Difficulty: {difficulty}
+
+Question JSON:
+{question_json}
+
+If you find ANY issues, output the CORRECTED JSON (complete, valid JSON only).
+If NO issues found, output the ORIGINAL JSON unchanged.
+Output ONLY the JSON object, no explanation."""
+
+
+def _self_critique(mcq: dict, provider: str, api_key: str, model: str,
+                   standard: str, difficulty: str) -> dict:
+    """Two-pass: ask LLM to review and fix the generated question."""
+    if mcq.get("type") != "fill-in":
+        return mcq
+    question_json = json.dumps(mcq, ensure_ascii=False, indent=2)
+    prompt = _CRITIQUE_PROMPT.format(
+        standard=standard, difficulty=difficulty, question_json=question_json
+    )
+    messages = [{"role": "user", "content": prompt}]
+    try:
+        if provider == "gemini":
+            raw = call_gemini(prompt, api_key, model)
+        elif provider == "openrouter":
+            or_model = _resolve_openrouter_model(model)
+            raw, _ = call_openai(messages, api_key, or_model,
+                                 base_url=OPENROUTER_API_BASE, temperature=0.3, max_tokens=4096)
+        elif provider == "fireworks":
+            fw_model = _resolve_fireworks_model(model)
+            raw, _ = call_openai(messages, api_key, fw_model,
+                                 base_url=FIREWORKS_API_BASE, temperature=0.3, max_tokens=4096)
+        else:
+            raw, _ = call_openai(messages, api_key, model, temperature=0.3, max_tokens=4096)
+
+        fixed = extract_json_from_text(raw)
+        if fixed and isinstance(fixed, dict) and fixed.get("question") and fixed.get("answer"):
+            for key in ("grade", "standard", "subject", "difficulty", "id"):
+                if key in mcq and key not in fixed:
+                    fixed[key] = mcq[key]
+            return fixed
+    except Exception:
+        pass
+    return mcq
+
+
 def _generate_one(
     standard: str,
     difficulty: str,
@@ -1072,6 +1133,8 @@ def _generate_one(
     last_usage = None
     last_err = None
     attempt = 0
+    validation_failures = 0
+    MAX_VALIDATION_RETRIES = 8
     while True:
         _wait_if_cooling()
         has_budget = (max_retries == 0) or (attempt < max_retries)
@@ -1107,17 +1170,31 @@ def _generate_one(
                 out["subject"] = subject
                 out["difficulty"] = difficulty
                 out["id"] = f"diverse_{index:03d}"
+                if question_type == "fill-in":
+                    out = _self_critique(out, provider, api_key, model, standard, difficulty)
+                    out = normalize_for_inceptbench(out)
+                    out["grade"] = grade
+                    out["standard"] = standard
+                    out["subject"] = subject
+                    out["difficulty"] = difficulty
+                    out["id"] = f"diverse_{index:03d}"
+                elapsed = time.time() - start
                 if attempt > 0:
                     print(f"  [OK] {standard} {difficulty} {question_type}: 第{attempt+1}次尝试成功 (耗时{elapsed:.0f}s)", flush=True)
                 return (out, elapsed, None, usage)
-            wait_s = min(5 * (attempt + 1), 30)
-            raw_preview = (raw or "")[:300].replace("\n", "\\n")
+            validation_failures += 1
             reject = _try_get_reject_reason(raw, question_type)
             reason_tag = f" [{reject}]" if reject else ""
-            print(f"  [解析失败] {standard} {difficulty}: 返回内容无法解析为{question_type}{reason_tag}  (第{attempt+1}次，{wait_s}s后重试)", flush=True)
-            if attempt < 2:
-                print(f"    raw前300字: {raw_preview}", flush=True)
             _log_parse_failure(model, standard, difficulty, question_type, reject or "unknown", raw or "")
+            if validation_failures >= MAX_VALIDATION_RETRIES:
+                elapsed = time.time() - start
+                print(f"  [放弃] {standard} {difficulty}: 连续{validation_failures}次校验失败{reason_tag}，跳过此题", flush=True)
+                return (None, elapsed, f"校验失败超过上限: {reason_tag}", last_usage)
+            wait_s = min(5 * (validation_failures), 30)
+            raw_preview = (raw or "")[:300].replace("\n", "\\n")
+            print(f"  [解析失败] {standard} {difficulty}: 返回内容无法解析为{question_type}{reason_tag}  (第{validation_failures}次/{MAX_VALIDATION_RETRIES}，{wait_s}s后重试)", flush=True)
+            if validation_failures <= 2:
+                print(f"    raw前300字: {raw_preview}", flush=True)
             time.sleep(wait_s)
             last_err = f"解析失败: 返回内容无法解析为{question_type}{reason_tag}"
         except Exception as e:

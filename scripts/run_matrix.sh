@@ -136,7 +136,7 @@ for MODEL in $MODELS; do
       if [ -n "$WORKERS" ]; then
         LOOP_ARGS="$LOOP_ARGS --workers $WORKERS"
       fi
-      if [ -n "$PATIENCE" ] && [ "$PATIENCE" != "0" ]; then
+      if [ -n "$PATIENCE" ]; then
         LOOP_ARGS="$LOOP_ARGS --patience $PATIENCE"
       fi
       echo "  执行: python main.py closed-loop $LOOP_ARGS"

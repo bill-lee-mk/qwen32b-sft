@@ -15,10 +15,12 @@ _PROJECT_ROOT = Path(__file__).resolve().parent.parent
 _STANDARD_DESCRIPTIONS_PATH = _PROJECT_ROOT / "data" / "standard_descriptions.json"
 _CURRICULUM_STANDARDS_PATH = _PROJECT_ROOT / "data" / "curriculum_standards.json"
 _PROMPT_RULES_PATH = _PROJECT_ROOT / "processed_training_data" / "prompt_rules.json"
+_HIGHSCORE_EXAMPLES_PATH = _PROJECT_ROOT / "processed_training_data" / "highscore_fillin_examples.json"
 _standard_descriptions_cache: Optional[Dict[str, str]] = None
 _curriculum_standards_cache: Optional[Dict[str, Dict]] = None
 # 按路径缓存，支持 PROMPT_RULES_PATH 环境变量（多模型闭环时每模型独立 prompt_rules）
 _prompt_rules_cache: Dict[str, Dict] = {}
+_highscore_examples_cache: Optional[Dict] = None
 
 
 def load_curriculum_standards() -> Dict[str, Dict]:
@@ -238,7 +240,7 @@ Before outputting your JSON, do a RIGOROUS self-check:
 Rules:
 1. The question MUST directly assess the EXACT skill described in the standard.
 2. Difficulty must match the request: "easy" = direct word retrieval from the text or simple recall. "medium" = simple inference, synonym identification, or one-step transformation. "hard" = multi-step reasoning, vocabulary in context requiring passage analysis, synthesis across multiple sentences, or abstract concept identification. Do NOT label a simple word-copy-from-text task as "medium" or "hard".
-3. The blank should test a specific skill—avoid overly open-ended blanks with too many valid answers. For passage-based questions, the answer MUST be findable in or strongly implied by the passage text. The question MUST require the student to actually read the passage—do NOT create questions answerable from general knowledge alone when a passage is provided.
+3. CLARITY-PRECISION: The question instructions must be unambiguous — the student should clearly understand what to type. Avoid vague instructions like "fill in the blank" without specifying what kind of answer is expected. The blank should test a specific skill—avoid overly open-ended blanks with too many valid answers. For passage-based questions, the answer MUST be findable in or strongly implied by the passage text. The question MUST require the student to actually read the passage—do NOT create questions answerable from general knowledge alone when a passage is provided.
 4. The "answer" field contains the primary correct answer. Keep it concise (1-3 words typically).
 5. CRITICAL — acceptable_answers quality: list ONLY entries that BOTH (a) grammatically and correctly complete the EXACT sentence containing the blank, AND (b) are factually supported by the passage/context. For each candidate entry, mentally insert it into the blank and verify the resulting full sentence is grammatically perfect. Common mistakes to avoid: including bare verb forms where the sentence requires conjugation (e.g., "run" when the sentence needs "runs"), including forms that need auxiliary verbs (e.g., "running" when the sentence has no "is/was"), including synonyms that create awkward or ungrammatical phrasing (e.g., "very sleepy" when the sentence already says "too ______").
 6. CRITICAL — acceptable_answers CONSISTENCY: Every entry in acceptable_answers MUST be consistent with what the question asks AND what answer_explanation states. Common fatal mistakes:
@@ -250,7 +252,11 @@ Rules:
 8. If your question references "the text", "the passage", "the paragraph", or "the story", the FULL text MUST be included in the question field. Do NOT reference any text that is not provided within the question itself.
 9. For punctuation/mechanics questions (commas, quotation marks, capitalization): design the blank so it tests the PUNCTUATION SKILL, not word retrieval. Do NOT make the student retype a word already visible in the question — instead, have the blank cover ONLY the punctuation mark(s) or the corrected form. Ensure the answer does NOT duplicate words that appear immediately before the blank.
 10. Do NOT include answer_options (this is not a multiple-choice question).
-11. Return ONLY a valid JSON object. No markdown, no extra text."""
+11. DIFFICULTY-ALIGNMENT (critical for scoring): "hard" items MUST require multi-step reasoning, inference, or synthesis — a single-step word-identification or direct-retrieval task is NEVER "hard" even if the vocabulary is advanced. "medium" items must go beyond simple recall. If the task can be answered by copying a single obvious word from one sentence, it is "easy" regardless of the word's complexity. Self-check: count how many cognitive steps the student needs; hard ≥ 3, medium = 2, easy = 1.
+12. MASTERY-LEARNING ALIGNMENT: Even "easy" questions must require the student to demonstrate understanding, not just rote recall of a memorized phrase. Avoid fill-in-the-blank that simply asks for a vocabulary definition word (e.g., "The main idea tells the reader what the text is mostly ______" → answer "about" is pure recall). Instead, embed the skill in a passage-based context that requires reading and applying the concept.
+13. ANSWER-GIVEAWAY PREVENTION (educational_accuracy): The question stem and passage MUST NOT contain the answer word in a way that makes the blank trivially obvious. The student should need to read, think, and apply a skill — not simply copy a word that appears right next to the blank. If the answer appears in the passage, ensure the student must identify WHY it is correct rather than just locating it.
+14. CURRICULUM-ALIGNMENT PRECISION: Verify that your question tests the SPECIFIC skill in the given standard, not a related but different one. Common mistake: generating an RI.1.8 question (identify reasons supporting a point) but actually testing RI.1.2 (main idea), or generating a W.3.5 question (writing process) but testing L.3.1 (grammar). If your question does not require the specific cognitive action described in the standard, redesign it.
+15. Return ONLY a valid JSON object. No markdown, no extra text."""
     if include_think_chain:
         base += "\n\n12. You may optionally include <think>...</think> before the JSON, but the output MUST end with a complete JSON object."
     else:
@@ -356,6 +362,30 @@ def _build_curriculum_guidance(standard: str) -> str:
     return "\n".join(parts)
 
 
+def _get_highscore_example(standard: str) -> Optional[str]:
+    """Return a high-scoring fill-in example for the standard's family (RL/RI/RF/W/L/SL)."""
+    global _highscore_examples_cache
+    if _highscore_examples_cache is None:
+        if _HIGHSCORE_EXAMPLES_PATH.exists():
+            try:
+                with open(_HIGHSCORE_EXAMPLES_PATH, "r", encoding="utf-8") as f:
+                    _highscore_examples_cache = json.load(f)
+            except Exception:
+                _highscore_examples_cache = {}
+        else:
+            _highscore_examples_cache = {}
+    if not _highscore_examples_cache:
+        return None
+    std_upper = standard.upper()
+    for prefix in ["RL", "RI", "RF", "SL", "W", "L"]:
+        if f".{prefix}." in std_upper or std_upper.startswith(prefix):
+            ex = _highscore_examples_cache.get(prefix)
+            if ex:
+                compact = {k: ex[k] for k in ("question", "answer", "acceptable_answers", "answer_explanation", "difficulty") if k in ex}
+                return json.dumps(compact, ensure_ascii=False, indent=2)
+    return None
+
+
 _TYPE_LABELS = {
     "mcq": "MCQ (multiple-choice, single correct answer)",
     "msq": "MSQ (multiple-select, 2-3 correct answers)",
@@ -398,6 +428,10 @@ Return only the JSON object. The question MUST assess exactly the skill describe
     curriculum_guidance = _build_curriculum_guidance(standard)
     if curriculum_guidance:
         text += "\n" + curriculum_guidance
+    if qtype == "fill-in":
+        hs_example = _get_highscore_example(standard)
+        if hs_example:
+            text += f"\n\n--- HIGH-SCORING EXAMPLE (scored 0.95+, use as quality reference) ---\n{hs_example}\n--- END EXAMPLE ---"
     if targeted_rules:
         text += "\n\n--- Reminders for this standard/difficulty ---\n"
         for r in targeted_rules:

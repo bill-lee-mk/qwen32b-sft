@@ -140,24 +140,38 @@ _DIMENSION_THEME_RULES: dict[str, list[tuple[list[str], str]]] = {
          "For fill-in: answer_explanation must be factually precise. Do NOT overstate grammar rules. Do NOT claim the answer is the ONLY correct response while listing alternatives."),
         (["capitali", "spacing", "incorrect form", "double-space"],
          "For fill-in: Every acceptable_answers entry must use correct capitalization and spacing for its position in the sentence. Do NOT include entries with wrong case or extra spaces."),
+        (["incorrect", "wrong", "not support", "passage does not"],
+         "For fill-in: Do NOT include acceptable_answers entries that are factually wrong or unsupported by the passage. Before finalizing, verify each AA entry against the passage text."),
+        (["word bank", "metadata", "student-facing"],
+         "For fill-in: If a word bank is provided, acceptable_answers must match EXACTLY what the student sees. Do NOT include entries that differ from the word bank."),
+        (["punctuation", "form", "incorrect punctuation"],
+         "For fill-in punctuation questions: acceptable_answers must use correct punctuation forms. Double-check quotation marks, commas, and sentence-ending punctuation."),
     ],
     "educational_accuracy": [
-        (["trivial", "copy", "already visible", "pre-attempt"],
+        (["trivial", "copy", "already visible", "pre-attempt", "giveaway"],
          "For fill-in: The answer must NOT be directly copyable from the question text. The student should need to apply a skill to produce the answer."),
         (["not the specific", "not accurate", "does not match"],
          "For fill-in: Ensure the educational content precisely matches the skill described in the standard. Do not test a related but different skill."),
+        (["generic", "overly broad", "omit", "missing", "valid synonym"],
+         "For fill-in: acceptable_answers must include common valid synonyms demanded by the prompt. Do NOT use overly generic verbs. Do NOT omit obviously valid alternatives."),
+        (["contains the exact answer", "answer word", "explicitly states"],
+         "For fill-in: The passage or question stem must NOT contain the exact answer word in a way that makes the task trivially obvious. If the answer appears in the passage, the student must identify WHY it is correct, not simply locate it."),
     ],
     "difficulty_alignment": [
-        (["labeled", "hard", "but", "straightforward", "low", "cognitive"],
-         "For fill-in hard: The task MUST genuinely require multi-step reasoning, inference, or synthesis. If a student can answer by simply locating a word in the passage, it is NOT hard."),
-        (["labeled", "medium", "but", "simple"],
-         "For fill-in medium: The task should require at least one inference step beyond direct word retrieval from text."),
+        (["labeled", "hard", "but", "straightforward", "low", "cognitive", "single-step", "single step"],
+         "For fill-in hard: The task MUST genuinely require multi-step reasoning, inference, or synthesis (≥3 cognitive steps). If a student can answer by simply locating a word in the passage, it is NOT hard. Self-check: count cognitive steps needed."),
+        (["labeled", "medium", "but", "simple", "recall"],
+         "For fill-in medium: The task should require at least one inference step beyond direct word retrieval from text (≥2 cognitive steps)."),
+        (["too easy", "below", "does not match", "above"],
+         "For fill-in: Difficulty label must match actual cognitive demand. Count how many reasoning steps the student needs: easy=1, medium=2, hard≥3."),
     ],
     "clarity_precision": [
-        (["ambig", "unclear", "confus"],
+        (["ambig", "unclear", "confus", "vague"],
          "For fill-in: Ensure the question and blank are unambiguous. The student should clearly understand what to type."),
         (["duplicate", "already present", "repeat"],
          "For fill-in punctuation questions: Do NOT require the student to retype a word already visible in the question. The blank should test ONLY the punctuation or corrected form."),
+        (["too many valid", "multiple valid", "open-ended"],
+         "For fill-in: Ensure the blank has a limited set of valid answers. If too many words could fit, narrow the question or add context."),
     ],
     "passage_reference": [
         (["not provided", "external", "unstated"],
@@ -166,6 +180,16 @@ _DIMENSION_THEME_RULES: dict[str, list[tuple[list[str], str]]] = {
     "mastery_learning_alignment": [
         (["not aligned", "does not assess", "different skill"],
          "For fill-in: The question MUST directly assess the EXACT skill described in the standard, not a related or broader skill."),
+        (["pure recall", "memoriz", "rote", "no application", "no reasoning"],
+         "For fill-in: Even easy questions must require the student to demonstrate understanding through reading and applying a concept. Avoid questions answerable by memorizing a single phrase (e.g., 'The main idea tells the reader what the text is mostly ______' with answer 'about')."),
+        (["recall only", "no meaningful", "trivial"],
+         "For fill-in: Design questions that require the student to engage with passage content, not just recall definitions or complete well-known phrases."),
+    ],
+    "curriculum_alignment": [
+        (["mismatch", "misalign", "better aligned", "wrong standard", "different standard"],
+         "For fill-in: Verify the question tests the SPECIFIC cognitive action described in the standard. Common mistake: testing main idea (RI.x.2) when the standard is about reasons/evidence (RI.x.8), or testing grammar (L.x.1) when the standard is about writing process (W.x.5)."),
+        (["fluency", "RF", "infer", "not reading fluency"],
+         "For Reading Foundational (RF) standards: ensure the question tests the EXACT decoding/fluency skill, not inference or comprehension."),
     ],
 }
 
@@ -327,8 +351,8 @@ def merge_into_prompt_rules(
     new_by_standard: dict[str, list[str]],
     new_by_standard_difficulty: dict[str, list[str]],
     rules_path: str | Path,
-    max_global_total: int = 15,
-    max_per_key_total: int = 5,
+    max_global_total: int = 10,
+    max_per_key_total: int = 3,
 ) -> dict:
     """与现有 prompt_rules.json 合并，去重并限制条数，写回。返回合并后的完整结构。"""
     path = Path(rules_path)
@@ -345,12 +369,13 @@ def merge_into_prompt_rules(
             pass
 
     def _dedupe_append(current: list, new: list, cap: int) -> list:
-        seen = {s.strip().lower(): s for s in current}
+        seen = {s.strip().lower()[:120]: s for s in current}
         for s in new:
             k = s.strip().lower()[:120]
             if k not in seen:
                 seen[k] = s.strip()
-        return list(seen.values())[:cap]
+        vals = list(seen.values())
+        return vals[-cap:] if len(vals) > cap else vals
 
     global_rules = _dedupe_append(existing.get("global_rules") or [], new_global, max_global_total)
     by_standard = dict(existing.get("by_standard") or {})

@@ -44,11 +44,31 @@ def _repair_json_control_chars(s: str) -> str:
     return ''.join(out)
 
 
+def _fix_unescaped_inner_quotes(text: str) -> str:
+    """修复 JSON 字符串值内部未转义的双引号。"""
+    current = text
+    for _ in range(20):
+        try:
+            json.loads(current)
+            return current
+        except json.JSONDecodeError as e:
+            if "Expecting ',' delimiter" not in str(e) and "Expecting ':' delimiter" not in str(e):
+                return current
+            pos = e.pos
+            quote_pos = current.rfind('"', 0, pos)
+            if quote_pos < 0 or quote_pos == 0:
+                return current
+            if quote_pos > 0 and current[quote_pos - 1] == '\\':
+                return current
+            current = current[:quote_pos] + '\\' + current[quote_pos:]
+    return current
+
+
 def extract_json_from_text(text: str) -> Optional[Dict]:
     """从文本中提取第一个可解析的完整 JSON 对象。
 
     跳过思考链等非 JSON 文本中的花括号，持续扫描直到找到有效 JSON。
-    自动修复字符串内的非法控制字符（换行等）。
+    自动修复字符串内的非法控制字符（换行等）和未转义的内嵌双引号。
     """
     pos = 0
     while pos < len(text):
@@ -67,8 +87,13 @@ def extract_json_from_text(text: str) -> Optional[Dict]:
                         return json.loads(raw)
                     except json.JSONDecodeError:
                         pass
+                    repaired = _repair_json_control_chars(raw)
                     try:
-                        return json.loads(_repair_json_control_chars(raw))
+                        return json.loads(repaired)
+                    except json.JSONDecodeError:
+                        pass
+                    try:
+                        return json.loads(_fix_unescaped_inner_quotes(repaired))
                     except json.JSONDecodeError:
                         pass
                     pos = i + 1
@@ -128,36 +153,57 @@ def is_valid_mcq(mcq: Dict) -> Tuple[bool, str]:
         aa = mcq.get("acceptable_answers", [])
         if not isinstance(aa, list):
             aa = [str(aa)] if aa else []
-        if len(aa) < 2:
-            return False, f"fill-in acceptable_answers must have at least 2 entries, got {len(aa)}"
         answer_lower = answer.lower().strip()
         aa_lower = [str(a).lower().strip() for a in aa]
         if answer_lower not in aa_lower:
             return False, f"fill-in answer '{answer}' not found in acceptable_answers {aa}"
 
         # --- 硬校验: AA-passage 一致性 ---
-        # 当问题要求 "from the text/passage/story" 时，AA 条目必须出现在 passage 中
-        _from_text_cues = ["from the text", "from the passage", "from the story",
-                           "from the paragraph", "word from the"]
-        requires_text_word = any(cue in q_lower for cue in _from_text_cues)
+        # 当问题明确要求 "from the text/passage/story" 时，单词级 AA 条目必须出现在 passage 中
+        # 排除 "from the options"/"from the choices" 等非 passage 引用
+        # 仅检查单词条目（≤1词），多词短语交给评估方判断
+        _from_text_cues = ["word from the text", "word from the passage", "word from the story",
+                           "word from the paragraph", "phrase from the text", "phrase from the passage",
+                           "phrase from the story"]
+        _exclude_cues = ["from the options", "from the choices", "from the list",
+                         "from the sentence", "add -ing", "add -ed", "add -s",
+                         "with an -ed", "with -ed", "-ed ending", "-ing ending",
+                         "with an -ing", "with -ing", "-s ending"]
+        requires_text_word = (any(cue in q_lower for cue in _from_text_cues)
+                              and not any(exc in q_lower for exc in _exclude_cues))
         if requires_text_word:
+            import re as _re_aa
             passage_text = ""
             for line in question.split("\n"):
                 stripped = line.strip()
-                if stripped and "______" not in stripped and not stripped.startswith("**") and "type " not in stripped.lower():
-                    passage_text += " " + stripped.lower()
-            if len(passage_text) > 30:
+                if not stripped:
+                    continue
+                low = stripped.lower()
+                is_instruction = (low.startswith("type ") or low.startswith("fill in")
+                                  or low.startswith("question:") or low.startswith("directions:"))
+                if is_instruction or stripped.startswith("**"):
+                    continue
+                cleaned = _re_aa.sub(r'__{2,}', ' ', stripped)
+                passage_text += " " + _re_aa.sub(r'[,;:!?\.\'\"\*\(\)\[\]\u201c\u201d\u2018\u2019]', ' ', cleaned.lower())
+            passage_text = " " + _re_aa.sub(r'\s+', ' ', passage_text) + " "
+            if len(passage_text) > 40:
                 for entry in aa:
-                    entry_clean = str(entry).strip().lower()
-                    if entry_clean and entry_clean not in passage_text:
+                    entry_clean = str(entry).strip().lower().strip('"\'.,;:!? ')
+                    if not entry_clean or len(entry_clean.split()) > 1:
+                        continue
+                    if f" {entry_clean} " not in passage_text:
                         return False, f"fill-in AA entry '{entry}' not found in passage text (question requires word from text)"
 
         # --- 硬校验: 引用 passage 必须存在 ---
+        # 仅对阅读类标准 (RL/RI) 严格检查，写作类标准 (W) 问题可能自然较短
         _ref_cues = ["based on the text", "based on the passage", "according to the text",
                       "according to the passage", "read the passage", "read the text",
                       "read the story", "read the paragraph"]
         refs_passage = any(cue in q_lower for cue in _ref_cues)
-        if refs_passage:
+        std_code = str(mcq.get("standard", ""))
+        is_reading_standard = any(std_code.startswith(p) for p in
+                                   ["CCSS.ELA-LITERACY.RL", "CCSS.ELA-LITERACY.RI"])
+        if refs_passage and is_reading_standard:
             non_instruction_text = ""
             for line in question.split("\n"):
                 stripped = line.strip()
@@ -165,6 +211,25 @@ def is_valid_mcq(mcq: Dict) -> Tuple[bool, str]:
                     non_instruction_text += stripped + " "
             if len(non_instruction_text.split()) < 20:
                 return False, "fill-in references a text/passage but no substantial passage found in question (need >=20 words)"
+
+        # --- 硬校验: 答案泄露检测 ---
+        # 仅当答案单词直接紧邻 blank（前后 2 词内）才拦截
+        # 排除 Word Bank / 选项提示 / 结论标签等合理的教学辅助
+        if "______" in question and answer_lower and len(answer_lower.split()) == 1:
+            blank_idx = question.lower().find("______")
+            if blank_idx >= 0:
+                text_before = question[:blank_idx]
+                text_after = question[blank_idx + 6:]
+                import re as _re_giveaway
+                text_after_clean = _re_giveaway.split(
+                    r'(?i)\(?\s*(?:word\s*bank|type\s+|choose\s+from|options?\s*:|conclusion\s|option\s)',
+                    text_after, maxsplit=1)[0]
+                context_before = text_before.split()[-2:]
+                context_after = text_after_clean.split()[:2]
+                nearby = " ".join(context_before + context_after).lower()
+                nearby_clean = _re_giveaway.sub(r'[,;:!?\.\'\"\*\(\)\[\]]', ' ', nearby)
+                if f" {answer_lower} " in f" {nearby_clean} ":
+                    return False, f"fill-in answer '{answer}' appears adjacent to the blank (answer giveaway)"
 
         return True, ""
 
