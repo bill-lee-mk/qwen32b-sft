@@ -9,7 +9,10 @@
     "For Reading Foundational (RF) standards: ensure the question tests the EXACT decoding/fluency skill, not inference or comprehension.",
     "For fill-in: Even easy questions must require the student to demonstrate understanding through reading and applying a concept. Avoid questions answerable by memorizing a single phrase (e.g., 'The main idea tells the reader what the text is mostly ______' with answer 'about').",
     "For fill-in: Do NOT include acceptable_answers entries that are factually wrong or unsupported by the passage. Before finalizing, verify each AA entry against the passage text.",
-    "For fill-in: If a word bank is provided, acceptable_answers must match EXACTLY what the student sees. Do NOT include entries that differ from the word bank."
+    "For fill-in: If a word bank is provided, acceptable_answers must match EXACTLY what the student sees. Do NOT include entries that differ from the word bank.",
+    "ANTI-RECALL: NEVER generate fill-in questions that test memorized phrases like \"The main idea tells the reader what the text is mostly ______\" (answer: about). Every question MUST include a passage and require the student to READ it to answer. Questions answerable without a passage score 0.",
+    "CLARITY: The blank must have exactly ONE clearly correct answer. If multiple words could grammatically fit the blank, add context or rephrase to narrow it to one. Test: try 3 different words in the blank — if more than one works, the question is too vague.",
+    "DIFFICULTY CALIBRATION: Word Banks and explicit options (A/B/C) automatically lower difficulty. A question with a Word Bank can NEVER be \"hard\". Hard questions must require inference across multiple sentences with NO word bank."
   ],
   "by_standard": {
     "CCSS.ELA-LITERACY.L.1.1.I": [

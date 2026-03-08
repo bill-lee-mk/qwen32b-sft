@@ -329,6 +329,40 @@ def _run_closed_loop_one_model(project_root, model, args, use_model_specific_pat
                 weak_threshold = getattr(args, "weak_threshold", None)
                 if weak_threshold is not None and current_best_results_path and os.path.exists(current_best_results_path):
                     gen_cmd.extend(["--weak-threshold", str(weak_threshold), "--weak-results", current_best_results_path])
+                # 聚焦失败模式：从上轮结果提取失败的 (standard, difficulty) 仅重生成这些
+                focus_failures = getattr(args, "focus_failures", False)
+                if focus_failures and round_num > 1:
+                    prev_results = f"{base_results}_round{round_num - 1}.json"
+                    prev_mcqs = f"{base_mcqs}_round{round_num - 1}.json"
+                    if not os.path.exists(prev_results):
+                        prev_results = current_best_results_path or ""
+                        prev_mcqs = current_best_mcqs_path or ""
+                    if prev_results and os.path.exists(prev_results) and prev_mcqs and os.path.exists(prev_mcqs):
+                        try:
+                            with open(prev_results, "r", encoding="utf-8") as _f:
+                                _prev_res = json.load(_f)
+                            with open(prev_mcqs, "r", encoding="utf-8") as _f:
+                                _prev_mcqs = json.load(_f)
+                            if isinstance(_prev_mcqs, dict):
+                                _prev_mcqs = _prev_mcqs.get("questions", _prev_mcqs.get("mcqs", []))
+                            _prev_details = _prev_res.get("evaluation_details", [])
+                            _failed = []
+                            for _di, _det in enumerate(_prev_details):
+                                if _det.get("score", 1) < 0.85 and _di < len(_prev_mcqs):
+                                    _q = _prev_mcqs[_di]
+                                    _failed.append({
+                                        "standard": _det.get("standard", _q.get("standard", "")),
+                                        "difficulty": _det.get("difficulty", _q.get("difficulty", "")),
+                                        "type": _det.get("type", _q.get("type", "fill-in")),
+                                    })
+                            if _failed:
+                                _fc_path = mcqs_path.replace(".json", "_failed_combos.json")
+                                with open(_fc_path, "w", encoding="utf-8") as _f:
+                                    json.dump(_failed, _f, ensure_ascii=False, indent=2)
+                                gen_cmd.extend(["--failed-combos", _fc_path])
+                                _log(f"  聚焦失败: 从上轮 {len(_prev_details)} 题中提取 {len(_failed)} 个失败组合")
+                        except Exception as _e:
+                            _log(f"  聚焦失败提取跳过: {_e}")
                 _log(f"  [1/3] 生成: {' '.join(gen_cmd)}")
                 gen_env = {**os.environ, "PROMPT_RULES_PATH": prompt_rules_path} if use_model_specific_paths else {**os.environ}
                 r = _run_with_log_stream(gen_cmd, project_root, gen_env)
@@ -895,6 +929,7 @@ def main():
     loop_parser.add_argument("--run-id", default=None, help="运行批次 ID；指定后 examples/prompt_rules/mcqs/results 均加此后缀，不同批次互不覆盖（如 --run-id exp1）")
     loop_parser.add_argument("--pilot-batch", type=int, default=None, help="试水批量：先用小批量跑闭环积累范例和规则，最后自动全量生成（如 --pilot-batch 50 表示每轮试水 50 题）；不设则每轮全量")
     loop_parser.add_argument("--sample-size", type=int, default=None, help="每轮抽样题数（--diverse N），不触发全量生成；不设则全量覆盖所有标准×难度组合")
+    loop_parser.add_argument("--focus-failures", action="store_true", help="从第2轮起，仅重生成上轮失败的 (standard, difficulty) 组合，而非全量随机")
     loop_parser.add_argument("--grade", default="3", help="年级（1-12），默认 3")
     loop_parser.add_argument("--subject", default="ELA", help="学科缩写（ELA, MATH, SCI, USHIST 等），默认 ELA")
     loop_parser.add_argument("--type", default="all", dest="question_type", help="题型：all / mcq / msq / fill-in（逗号分隔多选，如 msq,fill-in；默认 all = 同时生成三种题型）")

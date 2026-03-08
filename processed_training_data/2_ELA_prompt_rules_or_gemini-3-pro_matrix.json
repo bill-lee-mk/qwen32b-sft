@@ -9,7 +9,10 @@
     "If the stem has a blank, each option must be a phrase that fits the blank grammatically; avoid full clauses as options for a single blank.",
     "For fluency terms (e.g. RF.3.4.C): use accurate definitions: 'aloud' means 'out loud' or 'audibly,' not 'speaking loudly'.",
     "CRITICAL for fill-in: Every entry in acceptable_answers must be consistent with what the question asks AND what answer_explanation states. Perform a FINAL CONSISTENCY CHECK before outputting JSON.",
-    "For fill-in punctuation questions: acceptable_answers must use correct punctuation forms. Double-check quotation marks, commas, and sentence-ending punctuation."
+    "For fill-in punctuation questions: acceptable_answers must use correct punctuation forms. Double-check quotation marks, commas, and sentence-ending punctuation.",
+    "ANTI-RECALL: NEVER generate fill-in questions that test memorized phrases like \"The main idea tells the reader what the text is mostly ______\" (answer: about). Every question MUST include a passage and require the student to READ it to answer. Questions answerable without a passage score 0.",
+    "CLARITY: The blank must have exactly ONE clearly correct answer. If multiple words could grammatically fit the blank, add context or rephrase to narrow it to one. Test: try 3 different words in the blank — if more than one works, the question is too vague.",
+    "DIFFICULTY CALIBRATION: Word Banks and explicit options (A/B/C) automatically lower difficulty. A question with a Word Bank can NEVER be \"hard\". Hard questions must require inference across multiple sentences with NO word bank."
   ],
   "by_standard": {
     "CCSS.ELA-LITERACY.L.2.1.C": [

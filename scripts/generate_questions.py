@@ -1302,6 +1302,7 @@ def main():
     parser.add_argument("--include-think-chain", action="store_true", help="是否要求输出 <think>")
     parser.add_argument("--weak-threshold", type=float, default=None, help="弱项阈值（百分数，如 90）：仅生成 pass_rate 低于此值的 (type,difficulty) 组合，需配合 --weak-results 指向已有结果文件")
     parser.add_argument("--weak-results", default=None, help="已有评估结果 JSON 路径（含 breakdown），配合 --weak-threshold 使用")
+    parser.add_argument("--failed-combos", default=None, help="失败组合 JSON 路径：包含 [{standard, difficulty, type}] 列表，仅生成这些组合")
     args = parser.parse_args()
     question_type = (args.question_type or "all").lower().strip()
     ALL_QUESTION_TYPES = ["mcq", "msq", "fill-in"]
@@ -1374,12 +1375,25 @@ def main():
                 print(f"  弱项筛选 (pass_rate < {args.weak_threshold}%): {len(weak_combos)} 个 (type,difficulty) 组合需改进")
                 for wt, wd, wr in sorted(weak_combos, key=lambda x: x[2]):
                     print(f"    {wt}×{wd}: {wr:.1f}%")
+        # --failed-combos: 仅生成指定的 (standard, difficulty, type) 组合
+        failed_combo_set = None
+        if args.failed_combos and os.path.exists(args.failed_combos):
+            try:
+                with open(args.failed_combos, "r", encoding="utf-8") as f:
+                    fc_list = json.load(f)
+                failed_combo_set = {(fc["standard"], fc["difficulty"], fc.get("type", "fill-in")) for fc in fc_list}
+                print(f"  聚焦失败组合: {len(failed_combo_set)} 个 (standard, difficulty, type)")
+            except Exception as e:
+                print(f"  警告: 无法加载 --failed-combos: {e}")
         # Expand plan: each (standard, difficulty) × types_to_gen
         plan = []
         for qtype in types_to_gen:
             for s, d in base_plan:
                 if weak_combos is not None:
                     if not any(wt == qtype and wd == d for wt, wd, _ in weak_combos):
+                        continue
+                if failed_combo_set is not None:
+                    if (s, d, qtype) not in failed_combo_set:
                         continue
                 plan.append((s, d, qtype))
         if not plan:

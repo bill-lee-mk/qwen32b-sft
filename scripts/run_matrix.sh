@@ -139,6 +139,9 @@ for MODEL in $MODELS; do
       if [ -n "$PATIENCE" ]; then
         LOOP_ARGS="$LOOP_ARGS --patience $PATIENCE"
       fi
+      if [ -n "$FOCUS_FAILURES" ] && [ "$FOCUS_FAILURES" = "1" ]; then
+        LOOP_ARGS="$LOOP_ARGS --focus-failures"
+      fi
       echo "  执行: python main.py closed-loop $LOOP_ARGS"
 
       # shellcheck disable=SC2086

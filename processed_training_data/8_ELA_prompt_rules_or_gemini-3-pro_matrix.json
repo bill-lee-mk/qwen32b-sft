@@ -9,7 +9,10 @@
     "For fill-in medium: The task should require at least one inference step beyond direct word retrieval from text (≥2 cognitive steps).",
     "Ensure all four options A/B/C/D have different text; no duplicate options.",
     "If the stem has a blank, each option must be a phrase that fits the blank grammatically; avoid full clauses as options for a single blank.",
-    "CRITICAL for fill-in: Every entry in acceptable_answers must be consistent with what the question asks AND what answer_explanation states. Perform a FINAL CONSISTENCY CHECK before outputting JSON."
+    "CRITICAL for fill-in: Every entry in acceptable_answers must be consistent with what the question asks AND what answer_explanation states. Perform a FINAL CONSISTENCY CHECK before outputting JSON.",
+    "ANTI-RECALL: NEVER generate fill-in questions that test memorized phrases like \"The main idea tells the reader what the text is mostly ______\" (answer: about). Every question MUST include a passage and require the student to READ it to answer. Questions answerable without a passage score 0.",
+    "CLARITY: The blank must have exactly ONE clearly correct answer. If multiple words could grammatically fit the blank, add context or rephrase to narrow it to one. Test: try 3 different words in the blank — if more than one works, the question is too vague.",
+    "DIFFICULTY CALIBRATION: Word Banks and explicit options (A/B/C) automatically lower difficulty. A question with a Word Bank can NEVER be \"hard\". Hard questions must require inference across multiple sentences with NO word bank."
   ],
   "by_standard": {
     "CCSS.ELA-LITERACY.L.8.4.C": [
