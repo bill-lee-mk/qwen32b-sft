@@ -1,21 +1,21 @@
 {
   "global_rules": [
-    "If the stem has a blank, each option must be a phrase that fits the blank grammatically; avoid full clauses as options for a single blank.",
     "For peer feedback/editing items: ensure the feedback describes an actual error present in the draft; avoid describing errors that don't exist.",
-    "For fill-in: Design questions that require the student to engage with passage content, not just recall definitions or complete well-known phrases.",
-    "CRITICAL for fill-in: Every entry in acceptable_answers must be consistent with what the question asks AND what answer_explanation states. Perform a FINAL CONSISTENCY CHECK before outputting JSON.",
-    "For fill-in: If a word bank is provided, acceptable_answers must match EXACTLY what the student sees. Do NOT include entries that differ from the word bank.",
-    "For fill-in: Verify the question tests the SPECIFIC cognitive action described in the standard. Common mistake: testing main idea (RI.x.2) when the standard is about reasons/evidence (RI.x.8), or testing grammar (L.x.1) when the standard is about writing process (W.x.5).",
     "For fill-in: The answer must NOT be directly copyable from the question text. The student should need to apply a skill to produce the answer.",
+    "For fill-in: The passage or question stem must NOT contain the exact answer word in a way that makes the task trivially obvious. If the answer appears in the passage, the student must identify WHY it is correct, not simply locate it.",
+    "For fill-in: If the question says 'from the text/passage/story', acceptable_answers must ONLY contain words that appear VERBATIM in the text. Do NOT add synonyms not found in the passage.",
     "For fill-in hard: The task MUST genuinely require multi-step reasoning, inference, or synthesis (≥3 cognitive steps). If a student can answer by simply locating a word in the passage, it is NOT hard. Self-check: count cognitive steps needed.",
-    "For fill-in medium: The task should require at least one inference step beyond direct word retrieval from text (≥2 cognitive steps).",
-    "For fill-in: Do NOT include acceptable_answers entries that are factually wrong or unsupported by the passage. Before finalizing, verify each AA entry against the passage text."
+    "For fill-in: Difficulty label must match actual cognitive demand. Count how many reasoning steps the student needs: easy=1, medium=2, hard≥3.",
+    "If the stem has a blank, each option must be a phrase that fits the blank grammatically; avoid full clauses as options for a single blank.",
+    "CRITICAL for fill-in: Every entry in acceptable_answers must be consistent with what the question asks AND what answer_explanation states. Perform a FINAL CONSISTENCY CHECK before outputting JSON.",
+    "For fill-in: Do NOT include acceptable_answers entries that are factually wrong or unsupported by the passage. Before finalizing, verify each AA entry against the passage text.",
+    "For fill-in medium: The task should require at least one inference step beyond direct word retrieval from text (≥2 cognitive steps)."
   ],
   "by_standard": {
     "CCSS.ELA-LITERACY.L.11-12.2.B": [
-      "To strengthen mastery alignment, add a brief follow-up requiring students to justify the choice (e.g., “Explain why this spelling is correct in relation to the base verb maintai...",
-      "To strengthen mastery learning, consider prompting students to explain or apply the rule (e.g., choose between maintainance/maintenance and justify), or include a brief rational...",
-      "To better support mastery learning, consider: (a) requiring students to justify the choice by referencing morphological patterns (e.g., -ance vs -ence with related verb), or (b)..."
+      "- Remove the explicit spelling of the target word from the preface. For example, introduce the rule and examples with -cede, then state that there is a notable exception derived...",
+      "To better support mastery learning, consider: (a) asking students to choose between commonly confused forms (maintenance vs. maintainance) and explain the rule; or (b) prompting...",
+      "Do not display the correctly spelled target word in the prompt. Options: 1) Remove/replace the source sentence with one that paraphrases the meaning without using “accommodate,”..."
     ],
     "CCSS.ELA-LITERACY.RL.11-12.5": [
       "- Correct explanation terminology: Replace “in medias res” with “flash-forward (prolepsis) framing” or “nonlinear frame narrative.” - Strengthen distractors to be plausible misc...",
@@ -25,9 +25,9 @@
       "Revise the stem to require brief analysis in addition to naming the structure, e.g., “Name the structure and explain in 1–2 sentences how returning to the opening paragraph affe..."
     ],
     "CCSS.ELA-LITERACY.RL.11-12.9": [
-      "- Remove or rephrase the final sentence so it does not include the exact target word. For example: end with a paraphrase that implies the shared view without naming it, then pro...",
-      "To better support mastery and the target standard, revise the prompt to require brief comparative analysis (e.g., “In 1–2 sentences, explain how both works critique the American...",
-      "Fix the temporal label to avoid the factual error—for example: “Read the excerpts from two late 19th- and early 20th-century American texts,” or remove the timeframe. Optionally..."
+      "Fix the temporal label to avoid the factual error—for example: “Read the excerpts from two late 19th- and early 20th-century American texts,” or remove the timeframe. Optionally...",
+      "- Align with RL.11-12.9 by requiring comparison, e.g., “Cite and explain one phrase from each passage showing how Emerson and Thoreau view the woods as spiritually restorative; ...",
+      "Correct the explanation to remove the inaccurate claim. For example: “The word ‘liberty’ (capitalized as ‘Liberty’ in the Declaration) appears in both excerpts and names the rig..."
     ],
     "CCSS.ELA-LITERACY.RI.11-12.9": [
       "To avoid an answer giveaway, revise the task so students must demonstrate understanding rather than copy the word. Options: (a) Ask for a paraphrase of the condition (“In your o...",
@@ -47,11 +47,9 @@
       "Broaden acceptable answers to include “resumptive modifier” (and case variants), or revise the stem to remove the trailing word (e.g., “classified as a __________”), or explicit..."
     ],
     "CCSS.ELA-LITERACY.L.11-12.4.A": [
-      "Add “chemically inactive and stable” to acceptable_answers. Consider also accepting common synonyms like “nonreactive”/“non-reactive”/“not reactive” to avoid penalizing accurate...",
-      "Either (a) add “inert” to acceptable answers, or (b) revise the prompt to specify “Provide a synonym for ‘inert’ based on the context,” so repetition of the given word is clearl...",
-      "Tighten the acceptable answers to only those that explicitly convey nonreactivity. Remove “stable” as a standalone acceptable response. Recommended acceptable list: [\"nonreactiv...",
       "Either (a) relabel the item as Easy, or (b) revise the sentence to rely on subtler context (e.g., contrast or function) without directly restating the definition: \"Unlike the vo...",
-      "Revise acceptable_answers to include only synonyms that match “no longer used,” such as: “used,” “utilized,” “employed,” “in use.” Remove “needed” and “useful.” Optionally clari..."
+      "Revise acceptable_answers to include only synonyms that match “no longer used,” such as: “used,” “utilized,” “employed,” “in use.” Remove “needed” and “useful.” Optionally clari...",
+      "Fix the field inconsistency: either remove “long lasting” (two words) from acceptable_answers or revise the instruction to allow a “single word or hyphenated compound” (and keep..."
     ],
     "CCSS.ELA-LITERACY.L.11-12.4.B": [
       "Resolve ambiguity by either: (a) accepting both “implicit” and “implied” as correct; or (b) tightening the stem to specify the Latin-derived adjective implicit (e.g., “Use the L...",
@@ -66,24 +64,24 @@
       "Hide or modify the etymology line so the answer isn’t verbatim in the prompt. For example: provide the etymology without the English gloss for verus, or ask a question requiring..."
     ],
     "CCSS.ELA-LITERACY.L.11-12.4.D": [
-      "- Remove the “begins with the letter ‘w’” cue and instead require students to: (a) select the correct definition number, or (b) type the full infinitive phrase (“to weaken or ex..."
+      "- Remove the “begins with the letter ‘w’” cue and instead require students to: (a) select the correct definition number, or (b) type the full infinitive phrase (“to weaken or ex...",
+      "Avoid giving away the exact word in the visible dictionary entry. Options: - Redact the keyword in the entry (e.g., show “to make a statement or assertion less ______; to modify...",
+      "Either (a) add “expressed” (case variants) to acceptable answers, or (b) adjust the prompt to disambiguate comprehension (e.g., “Based on the clue ‘confused the client,’ choose ..."
     ],
     "CCSS.ELA-LITERACY.L.11-12.6": [
-      "Correct the historical dating in the stem and/or explanation. Suggested revision: “…uses the phrase ‘survival of the fittest,’ a concept not coined by Herbert Spencer until the ...",
       "Clarify the target term to remove ambiguity, for example: 1) “Type the academic vocabulary word from the text that best completes the sentence…” or “Type the word from the text ...",
-      "Broaden acceptable_answers to include additional valid academic synonyms that fit the context and register, such as “fleeting,” “short-lived,” and “impermanent.” Consider case-i..."
+      "Broaden acceptable_answers to include additional valid academic synonyms that fit the context and register, such as “fleeting,” “short-lived,” and “impermanent.” Consider case-i...",
+      "Expand acceptable_answers to include plausible synonyms that meet the given definition and fit grammatically (e.g., practical, realistic). Alternatively, constrain the prompt to..."
     ],
     "CCSS.ELA-LITERACY.RI.11-12.3": [
-      "Remove \"produce\" from acceptable_answers. Optionally allow synonyms that preserve scale, such as \"mass produce,\" \"produce at scale,\" or \"mass-manufacture.\"",
-      "Tighten the acceptable answers to preserve precision: remove “opposition”; accept “dichotomy” (primary), “binary” (noun), and “duality.” Optionally clarify the instruction to “T...",
-      "Revise to avoid answer giveaway and promote analysis. Options: (1) Remove the explicit naming of “mutual shaping” earlier and require students to infer/identify the concept from...",
-      "Tighten the scoring: remove “duality” from acceptable answers. Consider allowing “dualism” or “binary opposition” (if changing the one-word constraint) alongside “dichotomy,” an...",
-      "Align the standard (e.g., RI.11-12.4 or L.11-12.4) or expand the task to require analysis of how the reason/emotion framework develops and interacts across a longer passage (e.g..."
+      "Align the standard (e.g., RI.11-12.4 or L.11-12.4) or expand the task to require analysis of how the reason/emotion framework develops and interacts across a longer passage (e.g...",
+      "Tighten acceptable_answers to exact phrases present in the passage that fit the sentence: e.g., [\"primary catalyst\", \"driving force\", \"moral justification\"]. If you wish to acce...",
+      "To strengthen mastery: ask students to explain how the telegraph’s instant communication led to the formation of news syndicates in 2–3 sentences, or convert to a two-part item ..."
     ],
     "CCSS.ELA-LITERACY.RI.11-12.4": [
-      "- Align the standard: either relabel to RI.11-12.2 (central idea/main idea) or redesign the item to match RI.11-12.4 by providing a short passage and asking students to determin...",
       "- Align to RI.11-12.4: Provide a brief passage excerpt and ask students to determine the meaning of a highlighted word or explain how the author refines a key term across senten...",
-      "Remove “contradiction” from acceptable_answers and from the explanation. Keep “contrast” as the accepted response. If you wish to broaden acceptable responses while keeping the ..."
+      "Remove “contradiction” from acceptable_answers and from the explanation. Keep “contrast” as the accepted response. If you wish to broaden acceptable responses while keeping the ...",
+      "- Remove the explicit keyword from the passage to avoid giveaway. For example, replace “this repetition of opening words” with “this technique of beginning multiple sentences wi..."
     ],
     "CCSS.ELA-LITERACY.RI.11-12.7": [
       "Align instructions with scoring: either remove “exactly as it appears” and state “Type the material’s name” (optionally noting case-insensitivity and that “the” is allowed), or ...",
@@ -91,26 +89,24 @@
       "Clarify the required verb form or broaden accepted responses. For example: add a note like “Use third-person singular present (e.g., ‘contradicts’),” or accept both base and thi..."
     ],
     "CCSS.ELA-LITERACY.RI.11-12.8": [
-      "Prevent the answer giveaway by altering the excerpt or the prompt. Options: (a) Replace the word in the excerpt with an elision [____] so students must retrieve it, (b) paraphra...",
       "Correct the passage to read: “its limits are not to be transcended.” Optionally, review acceptable synonyms: keep “implied,” “incidental,” and “unenumerated”; consider whether “...",
-      "Broaden acceptable answers to include “the strength of the society,” or revise the stem to make the expected scope explicit, e.g., “Type the single word that completes the mappi..."
+      "Broaden acceptable answers to include “the strength of the society,” or revise the stem to make the expected scope explicit, e.g., “Type the single word that completes the mappi...",
+      "- Align to RI.11-12.8 by providing a short excerpt from a seminal U.S. text (e.g., a Supreme Court opinion or Federalist paper) and ask students to identify a premise, evaluate ..."
     ],
     "CCSS.ELA-LITERACY.RL.11-12.2": [
-      "Correct the attribution throughout. For example: “In this passage, Rochester rejects the artificial hierarchies of ‘custom’ and ‘conventionalities’ to assert his fundamental con...",
-      "Increase cognitive demand to support mastery: for example, ask students to (a) explain in 1–2 sentences how the oak tree symbolizes the central idea using evidence from the text...",
-      "Replace “In this soliloquy” with “In these lines,” “In this speech,” or “In this monologue.” Optionally, refine acceptable answers to keep them emotion-focused (e.g., guilt, rem..."
+      "Replace “In this soliloquy” with “In these lines,” “In this speech,” or “In this monologue.” Optionally, refine acceptable answers to keep them emotion-focused (e.g., guilt, rem...",
+      "Revise the passage so it does not explicitly name the theme. Instead, require students to infer the theme and briefly justify it with textual evidence (e.g., “Identify the centr...",
+      "Increase cognitive demand to better reflect RL.11-12.2 by requiring analysis, e.g., ask students to identify two themes and explain briefly how the ending develops them, or ask ..."
     ],
     "CCSS.ELA-LITERACY.RL.11-12.3": [
-      "- Adjust labeled difficulty to Medium or increase complexity (e.g., require explaining how unreliability shapes theme/plot, or distinguishing it from similar techniques in multi...",
       "- Remove the exact target word from the passage or restructure the passage so students must infer the reinterpreted trait (e.g., imply precision through actions rather than stat...",
-      "To align with a ‘hard’ difficulty and better support mastery: 1) Require a short analytic response that names the device and briefly explains how the sequencing heightens the th..."
+      "To align with a ‘hard’ difficulty and better support mastery: 1) Require a short analytic response that names the device and briefly explains how the sequencing heightens the th...",
+      "Revise to require analysis of how the non-linear structure affects characterization or meaning. For example: “In 2–3 sentences, explain how the non-linear structure reflects the..."
     ],
     "CCSS.ELA-LITERACY.RL.11-12.4": [
-      "Align grading with the stem: either (1) restrict acceptable_answers to only “red,” or (2) revise the stem to remove “specifically provided in the final line” (e.g., “Based on th...",
-      "Add “limit” (and possibly “line,” “threshold”) to acceptable_answers, or remove “or limit” from the stem to avoid implying an answer not accepted by the key.",
-      "Remove or alter the explicit restatement that gives away the answer. Options: - Trim the excerpt to end at “The multitudinous seas incarnadine,” omitting “Making the green one r...",
       "Expand acceptable answers to include “tactile” (and optionally “tactual”). Alternatively, revise the prompt to specify that only “tangible” or “touchable” will be accepted, thou...",
-      "- Replace the stem with a text-based prompt aligned to RL.11-12.4. Example (fill-in): “In the line, ‘O, full of scorpions is my mind, dear wife,’ the word ‘scorpions’ most nearl..."
+      "- Replace the stem with a text-based prompt aligned to RL.11-12.4. Example (fill-in): “In the line, ‘O, full of scorpions is my mind, dear wife,’ the word ‘scorpions’ most nearl...",
+      "To improve mastery-learning value, prompt brief reasoning: \"Provide the adjective and justify it with a phrase from the excerpt.\" Alternatively, remove the starting-letter const..."
     ],
     "CCSS.ELA-LITERACY.RL.11-12.7": [
       "- Curriculum alignment: If targeting RL.11-12.7, revise to involve comparing interpretations (e.g., “In two filmed versions of Macbeth, how is the protagonist portrayed differen...",
@@ -129,85 +125,79 @@
       "Remove “development” from acceptable_answers. Keep synonyms that truly match “substance,” such as “content” and “subject matter.” Optionally clarify in the explanation why “deve..."
     ],
     "CCSS.ELA-LITERACY.W.11-12.1.A": [
-      "Revise the instruction or the accepted answers for consistency. Options: (a) Keep instruction and require exact match including capitalization and comma; or (b) Change the paren...",
       "Make grading rules consistent with the instructions. Either: (a) change instructions to allow case-insensitive answers (e.g., “Type the word, case-insensitive, excluding punctua...",
-      "Clarify the prompt to avoid punctuation ambiguity (e.g., “Type the word only (no punctuation)”) and/or include “However,” in acceptable answers to prevent penalizing students wh..."
+      "Clarify the prompt to avoid punctuation ambiguity (e.g., “Type the word only (no punctuation)”) and/or include “However,” in acceptable answers to prevent penalizing students wh...",
+      "Align instructions and grading: either (a) keep “type the word exactly as it appears…,” and accept only “Conversely”, or (b) state “type the transition word (capitalization will..."
     ],
     "CCSS.ELA-LITERACY.W.11-12.1.B": [
-      "Revise acceptable_answers to remove “counterargument,” or alternatively revise the stem to invite closely related terms (e.g., “term such as counterclaim or counterargument”) if...",
       "- Remove the explicit term from the pre-attempt text to avoid a giveaway. For example, change “...before eventually pointing out the limitations of the counterargument” to “...b...",
-      "Increase cognitive demand to support mastery: for example, ask students to (a) explain why addressing limitations improves fairness for an audience, (b) identify a specific limi..."
+      "Increase cognitive demand to support mastery: for example, ask students to (a) explain why addressing limitations improves fairness for an audience, (b) identify a specific limi...",
+      "Update acceptable_answers to only include “limitations” (the exact word from the passage), or revise the prompt to allow paraphrase (e.g., remove “According to the text” or say ..."
     ],
     "CCSS.ELA-LITERACY.W.11-12.1.E": [
-      "Align the item format with the requested type. Either: (a) remove labeled choices and prompt students to write an original concluding sentence (true fill-in/short answer with a ...",
-      "Align the item’s declared type with its structure. Either: (a) update the type to “mcq,” or (b) redesign as a true fill-in (no visible A–D options) with an open response rubric—...",
-      "Add “asset” and “assets” to acceptable_answers. Consider also allowing “currency” and “goods” if you aim for broader semantic coverage. Optionally clarify in directions: “Type a...",
       "Align the acceptable answers with the sentence grammar. Options: (a) keep the determiner and restrict acceptable answers to singular count nouns that fit: [\"asset\", \"commodity\",...",
-      "Resolve the format mismatch. Either: (a) Convert to a true fill-in by removing labeled choices and requiring students to write the concluding sentence (or a brief rationale), or..."
+      "Resolve the format mismatch. Either: (a) Convert to a true fill-in by removing labeled choices and requiring students to write the concluding sentence (or a brief rationale), or...",
+      "Broaden grading to accept a wider range of semantically appropriate nouns (e.g., measure, policy, intervention, change, countermeasure, strategy, adjustment, reform), or impleme..."
     ],
     "CCSS.ELA-LITERACY.W.11-12.10": [
-      "To avoid the pre-attempt giveaway: (1) Redact or paraphrase the quoted line so the key word is not explicitly present (e.g., “…time for research, reflection, and [blank]”). (2) ...",
-      "Either: (a) relabel difficulty to easy/medium, or (b) increase rigor (e.g., ask students to justify the mode with criteria, distinguish between persuasive vs. argumentative with...",
-      "Re-label difficulty to Medium (or Easy), or increase cognitive demand to justify “Hard” by, for example: asking students to (a) classify each entry’s primary and secondary purpo..."
+      "Align the explanation and accepted answers. Either remove “short” from acceptable_answers to require the exact term “shorter,” or revise the explanation to state that close vari...",
+      "Either (a) relabel difficulty to easy/medium, or (b) raise rigor to justify “hard,” e.g., remove the direct clue and require students to (1) name two appropriate short-time-fram...",
+      "To strengthen mastery: ask students to explain why a semester-long capstone fits “extended” time frames, or to contrast features of shorter vs extended writing tasks in 1–2 sent..."
     ],
     "CCSS.ELA-LITERACY.W.11-12.2.B": [
-      "To better meet a hard difficulty label, present multiple economically oriented, plausible options (e.g., wage gains, employment rates, innovation metrics) and avoid mirroring th...",
-      "Clarify input formatting to remove ambiguity about quotation marks. For example: “Type one of the following phrases (do not include quotation marks): employees felt significantl...",
-      "Resolve the field mismatch by either: (a) adding “fact” to acceptable_answers to match the explanation, or (b) revising the explanation to remove “fact.” Optionally consider add..."
+      "To align with a \"hard\" label, increase cognitive demand, e.g., require a brief justification comparing quantitative vs qualitative evidence for this audience, or ask students to...",
+      "Adjust labeled difficulty to Easy/Medium, or increase rigor to justify “Hard” by requiring students to (a) propose two specific, quantifiable KPIs for remote work viability and ...",
+      "Resolve the instruction–scoring mismatch. Either: (a) keep the current instruction and restrict acceptable_answers to the exact listed phrase only; or (b) revise the instruction..."
     ],
     "CCSS.ELA-LITERACY.W.11-12.2.D": [
-      "To improve mastery and difficulty alignment: 1) Require application, e.g., “Name the term and justify in one sentence why ‘Wise Old Man’ fits it using evidence from a text,” or ...",
-      "To align with W.11-12.2.D, revise the task to require application of the technique (e.g., ask students to write a sentence/brief explanation using an analogy to clarify the phen...",
-      "- To meet a Medium difficulty label: Ask students to apply the term in context (e.g., revise a sentence to correctly use “qualitative,” or distinguish among qualitative, quantit..."
+      "- Remove the explicit term from the setup so students must identify the technique: e.g., “A student’s paper compares the skin to a wall and the immune system to a garrison to cl...",
+      "- Revise the prompt or excerpt so the key comparative noun phrase is not verbatim in the student-facing text (e.g., paraphrase the excerpt or blank out the term within the quote...",
+      "Remove “analogy” from acceptable_answers (leave only “metaphor”), or reword the stem to accept broader terms (e.g., “figurative comparison”) if both are intended. Ensure the exp..."
     ],
     "CCSS.ELA-LITERACY.W.11-12.2.F": [
-      "To comply with the requested fill-in format, remove the A/B/C labels and revise the prompt to have students type the full concluding sentence (e.g., “Type the full sentence that...",
-      "Resolve the format-type mismatch: either (a) convert this to a true fill-in by removing labeled choices and prompting students to write a concluding statement (with a rubric for...",
-      "Resolve the format mismatch with the generation prompt: either (a) remove the visible options so it’s a true fill-in response, or (b) relabel as a multiple-choice/select item an...",
       "Narrow acceptable answers to precise equivalents of “antibiotics,” such as: [\"antibiotics\", \"antibiotic drugs\", \"antimicrobials\", \"antibacterial drugs\"]. Remove overbroad entrie...",
-      "Clarify the instruction to 'type a plural noun' (if plural is required), or expand acceptable answers to include singular equivalents such as 'inequality', 'inequity', 'disparit..."
+      "Clarify the instruction to 'type a plural noun' (if plural is required), or expand acceptable answers to include singular equivalents such as 'inequality', 'inequity', 'disparit...",
+      "Limit acceptable answers to those directly supported by the paragraph’s evidence (e.g., “privacy”, “anonymity”). Remove “autonomy” and “freedom,” or, if you wish to keep them, r..."
     ],
     "CCSS.ELA-LITERACY.W.11-12.3.B": [
-      "To meet a hard difficulty: require application/analysis rather than recall. For example, provide a short passage and ask students to (a) revise it to increase/decrease pacing an...",
       "To align with a hard difficulty: remove or soften the explicit cue (e.g., omit “slowing down the reader’s experience of time”), or ask students to (a) identify two techniques at...",
-      "Revise the explanation for Option A to avoid mislabeling: e.g., “Option A is correct because it uses a flashback (a non-linear time shift) and reflection to deepen the character..."
+      "Revise the explanation for Option A to avoid mislabeling: e.g., “Option A is correct because it uses a flashback (a non-linear time shift) and reflection to deepen the character...",
+      "Relabel difficulty to Medium, or increase rigor to match Hard (e.g., ask students to identify two techniques and explain in 2–3 sentences how each contributes to tension, or to ..."
     ],
     "CCSS.ELA-LITERACY.W.11-12.3.C": [
-      "- Adjust the labeled difficulty to Easy or Medium, or increase cognitive demand to justify Hard (e.g., require drafting the full sentence at (2) that juxtaposes details and tone...",
-      "Increase cognitive demand: ask students to justify how a linear/chronological sequence builds toward a specific tone or outcome; or provide multiple brief excerpts using differe...",
-      "Revise to avoid pre-revealing the exact term. Options: 1) Remove or paraphrase the analysis so it describes the technique without naming it (e.g., describe alternating past/pres..."
+      "Revise to avoid pre-revealing the exact term. Options: 1) Remove or paraphrase the analysis so it describes the technique without naming it (e.g., describe alternating past/pres...",
+      "- Adjust the labeled difficulty to Medium (or Easy), OR - Increase cognitive demand to justify “Hard,” e.g., require: (a) explaining how pacing choices build suspense in this pa...",
+      "To align with a ‘hard’ difficulty label, increase cognitive demand: ask students to propose and justify a revised sequence that sustains dread without a prologue, or compare two..."
     ],
     "CCSS.ELA-LITERACY.W.11-12.3.E": [
-      "Revise acceptable_answers to include only base-form verbs that fit grammatically and conceptually: [\"reflect\", \"elaborate\", \"comment\", \"meditate\", \"contemplate\", \"reflect upon\"]...",
       "Align scoring with the explanation and standard: restrict acceptable answers to “reflect” and possibly the phrase “reflect on.” Alternatively, revise the stem to avoid implying ...",
-      "To align with W.11-12.3.E, revise the task to have students write or revise a concluding sentence that reflects on what was resolved, or ask them to evaluate which of several co..."
+      "To align with W.11-12.3.E, revise the task to have students write or revise a concluding sentence that reflects on what was resolved, or ask them to evaluate which of several co...",
+      "Align format with the requested fill-in type. Options should not be presented as labeled choices in the stem for a fill-in item. Consider either: (a) updating the item metadata ..."
     ],
     "CCSS.ELA-LITERACY.W.11-12.4": [
-      "Correct the explanation’s grammar note. Example: “As written with ‘a,’ answers beginning with a vowel sound (e.g., ‘integrated’) would require changing the article to ‘an’ to be...",
-      "To align with W.11-12.4, transform the task into a production activity (e.g., “Revise the following sentence to make the style formal and precise for a legal brief,” or “Write 2...",
-      "Tighten the rubric to match the prompt: remove “appearance” from acceptable answers, and consider adding clearly deceptive-connotation nouns such as “pretense,” “façade/facade,”..."
+      "Remove the exact target phrase from the pre-attempt text. For example, change the career guide advice to “Use formal language (e.g., refer to the role formally)” without naming ...",
+      "Expand acceptable_answers to include other valid single-word conjunctive adverbs that fit the semicolon–adverb–comma pattern and formal tone (e.g., “still,” “instead,” “converse...",
+      "- Broaden acceptable answers to include other plausible, formal nouns that collocate well (e.g., “proficiency,” “competence/competency,” “background”). - Or, constrain the task ..."
     ],
     "CCSS.ELA-LITERACY.W.11-12.5": [
-      "Revise to require application, e.g.: (1) Provide a draft sentence and two audiences; ask students to revise tone/vocabulary for one audience. (2) Present two brief audience desc...",
       "To support mastery, reframe to require application, e.g., present two versions of a sentence for different audiences and ask students to choose or revise language to fit the int...",
-      "Revise the explanation to reference actual informal phrasing from options A/C/D (e.g., “cash,” “chill,” “Giving us money,” “meet up,” “great idea”) rather than “cool place” and ..."
+      "Revise the explanation to reference actual informal phrasing from options A/C/D (e.g., “cash,” “chill,” “Giving us money,” “meet up,” “great idea”) rather than “cool place” and ...",
+      "Revise the example to avoid historical inaccuracies while maintaining the tone contrast. For example: Original: “The internet started as a way for government folks to talk, whic..."
     ],
     "CCSS.ELA-LITERACY.W.11-12.6": [
-      "- Narrow acceptable answers to precise, platform-appropriate terms: “version history” and “revision history” (optionally “edit history” if you can verify platform usage). Remove...",
       "To support mastery learning, require brief application, e.g., “Name the feature and describe one step to add it in a shared document,” or present a short editing task where the ...",
-      "To better match a “hard” level and support mastery learning: 1) Present two detailed collaboration scenarios and ask students to justify which is asynchronous, explaining implic..."
+      "To better match a “hard” level and support mastery learning: 1) Present two detailed collaboration scenarios and ask students to justify which is asynchronous, explaining implic...",
+      "Remove the explicit occurrence of the target word and close synonyms from the scenario. For example, revise the sentence to: “By doing this, David uses the technology to revise ..."
     ],
     "CCSS.ELA-LITERACY.W.11-12.8": [
-      "To support mastery learning, reframe as an application task, e.g., “Write a search query using Boolean operators to retrieve articles that include both genetic and modification ...",
-      "Align grading with the instruction: either restrict acceptable_answers to [\"purpose\"] (preferred) or revise the stem to allow synonymous terms (e.g., remove “specific term from ...",
-      "Relabel the item as Easy, or raise cognitive demand to Medium by asking students to construct a complete advanced query (e.g., include quotes, field limiters, and Boolean logic)...",
-      "Convert recall to application to better assess mastery, e.g.: 1) Provide several search strings (e.g., genetic OR modification; \"genetic modification\"; genetic AND modification)...",
-      "To meet a hard difficulty level, require evaluating multiple potential sources (e.g., clinical study vs. biography vs. motivational speech transcript) and justify selection base..."
+      "To meet a hard difficulty level, require evaluating multiple potential sources (e.g., clinical study vs. biography vs. motivational speech transcript) and justify selection base...",
+      "To reach a true medium difficulty, require constructing or selecting a fuller advanced query (e.g., include a quoted phrase, combine AND/NOT, or add a site: or domain limiter), ...",
+      "To strengthen mastery, ask students to apply the operator in a full query, e.g., “Type a complete search string that includes the phrase \"Great Depression\" and excludes psycholo..."
     ],
     "CCSS.ELA-LITERACY.W.11-12.9.B": [
-      "Remove or paraphrase the earlier explicit mention of “effects” so the answer isn’t given in the stem. For example: “Madison argues that eliminating the roots of faction would de...",
       "Remove “faculties of men” from acceptable_answers (or change the instruction to allow a phrase, which is not recommended here). Keep the single accepted answer as “faculties” (c...",
-      "Revise to avoid the pre-attempt giveaway. Options: (1) Trim the excerpt to omit the clause with the target word and ask students to complete the reasoning: “Because the causes o..."
+      "Revise to avoid the pre-attempt giveaway. Options: (1) Trim the excerpt to omit the clause with the target word and ask students to complete the reasoning: “Because the causes o...",
+      "Remove or rephrase the giveaway phrase in the stem. For example, delete “not absolute” from the student-facing explanation or replace it with a neutral framing (e.g., “sets limi..."
     ],
     "CCSS.ELA-LITERACY.RI.11-12.10": [
       "Either relabel difficulty to Easy or increase cognitive demand to Medium by asking students to interpret the metaphor’s significance (e.g., explain how the “palimpsest” metaphor...",
@@ -215,14 +205,14 @@
       "Add “situational awareness” to acceptable_answers (e.g., [\"vigilance\", \"alertness\", \"attentiveness\", \"engagement\", \"readiness\", \"preparedness\", \"focus\", \"attention\", \"situationa..."
     ],
     "CCSS.ELA-LITERACY.RI.11-12.6": [
-      "Adjust difficulty label to Easy/Medium or increase cognitive demand to justify Hard (e.g., require analysis of how euphemism advances the author’s purpose, compare with an alter...",
       "- Restrict acceptable answers to “metaphor” and “extended metaphor.” Remove “analogy” and “comparison.” - Either relabel difficulty to “easy” or raise the cognitive demand (e.g....",
-      "- To align with RI.11-12.6: Provide a short informational excerpt and ask students to identify the author’s purpose or analyze how a stylistic choice contributes to persuasivene..."
+      "- To align with RI.11-12.6: Provide a short informational excerpt and ask students to identify the author’s purpose or analyze how a stylistic choice contributes to persuasivene...",
+      "To meet a medium difficulty label, expand the task to analyze how the metaphor enhances urgency or to distinguish metaphor from analogy in a less explicit excerpt, or ask studen..."
     ],
     "CCSS.ELA-LITERACY.SL.11-12.1.D": [
-      "Tighten acceptable answers to preserve construct validity with the “precise term” directive: accept only “triangulation,” “data triangulation,” and (optionally) “methodological ...",
-      "Fix answer-position balance by randomizing and monitoring the distribution across A–D (and across items if expanded). Consider adding more items to broaden coverage and create a...",
-      "Align the item with the specified standard or update the targeted standard. For SL.11-12.1.D, revise the stem to focus on synthesizing or responding to diverse perspectives (e.g..."
+      "Remove “cross-validation” from acceptable_answers. Consider tightening acceptable responses to triangulation and its direct variants only (e.g., “triangulation,” “data triangula...",
+      "To align difficulty and mastery: 1) Reframe to require application/synthesis, e.g., “Name the practice and justify how adding student attendance records, alongside surveys and t...",
+      "Remove “financial” from acceptable_answers or change it to a valid noun for this context (e.g., “financials” or “financial performance,” though the latter changes the form). Kee..."
     ],
     "CCSS.ELA-LITERACY.SL.11-12.5": [
       "To better support mastery without changing the fill-in type, enrich the prompt to require recognizing the most effective medium for a brief scenario (e.g., “For a single static ...",
@@ -231,34 +221,34 @@
       "To meet a hard difficulty label, require analysis or design: for example, ask students to justify why an interactive visualization is superior to static or animated options for ..."
     ],
     "CCSS.ELA-LITERACY.SL.11-12.6": [
-      "Align acceptable_answers with the keyed answer and typical casing. Suggestions: 1) Make grading case-insensitive, or 2) Include both \"whom\" and \"Whom\" in acceptable_answers (pre...",
       "Align acceptable_answers with the mid-sentence capitalization: include \"whom\" (lowercase) and/or set case-insensitive matching. Example: acceptable_answers: [\"whom\", \"Whom\"].",
-      "Avoid giving away the exact word in the quoted sentence. Options: - Paraphrase the transcript so the verb is not directly present, e.g., “The chairperson said they should ______..."
+      "Avoid giving away the exact word in the quoted sentence. Options: - Paraphrase the transcript so the verb is not directly present, e.g., “The chairperson said they should ______...",
+      "Remove “notwithstanding” from acceptable answers. If you want to allow “notwithstanding,” change the sentence and instructions to fit its grammatical role, e.g., “Notwithstandin..."
     ],
     "CCSS.ELA-LITERACY.W.11-12.1.D": [
-      "Remove “statistical” from acceptable_answers to align grading with the prompt’s definition. Optionally, to reduce any temptation toward “statistical,” revise the sentence to avo...",
-      "Tighten acceptable answers to those that meet the stated requirement. Recommended: accept “substantiate” (primary) and “corroborate” (also strong); optionally allow “validate.” ...",
-      "- Either broaden accepted answers to include other plausible formal verbs that collocate with “allegations” (e.g., support, buttress, sustain), OR - Tighten the prompt to signal..."
+      "- Either broaden accepted answers to include other plausible formal verbs that collocate with “allegations” (e.g., support, buttress, sustain), OR - Tighten the prompt to signal...",
+      "Do not list the exact target verbs in the prompt. For example: “To maintain a formal style, replace the informal phrase ‘back up’ with a precise academic verb. Complete the sent...",
+      "- Remove the target word from the sentence so students must select or supply a precise formal verb without seeing it (e.g., replace it with a blank in the sentence itself). Exam..."
     ],
     "CCSS.ELA-LITERACY.W.11-12.2.A": [
-      "Remove “undermines” from acceptable_answers or revise the explanation to allow verbs that merely weaken rather than conclusively disprove. Optionally clarify the prompt to reque...",
       "Revise acceptable answers to align with the part-of-speech requirement: remove “sustainability” or replace it with “sustainable.” Keep “environmental” and “ecological.” Alternat...",
-      "Relabel difficulty to Medium, or increase task complexity to justify Hard (e.g., require students to revise the draft with cohesive devices and organizational transitions, compa..."
+      "Relabel difficulty to Medium, or increase task complexity to justify Hard (e.g., require students to revise the draft with cohesive devices and organizational transitions, compa...",
+      "Revise the note to reflect sound-based article use, e.g., “Words beginning with a vowel sound (e.g., ‘additive’) would require ‘an’ in this sentence.” Alternatively: adjust the ..."
     ],
     "CCSS.ELA-LITERACY.W.11-12.3.D": [
-      "Align the task to the referenced writing standard by requiring production, e.g., ask students to revise the sentence with two new precise auditory nouns or add a follow-up promp...",
-      "- Expand acceptable_answers to include other precise, context-appropriate 8-letter ‘s’ verbs such as “swaddled” (and potentially “sheathed” if you deem it contextually acceptabl...",
-      "Balance surface features so length doesn’t telegraph the correct answers. For example: (a) Make one incorrect option longer but still vague (e.g., generic adjectives without con..."
+      "- Remove the explicit target word from the pre-attempt text. For example: “I will replace it with a more precise sensory adjective” (without naming ‘putrid’), then ask students ...",
+      "Remove “phosphorescent” from acceptable_answers and from the explanation. Clarify in the explanation that dinoflagellates produce bioluminescent light via a chemical reaction, d...",
+      "Narrow acceptable answers to only “glittered,” or revise the semantic cue to allow softer/fainter shine (e.g., “soft reflected light” or “faint, wavering light”) if keeping “gli..."
     ],
     "CCSS.ELA-LITERACY.RI.11-12.2": [
-      "To better match a “Hard” level: (1) Remove explicit bolding of the key term and require students to infer it from the definition; (2) Ask for a brief objective summary explainin...",
-      "To meet a hard difficulty designation, extend the prompt to require analyzing how the proposed synthesis reconciles the two methods (e.g., cite evidence from the passage to expl...",
-      "Relabel difficulty to Medium to better match the item’s single-step inference demand for grade 12. Alternatively, to merit a Hard label while remaining fill-in, add a second pro..."
+      "Relabel difficulty to Medium to better match the item’s single-step inference demand for grade 12. Alternatively, to merit a Hard label while remaining fill-in, add a second pro...",
+      "- Align to RI.11-12.2 by providing an informational passage and asking students to determine two or more central ideas, analyze how they develop and interact over the text, and/...",
+      "Revise acceptable_answers to include only terms that explicitly encode mutual, bidirectional influence: e.g., reciprocal, bidirectional, mutual, interdependent, interactive, dia..."
     ],
     "CCSS.ELA-LITERACY.RI.11-12.5": [
-      "Remove “solution-problem” from acceptable_answers. Keep synonyms that preserve order (e.g., “problem–solution,” “problem and solution,” “problem/solution”). Optionally accept mi...",
-      "To meet medium difficulty: remove the explicit cueing and/or require brief justification. For example, describe the sequence without using synonyms for “problem” or “solution,” ...",
-      "To align difficulty with RI.11-12.5 Medium, revise the prompt to require analysis/evaluation (e.g., ask how this structure makes the argument clearer or more convincing and cite..."
+      "- To avoid trivial answer retrieval and align with RI.11-12.5, ask students to analyze/evaluate effectiveness. For example: “How does organizing the argument chronologically aff...",
+      "Tighten the acceptable answers to only “practical” (the exact word used). Alternatively, revise the stem to allow paraphrase (e.g., remove “According to the excerpt” or ask for ...",
+      "- Align to RI.11-12.5 by asking students to analyze how a given passage’s organizational structure (e.g., problem-solution, compare-contrast) makes its points clear/convincing/e..."
     ],
     "CCSS.ELA-LITERACY.RL.11-12.1": [
       "Revise the explanation to avoid claiming words appear that are not in the passage. For example: \"Words like 'fluid' or 'opaque' might be suggested by the phrase 'refused to ossi...",
@@ -266,13 +256,14 @@
       "Revise acceptable_answers to remove or gate “misleading.” Keep clearly supported adjectives such as “evasive,” “vague,” “noncommittal,” “indirect,” and possibly “ambiguous.” Opt..."
     ],
     "CCSS.ELA-LITERACY.RL.11-12.6": [
-      "Adjust the labeled difficulty to medium or provide a less canonical, subtler passage/summary that requires deeper reasoning to justify a hard rating (e.g., a less obvious satiri...",
-      "Remove “litotes” from acceptable answers (retain “understatement,” “an understatement,” and “meiosis”). Alternatively, if you wish to accept “litotes,” revise the example to use..."
+      "Remove “litotes” from acceptable answers (retain “understatement,” “an understatement,” and “meiosis”). Alternatively, if you wish to accept “litotes,” revise the example to use...",
+      "Either (a) relabel difficulty to Medium, or (b) increase rigor to justify “Hard”: remove the definitional cue (“deliberate minimization”), complicate the context (e.g., add comp...",
+      "Retag the item’s difficulty as Easy or Medium for Grade 12, or increase complexity to justify “Hard” (e.g., use a subtler passage with competing cues among irony/sarcasm/underst..."
     ],
     "CCSS.ELA-LITERACY.W.11-12.9.A": [
-      "Revise the timeframe to avoid the dating error, e.g., “In late nineteenth- and early twentieth-century American literature,” or “At the turn of the twentieth century.” Consider ...",
-      "Revise to require application/comparison per W.11-12.9.A. For example: “Using evidence from both Crane’s Maggie and Norris’s McTeague, explain how each text depicts determinism ...",
-      "Revise the answer explanation to rely only on evidence present in the quoted Emerson excerpt. Remove or replace \"'currents... circulate'\" with quotations from the provided passa..."
+      "Revise the answer explanation to rely only on evidence present in the quoted Emerson excerpt. Remove or replace \"'currents... circulate'\" with quotations from the provided passa...",
+      "Correct the novel’s title to “Adventures of Huckleberry Finn” (without “The”).",
+      "Expand acceptable_answers to include other precise, discipline-appropriate adjectives supported by the sentence and passages, such as “amoral” and “impersonal” (and possibly “di..."
     ],
     "CCSS.ELA-LITERACY.L.11-12.2.A": [
       "Remove “well known” from acceptable_answers. Keep only “well-known.” Optionally allow capitalization variants only if position required, which it does not here (after an article...",
@@ -280,9 +271,9 @@
       "Remove the extra trailing blank and keep a single response location. Example: “To ensure the safety of the mission, the flight control center demanded ______ data on the storm’s..."
     ],
     "CCSS.ELA-LITERACY.RL.11-12.10": [
-      "- Expand acceptable_answers to include additional defensible synonyms (e.g., decline, transitoriness, temporality, mutability, obsolescence, evanescence, erosion, perishability)...",
       "Revise the stem or key to align semantic categories. Options: (a) Keep “emotional response” and restrict accepted answers to emotional nouns (e.g., relief, joy, elation, happine...",
-      "Reduce ambiguity by either: (a) focusing the prompt on “signifying nothing” only (remove “brief candle”), or (b) expand acceptable_answers to include “transience,” “impermanence..."
+      "Reduce ambiguity by either: (a) focusing the prompt on “signifying nothing” only (remove “brief candle”), or (b) expand acceptable_answers to include “transience,” “impermanence...",
+      "Correct the quotation to match the published text: end the sentence with “...and another portion as the site of a prison.” If variants exist, cite the edition or paraphrase inst..."
     ],
     "CCSS.ELA-LITERACY.W.11-12.2.E": [
       "Revise acceptable_answers to include only verbs that correctly collocate with “from” in this context: retain exclude, omit, remove, eliminate; remove disregard and discard. Alte...",
@@ -290,9 +281,9 @@
       "Revise the explanation to reference only phrases actually present in the options, e.g., “A and B use informal or emotive phrasing (‘totally unfair,’ ‘really mean’) and A uses fi..."
     ],
     "CCSS.ELA-LITERACY.W.11-12.3.A": [
-      "To match a “hard” difficulty: remove explicit cueing (“restricts the reader’s access strictly…”) and ask students to justify the POV choice with textual evidence; or present two...",
-      "Align the acceptable_answers with the student-facing instruction. Either: (a) restrict acceptable answers to exactly “Revision 1” and “Revision 2”, or (b) revise the instruction...",
-      "- Remove the explicit term from the Plan so students must infer it (e.g., “I will use a point of view that lets the narrator reveal the thoughts of multiple characters”). - Alte..."
+      "- Remove the explicit term from the Plan so students must infer it (e.g., “I will use a point of view that lets the narrator reveal the thoughts of multiple characters”). - Alte...",
+      "Relabel difficulty to medium (or easy/medium), or make the task harder by using a subtler excerpt where limited vs. omniscient is ambiguous and requiring justification (e.g., sh...",
+      "Align scoring with the prompt’s “explicitly” requirement by restricting acceptable answers to the exact word used in the text (problem). Alternatively, revise the stem to remove..."
     ],
     "CCSS.ELA-LITERACY.SL.11-12.1.A": [
       "Clarify expectations: e.g., “Include both methods from the text: ‘creating a new black identity and challenging white supremacy.’” Or: “Provide one method from the text (either ...",
@@ -310,9 +301,9 @@
       "Remove or soften the explicit giveaway. For example, delete or revise the sentence “only ‘crafty’ suggests dishonesty,” and instead let students infer connotation from context (..."
     ],
     "CCSS.ELA-LITERACY.SL.11-12.3": [
-      "Clarify punctuation handling and/or expand acceptable answers. For example: “Type the single word (do not include punctuation).” Or accept “negligence.” (with period) in accepta...",
       "To match a hard difficulty label: remove or soften the leading description that already outlines the false dilemma; present a subtler excerpt where multiple fallacies might seem...",
-      "Fix the internal contradiction by changing “opponents’ view” to “proponents’ view” (or “supporters’ view”). Optionally, clarify acceptance of case/punctuation (e.g., also accept..."
+      "Fix the internal contradiction by changing “opponents’ view” to “proponents’ view” (or “supporters’ view”). Optionally, clarify acceptance of case/punctuation (e.g., also accept...",
+      "- Align acceptable_answers with the instruction and stem. Remove “blow” and “blow to our public schools.” Either: (a) keep the stem’s article and accept [“devastating blow”, “de..."
     ],
     "CCSS.ELA-LITERACY.W.11-12.7": [
       "To align with “hard,” require students to write a brief integrative claim using two given source excerpts or analyze how two sources combine to strengthen a specific argument. A...",
@@ -330,16 +321,19 @@
       "Relabel difficulty to Easy or Medium, or increase complexity to justify Hard (e.g., include contested/edge cases with numerals, measurement phrases, or multiple blanks requiring..."
     ],
     "CCSS.ELA-LITERACY.L.11-12.5.A": [
-      "To match the “hard” label, require deeper analysis (e.g., ask students to explain how the paradox shapes theme or to differentiate paradox from a closely related device in a nov...",
       "Consider either relabeling difficulty as Medium or increasing rigor: require brief justification of why the statement is a paradox, include multiple plausible figures of speech ...",
-      "- Remove the verbatim disclosure of the answer before the blank. For example, present the simile from the story (without the interpretation) and ask: “Which word best captures t..."
+      "- Remove the verbatim disclosure of the answer before the blank. For example, present the simile from the story (without the interpretation) and ask: “Which word best captures t...",
+      "Broaden acceptable answers to include close synonyms that convey high loudness in context (e.g., “thunderous,” “earsplitting/ear-splitting,” “booming,” possibly “blaring”). Alte..."
     ],
     "CCSS.ELA-LITERACY.RI.11-12.1": [
-      "Relabel the difficulty to Medium or Easy, or increase cognitive demand (e.g., require students to identify two distinct phrases supporting uncertainty and explain their function...",
-      "Relabel difficulty to Medium (or Easy–Medium). Alternatively, increase cognitive demand to match Hard by requiring students to (a) cite two pieces of evidence (the uncertainty m..."
+      "Relabel difficulty to Medium (or Easy–Medium). Alternatively, increase cognitive demand to match Hard by requiring students to (a) cite two pieces of evidence (the uncertainty m...",
+      "Align scoring with the prompt: either (a) require only the full phrase by removing partials from acceptable_answers, or (b) relax the prompt to allow partial phrases (e.g., “cit...",
+      "Align the explanation with the scoring: either (a) keep the “exact wording” requirement and remove the claim that partial phrases are acceptable, or (b) expand acceptable_answer..."
     ],
     "CCSS.ELA-LITERACY.SL.11-12.2": [
-      "Align the response-format instruction with accepted answers. Either (a) require “24%” exclusively and remove “24 percent”/“24 %” from acceptable answers, or (b) revise the instr..."
+      "Align the response-format instruction with accepted answers. Either (a) require “24%” exclusively and remove “24 percent”/“24 %” from acceptable answers, or (b) revise the instr...",
+      "Align input instruction and grading: either (a) restrict acceptable answers to numeric forms (e.g., 360, 360.0) and say “Enter a whole number (no words)”, or (b) revise the inst...",
+      "- Align acceptable_answers with the stated formatting requirement. Either (a) require and only accept the comma-formatted version (\"$300,000\"), or (b) adjust the instruction to ..."
     ],
     "CCSS.ELA-LITERACY.W.11-12.1.C": [
       "Correct the letter-count constraint. Change “thirteen-letter” to “fifteen-letter,” or remove the letter-count requirement entirely and keep “single preposition beginning with ‘N...",
@@ -374,9 +368,9 @@
       "Revise the stem to remove ambiguity, for example: \"Which actions would help the group promote civil, democratic discussion, set clear goals and deadlines, or establish individua..."
     ],
     "CCSS.ELA-LITERACY.L.11-12.2.B|medium|fill-in": [
-      "[mastery_learning_alignment] Pure recall of a single spelling does not require reasoning or application, limiting diagnostic depth for mastery learning.",
-      "To strengthen mastery learning, consider prompting students to explain or apply the rule (e.g., choose between maintainance/maintenance and justify), or include a brief rational...",
-      "[mastery_learning_alignment] Primarily tests recall of a single spelling without requiring reasoning or application, limiting mastery learning value."
+      "[mastery_learning_alignment] Primarily tests recall of a single spelling without requiring reasoning or application, limiting mastery learning value.",
+      "To better support mastery learning, consider: (a) asking students to choose between commonly confused forms (maintenance vs. maintainance) and explain the rule; or (b) prompting...",
+      "[mastery_learning_alignment] Primarily a single-word recall task; does not require explanation or multi-step reasoning."
     ],
     "CCSS.ELA-LITERACY.L.11-12.3.A|easy|fill-in": [
       "For Language standards at easy difficulty: ensure the question tests the SPECIFIC language skill described in the standard (grammar rule, vocabulary use, mechanics convention) — not general reading comprehension. The answer must demonstrate mastery of the named skill. Do NOT create a question that could be answered without knowledge of the specific language rule.",
@@ -411,14 +405,14 @@
       "[factual_accuracy] The acceptable answers list is too narrow and would likely mark other valid academic synonyms as incorrect (e.g., “fleeting,” “short-lived,” “impermanent”). This is an answer-key..."
     ],
     "CCSS.ELA-LITERACY.L.11-12.6|medium|fill-in": [
-      "[factual_accuracy] The explanation inaccurately labels “mitigate” as domain-specific; it is a general academic term.",
-      "[educational_accuracy] The acceptable answers list is incomplete (e.g., it omits “abate”), risking that correct responses will be marked wrong, which undercuts the learning goal.",
-      "Revise the stem to avoid implying uniqueness, e.g., “Type an academic adjective that means ‘dealing with things sensibly and realistically’,” or “Which academic adjective best c..."
+      "Revise the stem to avoid implying uniqueness, e.g., “Type an academic adjective that means ‘dealing with things sensibly and realistically’,” or “Which academic adjective best c...",
+      "Expand acceptable_answers to include plausible synonyms that meet the given definition and fit grammatically (e.g., practical, realistic). Alternatively, constrain the prompt to...",
+      "[educational_accuracy] Multiple valid words fit the provided definition and context, but only “pragmatic” is accepted. This can mis-score correct responses and weakens the item’s educational validity."
     ],
     "CCSS.ELA-LITERACY.RI.11-12.3|easy|fill-in": [
-      "Remove \"produce\" from acceptable_answers. Optionally allow synonyms that preserve scale, such as \"mass produce,\" \"produce at scale,\" or \"mass-manufacture.\"",
-      "Align the standard (e.g., RI.11-12.4 or L.11-12.4) or expand the task to require analysis of how the reason/emotion framework develops and interacts across a longer passage (e.g...",
-      "To support mastery learning, revise the task to require explanation or inference rather than verbatim retrieval, for example: (a) Ask students to explain in 1–2 sentences how pu..."
+      "[factual_accuracy] Acceptable answers include single words (“catalyst,” “justification”) even though the prompt requires a phrase from the text. This inconsistency could mark non-compliant answers ...",
+      "To strengthen mastery: ask students to explain how the telegraph’s instant communication led to the formation of news syndicates in 2–3 sentences, or convert to a two-part item ...",
+      "[mastery_learning_alignment] The task is essentially verbatim retrieval (“formation”), not requiring explanation or multi-step reasoning, limiting mastery evidence."
     ],
     "CCSS.ELA-LITERACY.RI.11-12.3|hard|fill-in": [
       "Expand the acceptable answers to include widely used equivalents such as “false dilemma” (and optionally “binary opposition,” “either–or framing,” “binarism/false binary”), or a...",
@@ -430,9 +424,9 @@
       "Tighten the scoring: remove “duality” from acceptable answers. Consider allowing “dualism” or “binary opposition” (if changing the one-word constraint) alongside “dichotomy,” an..."
     ],
     "CCSS.ELA-LITERACY.RI.11-12.4|easy|fill-in": [
-      "[educational_accuracy] The answer is directly stated in the prompt, allowing students to copy a synonym without inferring meaning from context. This trivializes the task and does not effectively as...",
-      "Remove the explicit definition phrase that gives the exact answer. For example: keep the sentence contextual (e.g., provide a real-world statement using “ubiquitous” without def...",
-      "[educational_accuracy] The answer is trivially visible in the sentence (“found everywhere”), so students can copy it without using context-clue skills."
+      "- Remove the explicit keyword from the passage to avoid giveaway. For example, replace “this repetition of opening words” with “this technique of beginning multiple sentences wi...",
+      "[educational_accuracy] The passage gives away the answer (“repetition”) before students respond, undermining the assessment of determining meaning from context.",
+      "[reveals_misconceptions] Because the answer word appears verbatim, the item provides little diagnostic value for misconceptions."
     ],
     "CCSS.ELA-LITERACY.RI.11-12.7|hard|fill-in": [
       "[difficulty_alignment] Given the explicit scaffold toward per-capita normalization, the task aligns more with medium difficulty than the labeled hard.",
@@ -458,9 +452,9 @@
       "[clarity_precision] The blank reasonably admits multiple theme abstractions (e.g., concealed guilt, hidden sin), but only “hypocrisy” and close synonyms are accepted, risking penalizing valid answers."
     ],
     "CCSS.ELA-LITERACY.RL.11-12.3|easy|fill-in": [
-      "[mastery_learning_alignment] The task is simple recall/copying, offering little evidence of deeper understanding.",
-      "To strengthen mastery learning and better reflect RL.11-12.3, require brief analysis or evidence use, e.g., “Explain how the moor setting develops the protagonist’s characteriza...",
-      "[mastery_learning_alignment] The task is pure retrieval (copy the word “loneliness”) and does not require analysis or synthesis, limiting mastery-learning value."
+      "Revise to require analysis of how the non-linear structure affects characterization or meaning. For example: “In 2–3 sentences, explain how the non-linear structure reflects the...",
+      "[educational_accuracy] The task measures simple word retrieval, not analysis of how the author’s non-linear structure affects character development, which is the stated standard.",
+      "[curriculum_alignment] The item does not require analysis of the impact of structural choices; it only asks for a word from the text, which misaligns with RL.11-12.3’s analytical focus."
     ],
     "CCSS.ELA-LITERACY.RL.11-12.4|easy|fill-in": [
       "Align grading with the stem: either (1) restrict acceptable_answers to only “red,” or (2) revise the stem to remove “specifically provided in the final line” (e.g., “Based on th..."
@@ -474,9 +468,9 @@
       "[mastery_learning_alignment] This is a minimal recall task and does not require analysis or evidence-based reasoning, so it provides weak support for mastery learning at this grade/standard."
     ],
     "CCSS.ELA-LITERACY.RL.11-12.9|easy|fill-in": [
-      "[mastery_learning_alignment] Requires only copying an explicitly stated word; does not promote or evidence deeper understanding.",
-      "- Remove or rephrase the final sentence so it does not include the exact target word. For example: end with a paraphrase that implies the shared view without naming it, then pro...",
-      "[educational_accuracy] The exact target word appears verbatim in the passage, making the answer a straightforward copy rather than a meaningful application of the intended skill."
+      "[mastery_learning_alignment] It relies on simple word lookup rather than reasoning or synthesis, offering limited insight into deeper understanding.",
+      "Correct the explanation to remove the inaccurate claim. For example: “The word ‘liberty’ (capitalized as ‘Liberty’ in the Declaration) appears in both excerpts and names the rig...",
+      "[factual_accuracy] The explanation claims “Life” appears in both excerpts, but the provided Patrick Henry quote does not include that word."
     ],
     "CCSS.ELA-LITERACY.SL.11-12.1.B|easy|fill-in": [
       "Increase depth by asking students to explain why the statement represents a deadline versus a goal/timeline, or to propose both a clear goal and a deadline for a similar task. C...",
@@ -498,9 +492,9 @@
       "[clarity_precision] The prompt could be read as asking for either the opposing claim (“counterclaim”) or the rhetorical move (“concession”). This ambiguity may mislead students."
     ],
     "CCSS.ELA-LITERACY.W.11-12.1.B|easy|fill-in": [
-      "- Remove the explicit term from the pre-attempt text to avoid a giveaway. For example, change “...before eventually pointing out the limitations of the counterargument” to “...b...",
-      "Increase cognitive demand to support mastery: for example, ask students to (a) explain why addressing limitations improves fairness for an audience, (b) identify a specific limi...",
-      "[mastery_learning_alignment] The item is pure recall and does not require application or reasoning, offering limited diagnostic value for mastery of the standard."
+      "[mastery_learning_alignment] The item is pure recall and does not require application or reasoning, offering limited diagnostic value for mastery of the standard.",
+      "Update acceptable_answers to only include “limitations” (the exact word from the passage), or revise the prompt to allow paraphrase (e.g., remove “According to the text” or say ...",
+      "[factual_accuracy] The acceptable answers list includes synonyms not present in the passage, while the prompt specifies “According to the text,” implying exact phrasing. This inconsistency is a fac..."
     ],
     "CCSS.ELA-LITERACY.W.11-12.1.E|hard|fill-in": [
       "Align the acceptable answers with the sentence grammar. Options: (a) keep the determiner and restrict acceptable answers to singular count nouns that fit: [\"asset\", \"commodity\",...",
@@ -508,14 +502,14 @@
       "For difficulty \"hard\": the task MUST genuinely require multi-step reasoning, inference across multiple sentences, or applying knowledge in a novel context. If a Grade-level student can answer by simply locating a word in the passage, the item is NOT hard — relabel it or redesign the question to require synthesis or inference."
     ],
     "CCSS.ELA-LITERACY.W.11-12.10|easy|fill-in": [
-      "[curriculum_alignment] Cites W.11-12.10 but measures recognition of a term from the standard text, not the writing performance the standard targets.",
-      "To avoid the pre-attempt giveaway: (1) Redact or paraphrase the quoted line so the key word is not explicitly present (e.g., “…time for research, reflection, and [blank]”). (2) ...",
-      "[educational_accuracy] The passage includes the exact answer (“revision”), so students can copy it without any meaningful thinking for Grade 12. This is a pre-attempt answer giveaway."
+      "[factual_accuracy] Explanation requires the exact term “shorter,” but the accepted answers also include “short,” creating an internal inconsistency.",
+      "To strengthen mastery: ask students to explain why a semester-long capstone fits “extended” time frames, or to contrast features of shorter vs extended writing tasks in 1–2 sent...",
+      "[mastery_learning_alignment] Pure recall of a single word limits diagnostic value and does not require application or reasoning."
     ],
     "CCSS.ELA-LITERACY.W.11-12.10|hard|fill-in": [
-      "[difficulty_alignment] Labeled “hard,” but the task is a straightforward, single-step identification—substantially easier than a Grade 12 hard-level expectation.",
-      "Re-label difficulty to Medium (or Easy), or increase cognitive demand to justify “Hard” by, for example: asking students to (a) classify each entry’s primary and secondary purpo...",
-      "[difficulty_alignment] Labeled “hard,” but the task is a straightforward single-step classification appropriate for earlier grades; insufficient cognitive demand for Grade 12 hard."
+      "[difficulty_alignment] Labeled “hard,” but the task is a straightforward single-step classification appropriate for earlier grades; insufficient cognitive demand for Grade 12 hard.",
+      "Either (a) relabel difficulty to easy/medium, or (b) raise rigor to justify “hard,” e.g., remove the direct clue and require students to (1) name two appropriate short-time-fram...",
+      "[difficulty_alignment] Labeled as “hard,” but with the explicit cue it is easy for Grade 12; clear mismatch."
     ],
     "CCSS.ELA-LITERACY.W.11-12.2.B|easy|fill-in": [
       "Resolve the format-type mismatch. Either: 1) Remove the labeled choices and present the prompt as a true fill-in (e.g., provide the claim and ask students to supply or select an...",
@@ -538,9 +532,9 @@
       "To improve mastery alignment, require brief application, e.g., “Name the technique AND revise one sentence to speed up the moment,” or “Identify the technique and write two shor..."
     ],
     "CCSS.ELA-LITERACY.W.11-12.3.C|hard|fill-in": [
-      "[mastery_learning_alignment] Pure terminology recall; does not require application or reasoning.",
-      "- Adjust the labeled difficulty to Easy or Medium, or increase cognitive demand to justify Hard (e.g., require drafting the full sentence at (2) that juxtaposes details and tone...",
-      "[difficulty_alignment] The labeled “hard” difficulty overstates the cognitive demand; the task is straightforward for Grade 12."
+      "[difficulty_alignment] Difficulty label mismatches the task; identifying “pacing” here is relatively straightforward for Grade 12, not “hard.”",
+      "To align with a ‘hard’ difficulty label, increase cognitive demand: ask students to propose and justify a revised sequence that sustains dread without a prologue, or compare two...",
+      "[difficulty_alignment] The labeled difficulty is ‘hard,’ but the task is straightforward recognition of dramatic irony—closer to easy/medium for Grade 12."
     ],
     "CCSS.ELA-LITERACY.W.11-12.3.C|medium|fill-in": [
       "[mastery_learning_alignment] Primarily tests recall of a single term rather than analysis or application, offering limited evidence of mastery.",
@@ -558,18 +552,18 @@
       "Fix the format mismatch with the requested type: either (a) convert to true fill-in (remove visible options; prompt students to write an appropriate reflective concluding senten..."
     ],
     "CCSS.ELA-LITERACY.W.11-12.4|easy|fill-in": [
-      "[factual_accuracy] The acceptable answers list contradicts the instruction and passage by allowing partial responses (“style” or “tone”) when the exact quoted phrase is “style and tone.”",
-      "To align with W.11-12.4, transform the task into a production activity (e.g., “Revise the following sentence to make the style formal and precise for a legal brief,” or “Write 2...",
-      "[curriculum_alignment] The task measures word retrieval about style, not production of writing with appropriate style as required by W.11-12.4."
+      "[curriculum_alignment] The task measures word retrieval about style, not production of writing with appropriate style as required by W.11-12.4.",
+      "Remove the exact target phrase from the pre-attempt text. For example, change the career guide advice to “Use formal language (e.g., refer to the role formally)” without naming ...",
+      "[educational_accuracy] The exact answer appears in the student-facing prompt, turning the task into copying rather than demonstrating audience-appropriate style."
     ],
     "CCSS.ELA-LITERACY.W.11-12.5|easy|fill-in": [
       "Revise to require application, e.g.: (1) Provide a draft sentence and two audiences; ask students to revise tone/vocabulary for one audience. (2) Present two brief audience desc...",
       "To support mastery, reframe to require application, e.g., present two versions of a sentence for different audiences and ask students to choose or revise language to fit the int..."
     ],
     "CCSS.ELA-LITERACY.W.11-12.6|easy|fill-in": [
-      "[educational_accuracy] The answer is explicitly present in the passage (“replace”) and the prompt asks for that exact word, making the task trivial and undermining the intended assessment.",
-      "To align with W.11-12.6, modify the task to assess using technology to update writing in response to feedback. For example: ask students to select or describe the appropriate di...",
-      "[curriculum_alignment] The question tests verb retrieval from a passage rather than the student’s ability to use technology to update/publish writing per W.11-12.6."
+      "[curriculum_alignment] The question tests verb retrieval from a passage rather than the student’s ability to use technology to update/publish writing per W.11-12.6.",
+      "Remove the explicit occurrence of the target word and close synonyms from the scenario. For example, revise the sentence to: “By doing this, David uses the technology to revise ...",
+      "[educational_accuracy] The passage contains the exact answer (“integrate”) before the student responds, making the item trivial and undermining its educational purpose as practice/assessment."
     ],
     "CCSS.ELA-LITERACY.W.11-12.8|easy|fill-in": [
       "Convert recall to application to better assess mastery, e.g.: 1) Provide several search strings (e.g., genetic OR modification; \"genetic modification\"; genetic AND modification)...",
@@ -609,18 +603,19 @@
       "[mastery_learning_alignment] Measures rote recall only; does not require application, evidence use, or analysis."
     ],
     "CCSS.ELA-LITERACY.RI.11-12.6|medium|fill-in": [
-      "- Restrict acceptable answers to “metaphor” and “extended metaphor.” Remove “analogy” and “comparison.” - Either relabel difficulty to “easy” or raise the cognitive demand (e.g....",
-      "[factual_accuracy] Acceptable answers include “analogy” and “comparison,” which are not the precise device used. This would incorrectly award credit for an imprecise response.",
-      "[difficulty_alignment] The task is easy identification rather than medium-level analysis for Grade 12; labeled difficulty does not match actual cognitive demand."
+      "[difficulty_alignment] The task is easy identification rather than medium-level analysis for Grade 12; labeled difficulty does not match actual cognitive demand.",
+      "To meet a medium difficulty label, expand the task to analyze how the metaphor enhances urgency or to distinguish metaphor from analogy in a less explicit excerpt, or ask studen...",
+      "[difficulty_alignment] The task is easier than labeled: straightforward identification of a clear metaphor is Easy for Grade 12, not Medium."
     ],
     "CCSS.ELA-LITERACY.RL.11-12.4|hard|fill-in": [
-      "Expand acceptable answers to include “tactile” (and optionally “tactual”). Alternatively, revise the prompt to specify that only “tangible” or “touchable” will be accepted, thou...",
-      "- Replace the stem with a text-based prompt aligned to RL.11-12.4. Example (fill-in): “In the line, ‘O, full of scorpions is my mind, dear wife,’ the word ‘scorpions’ most nearl...",
-      "For difficulty \"hard\": the task MUST genuinely require multi-step reasoning, inference across multiple sentences, or applying knowledge in a novel context. If a Grade-level student can answer by simply locating a word in the passage, the item is NOT hard — relabel it or redesign the question to require synthesis or inference."
+      "For difficulty \"hard\": the task MUST genuinely require multi-step reasoning, inference across multiple sentences, or applying knowledge in a novel context. If a Grade-level student can answer by simply locating a word in the passage, the item is NOT hard — relabel it or redesign the question to require synthesis or inference.",
+      "To improve mastery-learning value, prompt brief reasoning: \"Provide the adjective and justify it with a phrase from the excerpt.\" Alternatively, remove the starting-letter const...",
+      "[mastery_learning_alignment] Functions as vocabulary recall rather than requiring analysis or justification, limiting diagnostic value for deeper understanding."
     ],
     "CCSS.ELA-LITERACY.SL.11-12.1.D|easy|fill-in": [
-      "Remove \"resolve\" from acceptable_answers (keep only \"resolving\"), or alternatively, rephrase the stem to accept base-form responses (e.g., \"Student C’s action is to ____ the app...",
-      "Remove \"resolving the\" from acceptable_answers (retain only \"resolving\"). Alternatively, adjust the stem to remove the article (\"Student C is __________ apparent contradiction....."
+      "Remove or paraphrase the explicit target word from the transcript. For example, change Jordan’s line to: \"These are completely opposite claims. To resolve this, we need to gathe...",
+      "[educational_accuracy] The transcript states the exact answer ('contradiction') before the student responds, so the task becomes copying rather than demonstrating understanding.",
+      "[mastery_learning_alignment] Because the answer is stated verbatim, the task involves minimal thinking and has limited diagnostic value."
     ],
     "CCSS.ELA-LITERACY.SL.11-12.4|easy|fill-in": [
       "To better support mastery learning, convert to an application item (e.g., provide a brief scenario and ask which adjustments best suit that audience, or require students to name..."
@@ -644,9 +639,9 @@
       "[mastery_learning_alignment] Requires only verbatim retrieval; does not demand explanation or application, limiting diagnostic value for deeper understanding."
     ],
     "CCSS.ELA-LITERACY.W.11-12.2.B|hard|fill-in": [
-      "For difficulty \"hard\": the task MUST genuinely require multi-step reasoning, inference across multiple sentences, or applying knowledge in a novel context. If a Grade-level student can answer by simply locating a word in the passage, the item is NOT hard — relabel it or redesign the question to require synthesis or inference.",
-      "Resolve the field mismatch by either: (a) adding “fact” to acceptable_answers to match the explanation, or (b) revising the explanation to remove “fact.” Optionally consider add...",
-      "[factual_accuracy] The explanation lists “fact” as acceptable, but the acceptable answer list does not include plain “fact,” creating a grading inconsistency."
+      "[difficulty_alignment] The task is a straightforward, single-step classification, which is easier than the labeled “hard.”",
+      "Adjust labeled difficulty to Easy/Medium, or increase rigor to justify “Hard” by requiring students to (a) propose two specific, quantifiable KPIs for remote work viability and ...",
+      "[difficulty_alignment] The task is straightforward recognition of “quantitative” from numeric examples, which is not “hard” for grade 12; the difficulty label is mismatched."
     ],
     "CCSS.ELA-LITERACY.W.11-12.2.D|medium|fill-in": [
       "- To meet a Medium difficulty label: Ask students to apply the term in context (e.g., revise a sentence to correctly use “qualitative,” or distinguish among qualitative, quantit...",
@@ -659,9 +654,9 @@
       "[educational_accuracy] The answer is directly visible in the analysis before students respond, so the task reduces to copying rather than assessing understanding."
     ],
     "CCSS.ELA-LITERACY.W.11-12.3.D|hard|fill-in": [
-      "- Clarify wording: replace “not found in the text” with “not found in the excerpt” to avoid confusion with words in the instructions. - Correct the explanation: state that W.11-...",
-      "[factual_accuracy] Explanation incorrectly claims the standard requires a “sense of entrapment,” which W.11-12.3.D does not. While minor, it is a factual inaccuracy in the supporting text.",
-      "[clarity_precision] “Not found in the text” is ambiguous because “intricate” appears in the instructions; better to specify “not found in the excerpt.”"
+      "[clarity_precision] “Not found in the text” is ambiguous because “intricate” appears in the instructions; better to specify “not found in the excerpt.”",
+      "Remove “phosphorescent” from acceptable_answers and from the explanation. Clarify in the explanation that dinoflagellates produce bioluminescent light via a chemical reaction, d...",
+      "[factual_accuracy] Accepting “phosphorescent” and labeling it a valid synonym misrepresents the biological mechanism described (bioluminescence), creating a factual inconsistency."
     ],
     "CCSS.ELA-LITERACY.W.11-12.6|hard|fill-in": [
       "To better match a “hard” level and support mastery learning: 1) Present two detailed collaboration scenarios and ask students to justify which is asynchronous, explaining implic...",
@@ -669,13 +664,14 @@
       "[mastery_learning_alignment] Pure terminology recall does not require application or reasoning, offering limited support for mastery learning."
     ],
     "CCSS.ELA-LITERACY.W.11-12.8|medium|fill-in": [
-      "Relabel the item as Easy, or raise cognitive demand to Medium by asking students to construct a complete advanced query (e.g., include quotes, field limiters, and Boolean logic)...",
-      "Remove “-” from acceptable_answers (retain NOT/not/Not and optionally AND NOT/and not if you intend to allow that syntax). Alternatively, revise the stem to say “Boolean operato..."
+      "[difficulty_alignment] Labeled as medium but functions as an easy, single-step recall item. Increasing complexity would better match the intended difficulty.",
+      "To strengthen mastery, ask students to apply the operator in a full query, e.g., “Type a complete search string that includes the phrase \"Great Depression\" and excludes psycholo...",
+      "[mastery_learning_alignment] Primarily tests recall of a single term rather than applied search strategy or reasoning."
     ],
     "CCSS.ELA-LITERACY.W.11-12.9.B|hard|fill-in": [
-      "To align with a hard difficulty label and the standard’s evaluative emphasis, extend the prompt to require analysis (e.g., ask students to explain how “faculties” logically lead...",
       "- To match a “hard” difficulty and strengthen mastery, require analysis (e.g., “Explain how Madison’s claim about the ‘faculties of men’ supports his conclusion about factions a...",
-      "For difficulty \"hard\": the task MUST genuinely require multi-step reasoning, inference across multiple sentences, or applying knowledge in a novel context. If a Grade-level student can answer by simply locating a word in the passage, the item is NOT hard — relabel it or redesign the question to require synthesis or inference."
+      "For difficulty \"hard\": the task MUST genuinely require multi-step reasoning, inference across multiple sentences, or applying knowledge in a novel context. If a Grade-level student can answer by simply locating a word in the passage, the item is NOT hard — relabel it or redesign the question to require synthesis or inference.",
+      "Remove or rephrase the giveaway phrase in the stem. For example, delete “not absolute” from the student-facing explanation or replace it with a neutral framing (e.g., “sets limi..."
     ],
     "CCSS.ELA-LITERACY.L.11-12.4.C|medium|fill-in": [
       "Clarify the response format, e.g., “Which numbered definition (1–4) matches the word as used? Enter the definition number: ____.” Or “corresponds to definition number ____.” All...",
@@ -697,7 +693,9 @@
       "[factual_accuracy] “Contradiction” is not an accurate synonym for “dichotomy” in this sentence; the traits contrast but do not logically negate each other. Including it as acceptable is factually i..."
     ],
     "CCSS.ELA-LITERACY.RI.11-12.5|easy|fill-in": [
-      "Remove “solution-problem” from acceptable_answers. Keep synonyms that preserve order (e.g., “problem–solution,” “problem and solution,” “problem/solution”). Optionally accept mi..."
+      "- Align to RI.11-12.5 by asking students to analyze how a given passage’s organizational structure (e.g., problem-solution, compare-contrast) makes its points clear/convincing/e...",
+      "[curriculum_alignment] Misaligned with RI.11-12.5, which requires analyzing/evaluating an author’s structural choices, not recalling the definition of main idea.",
+      "[mastery_learning_alignment] Pure recall (single-word definition) offers minimal diagnostic value for mastery."
     ],
     "CCSS.ELA-LITERACY.RL.11-12.1|easy|fill-in": [
       "[factual_accuracy] The prompt requires the exact phrase, but the acceptable answers include “vermin,” which is not the exact phrase following “into a.” This inconsistency between instructions and s...",
@@ -705,29 +703,32 @@
       "Do not show the exact sentence with the answer immediately before the blank. Options: (a) Provide a longer excerpt without immediately repeating the target sentence, then ask st..."
     ],
     "CCSS.ELA-LITERACY.RL.11-12.2|easy|fill-in": [
-      "[curriculum_alignment] The question checks literary terminology rather than determining/analyzing themes or providing an objective summary, so it does not align with RL.11-12.2.",
-      "Increase cognitive demand to support mastery: for example, ask students to (a) explain in 1–2 sentences how the oak tree symbolizes the central idea using evidence from the text...",
-      "[mastery_learning_alignment] The item elicits simple word recall rather than analysis or evidence-based reasoning, limiting mastery-learning value."
+      "[mastery_learning_alignment] Pure retrieval/copying without reasoning; does not support mastery learning.",
+      "Increase cognitive demand to better reflect RL.11-12.2 by requiring analysis, e.g., ask students to identify two themes and explain briefly how the ending develops them, or ask ...",
+      "[mastery_learning_alignment] Task reduces to copying a word stated in the passage, offering limited insight into deeper understanding or analysis."
     ],
     "CCSS.ELA-LITERACY.RL.11-12.5|medium|fill-in": [
       "- Tighten acceptable answers: keep “circular,” “cyclical,” and add “ring composition,” “ring structure,” and “full-circle”/“full circle”/“full-circle ending.” Remove “circle.” -...",
       "Revise the stem to require brief analysis in addition to naming the structure, e.g., “Name the structure and explain in 1–2 sentences how returning to the opening paragraph affe..."
     ],
     "CCSS.ELA-LITERACY.RL.11-12.6|hard|fill-in": [
-      "Adjust the labeled difficulty to medium or provide a less canonical, subtler passage/summary that requires deeper reasoning to justify a hard rating (e.g., a less obvious satiri...",
-      "For difficulty \"hard\": the task MUST genuinely require multi-step reasoning, inference across multiple sentences, or applying knowledge in a novel context. If a Grade-level student can answer by simply locating a word in the passage, the item is NOT hard — relabel it or redesign the question to require synthesis or inference."
+      "[difficulty_alignment] Labeled “hard,” but the task is a straightforward identification aided by a definitional cue—more Easy/Medium than Hard for Grade 12.",
+      "Retag the item’s difficulty as Easy or Medium for Grade 12, or increase complexity to justify “Hard” (e.g., use a subtler passage with competing cues among irony/sarcasm/underst...",
+      "[difficulty_alignment] Labeled “hard,” but the task is straightforward device identification—closer to Easy for Grade 12."
     ],
     "CCSS.ELA-LITERACY.W.11-12.1.B|medium|fill-in": [
       "Tighten the acceptable answers by removing “opposition.” Keep precise terms like “counterclaim,” “counter-claim,” “counterargument,” “counter-argument,” and optionally “opposing...",
       "To better support mastery, add brief context that requires application: e.g., provide a short claim and an opposing viewpoint, then ask students to (a) identify the sentence tha..."
     ],
     "CCSS.ELA-LITERACY.W.11-12.2.A|hard|fill-in": [
-      "[factual_accuracy] Scoring inconsistency: the explanation requires a verb indicating disproof, but “undermines” (listed as acceptable) indicates only weakening, not falsification.",
-      "Relabel difficulty to Medium, or increase task complexity to justify Hard (e.g., require students to revise the draft with cohesive devices and organizational transitions, compa...",
-      "[difficulty_alignment] As a single-term identification based on a brief scenario, the task fits a medium—not hard—difficulty for Grade 12."
+      "[difficulty_alignment] As a single-term identification based on a brief scenario, the task fits a medium—not hard—difficulty for Grade 12.",
+      "Revise the note to reflect sound-based article use, e.g., “Words beginning with a vowel sound (e.g., ‘additive’) would require ‘an’ in this sentence.” Alternatively: adjust the ...",
+      "[factual_accuracy] The explanation contains a factually incorrect generalization about article usage (letter vs. sound), so factual_accuracy fails."
     ],
     "CCSS.ELA-LITERACY.W.11-12.9.A|easy|fill-in": [
-      "- Align acceptable_answers with the two-word instruction: remove “the” or change the prompt/blanks to accept three words (e.g., one longer blank or no word-count constraint). - ..."
+      "- Align acceptable_answers with the two-word instruction: remove “the” or change the prompt/blanks to accept three words (e.g., one longer blank or no word-count constraint). - ...",
+      "Correct the novel’s title to “Adventures of Huckleberry Finn” (without “The”).",
+      "[factual_accuracy] The passage misnames Twain’s novel as “The Adventures of Huckleberry Finn.” The official title is “Adventures of Huckleberry Finn.”"
     ],
     "CCSS.ELA-LITERACY.L.11-12.2.A|easy|fill-in": [
       "Remove “well known” from acceptable_answers. Keep only “well-known.” Optionally allow capitalization variants only if position required, which it does not here (after an article...",
@@ -745,9 +746,9 @@
       "[clarity_precision] Ambiguity exists because more than one word from the passage can plausibly complete the sentence, but only one is accepted."
     ],
     "CCSS.ELA-LITERACY.RL.11-12.10|medium|fill-in": [
-      "[clarity_precision] Semantic mismatch between “emotional response” and allowed nouns like “freedom”/“liberation” makes the expected answer type ambiguous.",
-      "Reduce ambiguity by either: (a) focusing the prompt on “signifying nothing” only (remove “brief candle”), or (b) expand acceptable_answers to include “transience,” “impermanence...",
-      "[clarity_precision] Including both “brief candle” and “signifying nothing” creates ambiguity about the targeted concept, risking rejection of plausible answers like “transience.”"
+      "[clarity_precision] Including both “brief candle” and “signifying nothing” creates ambiguity about the targeted concept, risking rejection of plausible answers like “transience.”",
+      "Correct the quotation to match the published text: end the sentence with “...and another portion as the site of a prison.” If variants exist, cite the edition or paraphrase inst...",
+      "[factual_accuracy] The quoted passage is slightly misquoted (“as a prison” vs “as the site of a prison”). Since it is presented as a verbatim quotation, this is a factual error."
     ],
     "CCSS.ELA-LITERACY.RL.11-12.3|hard|fill-in": [
       "To align with a ‘hard’ difficulty and better support mastery: 1) Require a short analytic response that names the device and briefly explains how the sequencing heightens the th...",
@@ -776,9 +777,9 @@
       "[clarity_precision] The blank could be reasonably filled with synonyms that fit the sentence, but only “verify” is accepted; the instructions don’t say “use the exact word,” creating avoidable ambi..."
     ],
     "CCSS.ELA-LITERACY.SL.11-12.1.D|hard|fill-in": [
-      "Tighten the acceptable answer list to terms that explicitly require multiple independent sources: keep “corroboration,” “triangulation,” and possibly “cross-verification.” Remov...",
-      "Tighten acceptable answers to preserve construct validity with the “precise term” directive: accept only “triangulation,” “data triangulation,” and (optionally) “methodological ...",
-      "For difficulty \"hard\": the task MUST genuinely require multi-step reasoning, inference across multiple sentences, or applying knowledge in a novel context. If a Grade-level student can answer by simply locating a word in the passage, the item is NOT hard — relabel it or redesign the question to require synthesis or inference."
+      "For difficulty \"hard\": the task MUST genuinely require multi-step reasoning, inference across multiple sentences, or applying knowledge in a novel context. If a Grade-level student can answer by simply locating a word in the passage, the item is NOT hard — relabel it or redesign the question to require synthesis or inference.",
+      "Remove “cross-validation” from acceptable_answers. Consider tightening acceptable responses to triangulation and its direct variants only (e.g., “triangulation,” “data triangula...",
+      "[factual_accuracy] Acceptable answers include “cross-validation,” which is not the methodological strategy described (triangulation). This could mark an incorrect concept as correct."
     ],
     "CCSS.ELA-LITERACY.SL.11-12.6|hard|fill-in": [
       "For difficulty \"hard\": the task MUST genuinely require multi-step reasoning, inference across multiple sentences, or applying knowledge in a novel context. If a Grade-level student can answer by simply locating a word in the passage, the item is NOT hard — relabel it or redesign the question to require synthesis or inference.",
@@ -786,12 +787,14 @@
       "[factual_accuracy] The acceptable answers list includes “who,” which is not correct for this sentence in standard formal English and contradicts the explanation that justifies “whoever.”"
     ],
     "CCSS.ELA-LITERACY.W.11-12.1.A|easy|fill-in": [
-      "[factual_accuracy] Instruction says “exactly as it appears,” but acceptable_answers also allows “conversely” (lowercase). This contradicts the instruction and creates a grading inconsistency.",
-      "Clarify the prompt to avoid punctuation ambiguity (e.g., “Type the word only (no punctuation)”) and/or include “However,” in acceptable answers to prevent penalizing students wh...",
-      "[clarity_precision] Instruction about typing the word could be read to include or exclude the comma, potentially leading to correct understanding but incorrect marking."
+      "[clarity_precision] Instruction about typing the word could be read to include or exclude the comma, potentially leading to correct understanding but incorrect marking.",
+      "Align instructions and grading: either (a) keep “type the word exactly as it appears…,” and accept only “Conversely”, or (b) state “type the transition word (capitalization will...",
+      "[factual_accuracy] Instruction says “type the word exactly as it appears…,” but acceptable answers allow different casing (“conversely”, “CONVERSELY”). This inconsistency is a field mismatch."
     ],
     "CCSS.ELA-LITERACY.W.11-12.2.B|medium|fill-in": [
-      "Clarify input formatting to remove ambiguity about quotation marks. For example: “Type one of the following phrases (do not include quotation marks): employees felt significantl..."
+      "Clarify input formatting to remove ambiguity about quotation marks. For example: “Type one of the following phrases (do not include quotation marks): employees felt significantl...",
+      "Resolve the instruction–scoring mismatch. Either: (a) keep the current instruction and restrict acceptable_answers to the exact listed phrase only; or (b) revise the instruction...",
+      "[factual_accuracy] The scoring metadata contradicts the student-facing instruction requiring an exact match, allowing non-exact variants. This is a field consistency error."
     ],
     "CCSS.ELA-LITERACY.W.11-12.2.E|medium|fill-in": [
       "[educational_accuracy] The acceptable answer set likely excludes valid, formal alternatives (e.g., “researched”), causing potential false negatives and undermining the assessment of formal, objecti...",
@@ -799,21 +802,23 @@
       "[factual_accuracy] Acceptable answers include “enforce,” which does not accurately convey the act of establishing tariffs and would inappropriately be graded as correct."
     ],
     "CCSS.ELA-LITERACY.W.11-12.3.A|easy|fill-in": [
-      "- Remove the explicit term from the Plan so students must infer it (e.g., “I will use a point of view that lets the narrator reveal the thoughts of multiple characters”). - Alte...",
-      "[educational_accuracy] Answer is explicitly stated in the Plan: “third-person omniscient,” making the task trivial and undermining its educational purpose.",
-      "[mastery_learning_alignment] Requires no reasoning beyond copying the term given in the prompt; limited diagnostic value."
+      "[mastery_learning_alignment] Requires no reasoning beyond copying the term given in the prompt; limited diagnostic value.",
+      "Align scoring with the prompt’s “explicitly” requirement by restricting acceptable answers to the exact word used in the text (problem). Alternatively, revise the stem to remove...",
+      "[factual_accuracy] The prompt requires an explicit word from the text, which is “problem,” but the acceptable answers list includes synonyms not explicitly used (e.g., “conflict,” “complication,” “..."
     ],
     "CCSS.ELA-LITERACY.W.11-12.9.A|hard|fill-in": [
-      "For difficulty \"hard\": the task MUST genuinely require multi-step reasoning, inference across multiple sentences, or applying knowledge in a novel context. If a Grade-level student can answer by simply locating a word in the passage, the item is NOT hard — relabel it or redesign the question to require synthesis or inference.",
-      "Revise the answer explanation to rely only on evidence present in the quoted Emerson excerpt. Remove or replace \"'currents... circulate'\" with quotations from the provided passa...",
-      "[factual_accuracy] The explanation cites a phrase not present in the provided Emerson excerpt, creating a mismatch between supporting text and the displayed passage."
+      "[factual_accuracy] The explanation cites a phrase not present in the provided Emerson excerpt, creating a mismatch between supporting text and the displayed passage.",
+      "Expand acceptable_answers to include other precise, discipline-appropriate adjectives supported by the sentence and passages, such as “amoral” and “impersonal” (and possibly “di...",
+      "[educational_accuracy] Acceptable answers are too narrow; valid, well-supported adjectives (e.g., “amoral,” “impersonal”) could be marked wrong."
     ],
     "CCSS.ELA-LITERACY.L.11-12.4.A|hard|fill-in": [
       "Tighten the acceptable answers to only those that explicitly convey nonreactivity. Remove “stable” as a standalone acceptable response. Recommended acceptable list: [\"nonreactiv...",
       "For difficulty \"hard\": the task MUST genuinely require multi-step reasoning, inference across multiple sentences, or applying knowledge in a novel context. If a Grade-level student can answer by simply locating a word in the passage, the item is NOT hard — relabel it or redesign the question to require synthesis or inference."
     ],
     "CCSS.ELA-LITERACY.L.11-12.4.A|medium|fill-in": [
-      "Either (a) relabel the item as Easy, or (b) revise the sentence to rely on subtler context (e.g., contrast or function) without directly restating the definition: \"Unlike the vo..."
+      "Either (a) relabel the item as Easy, or (b) revise the sentence to rely on subtler context (e.g., contrast or function) without directly restating the definition: \"Unlike the vo...",
+      "Fix the field inconsistency: either remove “long lasting” (two words) from acceptable_answers or revise the instruction to allow a “single word or hyphenated compound” (and keep...",
+      "[factual_accuracy] The acceptable answers include “long lasting,” which violates the prompt’s “single word” requirement."
     ],
     "CCSS.ELA-LITERACY.RI.11-12.10|medium|fill-in": [
       "Either relabel difficulty to Easy or increase cognitive demand to Medium by asking students to interpret the metaphor’s significance (e.g., explain how the “palimpsest” metaphor...",
@@ -841,9 +846,9 @@
       "For difficulty \"hard\": the task MUST genuinely require multi-step reasoning, inference across multiple sentences, or applying knowledge in a novel context. If a Grade-level student can answer by simply locating a word in the passage, the item is NOT hard — relabel it or redesign the question to require synthesis or inference."
     ],
     "CCSS.ELA-LITERACY.SL.11-12.6|medium|fill-in": [
-      "Align acceptable_answers with the keyed answer and typical casing. Suggestions: 1) Make grading case-insensitive, or 2) Include both \"whom\" and \"Whom\" in acceptable_answers (pre...",
-      "Broaden acceptable_answers to include other plausible formal verbs that collocate with “issues” and preserve intent (e.g., solve, redress, remediate), or switch to MCQ with well...",
-      "[educational_accuracy] Because the prompt is inherently open-ended, restricting scoring to a short list risks misgrading valid formal choices. This weakens the item’s ability to assess adaptation t..."
+      "[educational_accuracy] Because the prompt is inherently open-ended, restricting scoring to a short list risks misgrading valid formal choices. This weakens the item’s ability to assess adaptation t...",
+      "Remove “notwithstanding” from acceptable answers. If you want to allow “notwithstanding,” change the sentence and instructions to fit its grammatical role, e.g., “Notwithstandin...",
+      "[factual_accuracy] “Notwithstanding” is not a correct conjunctive adverb for the semicolon + adverb + comma position; including it as acceptable would mark an incorrect response as correct."
     ],
     "CCSS.ELA-LITERACY.W.11-12.1.A|hard|fill-in": [
       "Revise acceptable_answers to include only terms that accurately represent the function described: keep “rebuttal” and “refutation”; remove “counterargument,” “counterpoint,” and...",
@@ -864,9 +869,9 @@
       "Align the standard to a reading/craft standard on point of view (e.g., RL craft/structure) OR revise the prompt to require students to establish/maintain third-person limited PO..."
     ],
     "CCSS.ELA-LITERACY.W.11-12.3.E|hard|fill-in": [
-      "- Increase cognitive demand: Ask students to revise the narrative ending by adding one or two sentences that explicitly reflect on the protagonist’s internal shift and theme, th...",
-      "Revise acceptable answers to maintain grammatical and standards alignment with the fixed preposition “on”: keep “reflect,” allow “meditate,” and remove “contemplate.” Consider a...",
-      "For difficulty \"hard\": the task MUST genuinely require multi-step reasoning, inference across multiple sentences, or applying knowledge in a novel context. If a Grade-level student can answer by simply locating a word in the passage, the item is NOT hard — relabel it or redesign the question to require synthesis or inference."
+      "For difficulty \"hard\": the task MUST genuinely require multi-step reasoning, inference across multiple sentences, or applying knowledge in a novel context. If a Grade-level student can answer by simply locating a word in the passage, the item is NOT hard — relabel it or redesign the question to require synthesis or inference.",
+      "Align format with the requested fill-in type. Options should not be presented as labeled choices in the stem for a fill-in item. Consider either: (a) updating the item metadata ...",
+      "[specification_compliance] The item is marked as fill-in but presents labeled choices and asks students to enter a label, which conflicts with the fill-in format requirement."
     ],
     "CCSS.ELA-LITERACY.W.11-12.6|medium|fill-in": [
       "[mastery_learning_alignment] Pure recall task; does not require application or reasoning to demonstrate mastery.",
@@ -884,9 +889,9 @@
       "[difficulty_alignment] Labeled “hard,” but the task is a straightforward identification of a well-known device with clear cues—more Easy/Medium than Hard for Grade 12."
     ],
     "CCSS.ELA-LITERACY.RI.11-12.8|easy|fill-in": [
-      "[factual_accuracy] Acceptable answers include “whole,” which does not correctly complete Madison’s phrase and could incorrectly validate wrong responses.",
-      "Prevent the answer giveaway by altering the excerpt or the prompt. Options: (a) Replace the word in the excerpt with an elision [____] so students must retrieve it, (b) paraphra...",
-      "[educational_accuracy] The answer is directly visible in the provided excerpt, allowing students to copy it without applying any reasoning or independent retrieval."
+      "- Align to RI.11-12.8 by providing a short excerpt from a seminal U.S. text (e.g., a Supreme Court opinion or Federalist paper) and ask students to identify a premise, evaluate ...",
+      "[curriculum_alignment] Misaligned with RI.11-12.8. The prompt checks definition recall of “main idea,” not evaluation of reasoning or application of constitutional/legal principles.",
+      "[difficulty_alignment] Significantly below the intended grade-level demand (pure recall suitable for much younger students)."
     ],
     "CCSS.ELA-LITERACY.RL.11-12.1|hard|fill-in": [
       "- Remove inaccurate/overbroad acceptable answers: keep only “protagonist” (case-insensitive). Do not accept “hero” or “main character.” Optionally accept “central character” if ...",
@@ -904,9 +909,9 @@
       "[clarity_precision] Ambiguous phrasing permits multiple legitimate answers (e.g., “concession” vs. “counterclaim/counterargument”)."
     ],
     "CCSS.ELA-LITERACY.W.11-12.4|medium|fill-in": [
-      "[factual_accuracy] Accepting “Yet” results in “Yet, it frequently…,” which is typically incorrect punctuation for formal writing. The item would mark an ill-formed sentence as correct.",
-      "Remove capitalized variants from acceptable answers so only lowercase forms are accepted in this mid-sentence, post-semicolon context (e.g., [\"however\", \"nevertheless\", \"nonethe...",
-      "[factual_accuracy] Acceptable answers include capitalized forms (e.g., \"However\") that are incorrect in this mid-sentence, post-semicolon context, creating an answer key accuracy issue."
+      "Expand acceptable_answers to include other valid single-word conjunctive adverbs that fit the semicolon–adverb–comma pattern and formal tone (e.g., “still,” “instead,” “converse...",
+      "[educational_accuracy] Acceptable answers are too limited for an open-ended item; valid alternatives that meet the stated criteria would be marked wrong, harming instructional validity.",
+      "- Broaden acceptable answers to include other plausible, formal nouns that collocate well (e.g., “proficiency,” “competence/competency,” “background”). - Or, constrain the task ..."
     ],
     "CCSS.ELA-LITERACY.L.11-12.4.B|hard|fill-in": [
       "Clarify the target form or accept valid alternates. For example: “Fill in the blank with the Latinate noun in -ation derived from ‘renounce.’” or configure grading to also accep...",
@@ -919,12 +924,14 @@
       "[difficulty_alignment] Labeled “hard,” but the task is single-blank identification/recall, more consistent with Easy–Medium difficulty."
     ],
     "CCSS.ELA-LITERACY.W.11-12.1.D|easy|fill-in": [
-      "- Either broaden accepted answers to include other plausible formal verbs that collocate with “allegations” (e.g., support, buttress, sustain), OR - Tighten the prompt to signal..."
+      "- Remove the target word from the sentence so students must select or supply a precise formal verb without seeing it (e.g., replace it with a blank in the sentence itself). Exam...",
+      "[educational_accuracy] The answer is trivially visible in the sentence (“elucidates”), so students can copy it without demonstrating understanding.",
+      "[mastery_learning_alignment] The design reduces the task to copying, offering little evidence of mastery."
     ],
     "CCSS.ELA-LITERACY.W.11-12.3.A|hard|fill-in": [
-      "To match a “hard” difficulty: remove explicit cueing (“restricts the reader’s access strictly…”) and ask students to justify the POV choice with textual evidence; or present two...",
-      "Align the acceptable_answers with the student-facing instruction. Either: (a) restrict acceptable answers to exactly “Revision 1” and “Revision 2”, or (b) revise the instruction...",
-      "For difficulty \"hard\": the task MUST genuinely require multi-step reasoning, inference across multiple sentences, or applying knowledge in a novel context. If a Grade-level student can answer by simply locating a word in the passage, the item is NOT hard — relabel it or redesign the question to require synthesis or inference."
+      "For difficulty \"hard\": the task MUST genuinely require multi-step reasoning, inference across multiple sentences, or applying knowledge in a novel context. If a Grade-level student can answer by simply locating a word in the passage, the item is NOT hard — relabel it or redesign the question to require synthesis or inference.",
+      "Relabel difficulty to medium (or easy/medium), or make the task harder by using a subtler excerpt where limited vs. omniscient is ambiguous and requiring justification (e.g., sh...",
+      "[difficulty_alignment] The item is simpler than its “hard” label—identifying omniscient from explicit cues is a straightforward Grade 8–9 skill, not Grade 12 hard-level complexity."
     ],
     "CCSS.ELA-LITERACY.W.11-12.7|hard|fill-in": [
       "Align the acceptable answers with the instruction. Either: (a) keep instruction as “Write narrow or broaden” and remove synonyms from acceptable_answers; or (b) adjust the instr...",
@@ -937,9 +944,9 @@
       "For punctuation/mechanics standards (L.*.2.*): When designing fill-in questions about comma placement, quotation marks, or capitalization, the blank should test ONLY the punctuation or corrected form. Do NOT require students to retype words already shown in the question. Ensure the complete sentence with the answer filled in is unambiguous and non-duplicative. The answer must be the MINIMAL text needed to demonstrate the punctuation rule."
     ],
     "CCSS.ELA-LITERACY.RI.11-12.2|hard|fill-in": [
-      "For difficulty \"hard\": the task MUST genuinely require multi-step reasoning, inference across multiple sentences, or applying knowledge in a novel context. If a Grade-level student can answer by simply locating a word in the passage, the item is NOT hard — relabel it or redesign the question to require synthesis or inference.",
-      "Relabel difficulty to Medium to better match the item’s single-step inference demand for grade 12. Alternatively, to merit a Hard label while remaining fill-in, add a second pro...",
-      "[difficulty_alignment] The labeled “hard” overstates the cognitive demand; the task is a straightforward single-step inference suitable for Medium difficulty."
+      "[difficulty_alignment] Strong mismatch: labeled “hard” but is simple one-word recall (DoK 1), far below Grade 11–12 expectations for this standard.",
+      "Revise acceptable_answers to include only terms that explicitly encode mutual, bidirectional influence: e.g., reciprocal, bidirectional, mutual, interdependent, interactive, dia...",
+      "[factual_accuracy] The acceptable_answers list includes terms (e.g., “dynamic,” “collaborative,” “synergistic”) that don’t consistently match the stem’s defined meaning of mutual, bidirectional inf..."
     ],
     "CCSS.ELA-LITERACY.RI.11-12.5|medium|fill-in": [
       "To meet medium difficulty: remove the explicit cueing and/or require brief justification. For example, describe the sequence without using synonyms for “problem” or “solution,” ...",
@@ -976,7 +983,8 @@
     ],
     "CCSS.ELA-LITERACY.W.11-12.2.F|hard|fill-in": [
       "Make the answer key consistent with the instruction. Either: (a) remove “genetic privacy” from acceptable_answers so all accepted responses are single nouns (e.g., privacy, anon...",
-      "For difficulty \"hard\": the task MUST genuinely require multi-step reasoning, inference across multiple sentences, or applying knowledge in a novel context. If a Grade-level student can answer by simply locating a word in the passage, the item is NOT hard — relabel it or redesign the question to require synthesis or inference."
+      "For difficulty \"hard\": the task MUST genuinely require multi-step reasoning, inference across multiple sentences, or applying knowledge in a novel context. If a Grade-level student can answer by simply locating a word in the passage, the item is NOT hard — relabel it or redesign the question to require synthesis or inference.",
+      "Limit acceptable answers to those directly supported by the paragraph’s evidence (e.g., “privacy”, “anonymity”). Remove “autonomy” and “freedom,” or, if you wish to keep them, r..."
     ],
     "CCSS.ELA-LITERACY.L.11-12.1.B|hard|fill-in": [
       "To match the labeled difficulty, remove the explicit definitions and/or use a more nuanced sentence where both words might initially seem plausible without careful consideration...",
@@ -1006,9 +1014,9 @@
       "Revise the stem to remove ambiguity about the number of responses. For example: \"... dictates that the word ____ be used when referring to countable items (e.g., 'fewer students..."
     ],
     "CCSS.ELA-LITERACY.W.11-12.3.B|hard|fill-in": [
-      "To meet a hard difficulty: require application/analysis rather than recall. For example, provide a short passage and ask students to (a) revise it to increase/decrease pacing an...",
-      "To align with a hard difficulty: remove or soften the explicit cue (e.g., omit “slowing down the reader’s experience of time”), or ask students to (a) identify two techniques at...",
-      "For difficulty \"hard\": the task MUST genuinely require multi-step reasoning, inference across multiple sentences, or applying knowledge in a novel context. If a Grade-level student can answer by simply locating a word in the passage, the item is NOT hard — relabel it or redesign the question to require synthesis or inference."
+      "For difficulty \"hard\": the task MUST genuinely require multi-step reasoning, inference across multiple sentences, or applying knowledge in a novel context. If a Grade-level student can answer by simply locating a word in the passage, the item is NOT hard — relabel it or redesign the question to require synthesis or inference.",
+      "Relabel difficulty to Medium, or increase rigor to match Hard (e.g., ask students to identify two techniques and explain in 2–3 sentences how each contributes to tension, or to ...",
+      "[difficulty_alignment] Labeled “hard,” but the task is a straightforward identification of a single technique from a strongly cued passage—more Medium than Hard."
     ],
     "CCSS.ELA-LITERACY.W.11-12.9.A|medium|fill-in": [
       "Revise the timeframe to avoid the dating error, e.g., “In late nineteenth- and early twentieth-century American literature,” or “At the turn of the twentieth century.” Consider ..."
@@ -1054,8 +1062,9 @@
       "For difficulty \"hard\": the task MUST genuinely require multi-step reasoning, inference across multiple sentences, or applying knowledge in a novel context. If a Grade-level student can answer by simply locating a word in the passage, the item is NOT hard — relabel it or redesign the question to require synthesis or inference."
     ],
     "CCSS.ELA-LITERACY.SL.11-12.2|hard|fill-in": [
-      "Align the response-format instruction with accepted answers. Either (a) require “24%” exclusively and remove “24 percent”/“24 %” from acceptable answers, or (b) revise the instr...",
-      "For difficulty \"hard\": the task MUST genuinely require multi-step reasoning, inference across multiple sentences, or applying knowledge in a novel context. If a Grade-level student can answer by simply locating a word in the passage, the item is NOT hard — relabel it or redesign the question to require synthesis or inference."
+      "[factual_accuracy] Instruction requires a numeric response, yet acceptable answers include words (“three hundred sixty”), creating an internal format inconsistency between directions and grading.",
+      "- Align acceptable_answers with the stated formatting requirement. Either (a) require and only accept the comma-formatted version (\"$300,000\"), or (b) adjust the instruction to ...",
+      "[factual_accuracy] Inconsistent fields: the instructions require a comma in the dollar amount, but the acceptable_answers list includes a version without a comma ($300000). This mismatch fails the ..."
     ],
     "CCSS.ELA-LITERACY.L.11-12.2.B|medium|mcq": [
       "To better support mastery while keeping MCQ format, present full-sentence options where only one uses the correct spelling in realistic contexts (e.g., different forms: supersed...",
@@ -1065,7 +1074,9 @@
       "For Language standards at easy difficulty: ensure the question tests the SPECIFIC language skill described in the standard (grammar rule, vocabulary use, mechanics convention) — not general reading comprehension. The answer must demonstrate mastery of the named skill. Do NOT create a question that could be answered without knowledge of the specific language rule."
     ],
     "CCSS.ELA-LITERACY.L.11-12.4.D|easy|fill-in": [
-      "For Language standards at easy difficulty: ensure the question tests the SPECIFIC language skill described in the standard (grammar rule, vocabulary use, mechanics convention) — not general reading comprehension. The answer must demonstrate mastery of the named skill. Do NOT create a question that could be answered without knowledge of the specific language rule."
+      "[educational_accuracy] The item reveals the exact target word in the visible dictionary entry, so students can copy “absolute” without applying context or reasoning.",
+      "Either (a) add “expressed” (case variants) to acceptable answers, or (b) adjust the prompt to disambiguate comprehension (e.g., “Based on the clue ‘confused the client,’ choose ...",
+      "[clarity_precision] The blank could reasonably be filled with “expressed” as well as “understood,” but only “understood” is accepted, creating avoidable ambiguity."
     ],
     "CCSS.ELA-LITERACY.W.11-12.1.D|hard|fill-in": [
       "For difficulty \"hard\": the task MUST genuinely require multi-step reasoning, inference across multiple sentences, or applying knowledge in a novel context. If a Grade-level student can answer by simply locating a word in the passage, the item is NOT hard — relabel it or redesign the question to require synthesis or inference."
@@ -1100,9 +1111,9 @@
       "For difficulty \"hard\": the task MUST genuinely require multi-step reasoning, inference across multiple sentences, or applying knowledge in a novel context. If a Grade-level student can answer by simply locating a word in the passage, the item is NOT hard — relabel it or redesign the question to require synthesis or inference."
     ],
     "CCSS.ELA-LITERACY.L.11-12.2.B|easy|fill-in": [
-      "[mastery_learning_alignment] Primarily tests recall of a single spelling; limited evidence of deeper mastery.",
-      "To strengthen mastery alignment, add a brief follow-up requiring students to justify the choice (e.g., “Explain why this spelling is correct in relation to the base verb maintai...",
-      "[mastery_learning_alignment] Assesses recall only; does not require explanation or application to demonstrate deeper understanding."
+      "[mastery_learning_alignment] Requires only copying/recall, not application or reasoning, so it weakly supports mastery learning.",
+      "Do not display the correctly spelled target word in the prompt. Options: 1) Remove/replace the source sentence with one that paraphrases the meaning without using “accommodate,”...",
+      "[educational_accuracy] The correct word is shown in the prompt, so students can copy it rather than demonstrate spelling knowledge independently, undermining the educational purpose for a spelling ..."
     ],
     "CCSS.ELA-LITERACY.L.11-12.2.A|medium|fill-in": [
       "For punctuation/mechanics standards (L.*.2.*): When designing fill-in questions about comma placement, quotation marks, or capitalization, the blank should test ONLY the punctuation or corrected form. Do NOT require students to retype words already shown in the question. Ensure the complete sentence with the answer filled in is unambiguous and non-duplicative. The answer must be the MINIMAL text needed to demonstrate the punctuation rule."
@@ -1118,19 +1129,19 @@
       "- Remove the exact target phrase from the visible revision or change the prompt so students must identify or generate formal, objective adjectives without being able to copy. Fo..."
     ],
     "CCSS.ELA-LITERACY.W.11-12.10|medium|fill-in": [
-      "Either relabel difficulty to “easy” or increase cognitive demand to fit “medium” (e.g., ask students to justify why the scenario is a shorter time frame, or compare/contrast ext...",
-      "[difficulty_alignment] Labeled as medium, but the task is straightforward recognition, better classified as easy.",
-      "Revise the task to require application, not just recall. For example: “Name one strategy a student should use to write effectively in a 50-minute in-class essay (a shorter time ..."
+      "Revise the task to require application, not just recall. For example: “Name one strategy a student should use to write effectively in a 50-minute in-class essay (a shorter time ...",
+      "To improve mastery alignment, ask students to apply the concept rather than recall a term. For example: present a brief scenario of a student substantially rethinking arguments ...",
+      "[mastery_learning_alignment] As written, it mainly tests recall of a term, not application or reasoning about writing processes."
     ],
     "CCSS.ELA-LITERACY.W.11-12.3.D|easy|fill-in": [
-      "Make the stem and answer key consistent. Options: (1) Keep the current sentence and change the stem to “using a precise adjective from the sentence” (drop “describes the factory...",
-      "Align the task to the referenced writing standard by requiring production, e.g., ask students to revise the sentence with two new precise auditory nouns or add a follow-up promp...",
-      "[curriculum_alignment] The item is tagged to a writing standard about using sensory language, but it assesses recognition of a sensory word in a sentence, not the student’s use of such language in ..."
+      "- Remove the explicit target word from the pre-attempt text. For example: “I will replace it with a more precise sensory adjective” (without naming ‘putrid’), then ask students ...",
+      "[educational_accuracy] The answer is explicitly stated in the student-facing text, so students can copy it without applying the intended skill.",
+      "[mastery_learning_alignment] Pure copying with no reasoning or application limits diagnostic value and does not support mastery learning."
     ],
     "CCSS.ELA-LITERACY.W.11-12.2.D|easy|fill-in": [
-      "[factual_accuracy] The acceptable answers list contradicts the specific claim in the passage and stem. Only “metaphor” fulfills the sentence as written; accepting “comparison” or “technique” is ina...",
-      "To align with W.11-12.2.D, revise the task to require application of the technique (e.g., ask students to write a sentence/brief explanation using an analogy to clarify the phen...",
-      "[curriculum_alignment] The task measures retrieval of the word “analogy,” not the use of precise language and techniques in writing as required by W.11-12.2.D."
+      "[factual_accuracy] The explanation calls water pressure a “physical force,” which is inaccurate (pressure ≠ force). Even though the main task is ELA, the explanation should not include incorrect sc...",
+      "[educational_accuracy] Because the excerpt includes “Voltage is like the water pressure in a pipe,” students can copy the answer without real thinking, making the fill-in trivial for a practice item.",
+      "Remove “analogy” from acceptable_answers (leave only “metaphor”), or reword the stem to accept broader terms (e.g., “figurative comparison”) if both are intended. Ensure the exp..."
     ],
     "CCSS.ELA-LITERACY.W.11-12.1.C|hard|fill-in": [
       "[factual_accuracy] The prompt and explanation give an incorrect letter count for the target word. “Notwithstanding” is 15 letters, not 13.",
@@ -1143,8 +1154,9 @@
       "[factual_accuracy] Field consistency error: acceptable_answers includes options not provided to students, which could lead to inconsistent grading."
     ],
     "CCSS.ELA-LITERACY.L.11-12.5.A|medium|fill-in": [
-      "Tighten acceptable_answers to terms that match the definition in the stem: keep “understatement,” “an understatement,” and “meiosis.” Remove “irony” and “verbal irony,” or alter...",
-      "[factual_accuracy] Accepting “irony” or “verbal irony” conflicts with the stem’s precise definition of understatement and could misgrade responses."
+      "[factual_accuracy] Accepting “irony” or “verbal irony” conflicts with the stem’s precise definition of understatement and could misgrade responses.",
+      "Broaden acceptable answers to include close synonyms that convey high loudness in context (e.g., “thunderous,” “earsplitting/ear-splitting,” “booming,” possibly “blaring”). Alte...",
+      "[educational_accuracy] The answer list is too narrow for a fill-in: valid synonyms such as “thunderous” or “earsplitting” could be marked wrong, reducing the item’s validity as a measure of interpr..."
     ],
     "CCSS.ELA-LITERACY.SL.11-12.1.A|medium|fill-in": [
       "Resolve the grading-policy mismatch: either (a) enforce the exact phrase by removing \"purchase\" from acceptable_answers, or (b) revise the instruction to allow acceptable paraph...",
@@ -1157,14 +1169,14 @@
       "[clarity_precision] The prompt’s constraints allow more than one plausible answer (e.g., “contrarily”), but only one is accepted, creating ambiguity about what is expected."
     ],
     "CCSS.ELA-LITERACY.SL.11-12.3|easy|fill-in": [
-      "[clarity_precision] Ambiguity about including punctuation could cause correct reasoning to be marked incorrect.",
-      "Fix the internal contradiction by changing “opponents’ view” to “proponents’ view” (or “supporters’ view”). Optionally, clarify acceptance of case/punctuation (e.g., also accept...",
-      "[factual_accuracy] The instruction misidentifies the group being contrasted: it says “opponents’ view” while the passage references “Proponents.” This internal contradiction makes the student-facin..."
+      "- Align acceptable_answers with the instruction and stem. Remove “blow” and “blow to our public schools.” Either: (a) keep the stem’s article and accept [“devastating blow”, “de...",
+      "[factual_accuracy] Acceptable answers include options that contradict the instruction and stem context (e.g., “blow” and “blow to our public schools”), creating a field consistency error.",
+      "[clarity_precision] The prefilled article “a” conflicts with the instruction to type the phrase exactly as in the text, creating real ambiguity about whether to include the article or how much of t..."
     ],
     "CCSS.ELA-LITERACY.W.11-12.3.D|medium|fill-in": [
-      "[clarity_precision] The instruction claims a single valid answer, but multiple plausible 7-letter ‘t’ verbs could fit the sentence, creating ambiguity for students.",
-      "- Expand acceptable_answers to include other precise, context-appropriate 8-letter ‘s’ verbs such as “swaddled” (and potentially “sheathed” if you deem it contextually acceptabl...",
-      "[educational_accuracy] Accepts only “shrouded,” but other verbs like “swaddled” also meet the constraints and vividly fit the sentence. This risks false negatives and weakens the assessment’s educa..."
+      "[educational_accuracy] Accepts only “shrouded,” but other verbs like “swaddled” also meet the constraints and vividly fit the sentence. This risks false negatives and weakens the assessment’s educa...",
+      "Narrow acceptable answers to only “glittered,” or revise the semantic cue to allow softer/fainter shine (e.g., “soft reflected light” or “faint, wavering light”) if keeping “gli...",
+      "[factual_accuracy] Acceptable answers include “glistened” and “glimmered,” which do not clearly match the required nuance of “small, rapid flashes of light,” creating a mismatch between the prompt’..."
     ],
     "CCSS.ELA-LITERACY.W.11-12.1.C|medium|fill-in": [
       "- Fix the acceptable_answers list to align with the grammatical constraint. Either: 1) Remove “Yet,” and consider adding another true conjunctive adverb such as “Still,” if desi...",
@@ -1209,6 +1221,28 @@
     "CCSS.ELA-LITERACY.W.11-12.3.D|easy|msq": [
       "Balance surface features so length doesn’t telegraph the correct answers. For example: (a) Make one incorrect option longer but still vague (e.g., generic adjectives without con...",
       "[distractor_quality] Correct options are conspicuously longer/richer than the incorrect ones, potentially cueing students to pick the longest sentences."
+    ],
+    "CCSS.ELA-LITERACY.RI.11-12.1|medium|fill-in": [
+      "Align scoring with the prompt: either (a) require only the full phrase by removing partials from acceptable_answers, or (b) relax the prompt to allow partial phrases (e.g., “cit...",
+      "[factual_accuracy] The scoring metadata conflicts with the instruction to supply the exact phrase by also accepting partial phrases. This is a field mismatch that can misgrade student responses."
+    ],
+    "CCSS.ELA-LITERACY.SL.11-12.1.D|medium|fill-in": [
+      "[mastery_learning_alignment] Asks for a memorized term rather than requiring application or synthesis, offering limited evidence of mastery.",
+      "Remove “financial” from acceptable_answers or change it to a valid noun for this context (e.g., “financials” or “financial performance,” though the latter changes the form). Kee...",
+      "[factual_accuracy] The acceptable answers list includes “financial,” which is not a noun in this context and conflicts with the instruction to provide a noun. This is a field consistency error in t..."
+    ],
+    "CCSS.ELA-LITERACY.W.11-12.1.E|medium|fill-in": [
+      "Broaden grading to accept a wider range of semantically appropriate nouns (e.g., measure, policy, intervention, change, countermeasure, strategy, adjustment, reform), or impleme...",
+      "[educational_accuracy] The acceptable answer set is too narrow for an open-ended prompt, risking incorrect marking of valid, argument-synthesizing nouns. This weakens the assessment’s ability to me..."
+    ],
+    "CCSS.ELA-LITERACY.RI.11-12.1|easy|fill-in": [
+      "Align the explanation with the scoring: either (a) keep the “exact wording” requirement and remove the claim that partial phrases are acceptable, or (b) expand acceptable_answer...",
+      "[factual_accuracy] The explanation contradicts the scoring and instructions by stating partial phrases are acceptable while only the full phrase is listed as acceptable, creating an internal incons..."
+    ],
+    "CCSS.ELA-LITERACY.W.11-12.5|medium|fill-in": [
+      "Revise the example to avoid historical inaccuracies while maintaining the tone contrast. For example: Original: “The internet started as a way for government folks to talk, whic...",
+      "[factual_accuracy] The example mischaracterizes the internet’s origins, referring to spies/intelligence agencies. This is historically inaccurate and could mislead students."
     ]
-  }
+  },
+  "negative_examples": {}
 }

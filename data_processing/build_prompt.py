@@ -112,6 +112,14 @@ def get_targeted_rules(standard: str, difficulty: str, question_type: str = "mcq
     out.extend(by_key.get(key) or [])
     return out
 
+
+def get_negative_examples(standard: str, difficulty: str, question_type: str = "mcq") -> Optional[Dict]:
+    """返回该 (standard, difficulty, type) 的 negative example（如有）。"""
+    rules = load_prompt_rules()
+    neg = rules.get("negative_examples") or {}
+    key = f"{standard}|{difficulty}|{question_type}"
+    return neg.get(key)
+
 QUESTION_TYPES = ("mcq", "msq", "fill-in")
 
 MCQ_SCHEMA = """
@@ -401,6 +409,7 @@ def build_user_prompt(
     subject: str = "ELA",
     targeted_rules: Optional[List[str]] = None,
     question_type: str = "mcq",
+    negative_example: Optional[Dict] = None,
 ) -> str:
     """构建 user prompt。targeted_rules 为针对该 (standard, difficulty) 的额外提醒。"""
     qtype = question_type.lower().strip() if question_type else "mcq"
@@ -432,6 +441,21 @@ Return only the JSON object. The question MUST assess exactly the skill describe
         hs_example = _get_highscore_example(standard)
         if hs_example:
             text += f"\n\n--- HIGH-SCORING EXAMPLE (scored 0.95+, use as quality reference) ---\n{hs_example}\n--- END EXAMPLE ---"
+    if negative_example and isinstance(negative_example, dict):
+        bad_q = negative_example.get("bad_question", "")
+        bad_ans = negative_example.get("bad_answer", "")
+        instruction = negative_example.get("instruction", "")
+        streak = negative_example.get("streak", 0)
+        text += f"\n\n⚠️⚠️⚠️ CRITICAL WARNING — NEGATIVE EXAMPLE (failed {streak}x) ⚠️⚠️⚠️\n"
+        text += "The following is a BAD question that FAILED evaluation repeatedly.\n"
+        text += "DO NOT generate anything similar to this:\n"
+        text += f'  BAD question: "{bad_q}"\n'
+        if bad_ans:
+            text += f'  BAD answer: "{bad_ans}"\n'
+        if instruction:
+            text += f"  Reason: {instruction}\n"
+        text += "⚠️ Generate a COMPLETELY DIFFERENT question that truly tests the standard described above. ⚠️\n"
+        text += "--- END NEGATIVE EXAMPLE ---\n"
     if targeted_rules:
         text += "\n\n--- Reminders for this standard/difficulty ---\n"
         for r in targeted_rules:
@@ -460,6 +484,7 @@ def build_full_prompt(
                                 include_think_chain=include_think_chain,
                                 question_type=qtype)
     targeted = get_targeted_rules(standard, difficulty, question_type=qtype)
+    neg_example = get_negative_examples(standard, difficulty, question_type=qtype)
     user = build_user_prompt(
         grade=grade,
         standard=standard,
@@ -468,6 +493,7 @@ def build_full_prompt(
         subject=subject,
         targeted_rules=targeted if targeted else None,
         question_type=qtype,
+        negative_example=neg_example,
     )
     if examples:
         same_type = [e for e in examples if (e.get("mcq_json", {}).get("type") or "mcq") == qtype]

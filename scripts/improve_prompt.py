@@ -360,7 +360,7 @@ def merge_into_prompt_rules(
         path = PROJECT_ROOT / path
     path.parent.mkdir(parents=True, exist_ok=True)
 
-    existing = {"global_rules": [], "by_standard": {}, "by_standard_difficulty": {}}
+    existing = {"global_rules": [], "by_standard": {}, "by_standard_difficulty": {}, "negative_examples": {}}
     if path.exists():
         try:
             with open(path, "r", encoding="utf-8") as f:
@@ -387,10 +387,13 @@ def merge_into_prompt_rules(
             by_standard_difficulty.get(key) or [], rules, max_per_key_total
         )
 
+    negative_examples = dict(existing.get("negative_examples") or {})
+
     out = {
         "global_rules": global_rules,
         "by_standard": by_standard,
         "by_standard_difficulty": by_standard_difficulty,
+        "negative_examples": negative_examples,
     }
     with open(path, "w", encoding="utf-8") as f:
         json.dump(out, f, indent=2, ensure_ascii=False)

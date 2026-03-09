@@ -24,6 +24,190 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 _DEFAULT_MCQS = "evaluation_output/mcqs_237.json"
 _DEFAULT_RESULTS = "evaluation_output/results_237.json"
 
+# 顽固失败检测阈值：同一组合连续失败超过此轮数则注入 negative example
+_STUBBORN_THRESHOLD = 3
+
+
+def _detect_stubborn_combos(rounds_data, mcqs_path, threshold=0.85, streak_min=_STUBBORN_THRESHOLD):
+    """
+    检测连续多轮失败的 (standard, difficulty, type) 组合，提取失败的题目文本
+    作为 negative example 注入 prompt rules。
+
+    返回 dict: { "std|diff|type": { "bad_question": str, "streak": int, "scores": [...], "why_bad": str } }
+    """
+    combo_history = {}  # key -> list of (round_num, score)
+    for rd in rounds_data:
+        rn = rd.get("round", 0)
+        evals = rd.get("evaluation", [])
+        seen_this_round = set()
+        for d in evals:
+            std = d.get("standard", "")
+            diff = d.get("difficulty", "")
+            qtype = d.get("type", "fill-in")
+            score = d.get("score", 1.0)
+            key = f"{std}|{diff}|{qtype}"
+            if key not in combo_history:
+                combo_history[key] = []
+            combo_history[key].append((rn, score))
+            seen_this_round.add(key)
+
+    stubborn = {}
+    for key, history in combo_history.items():
+        consecutive_fails = 0
+        fail_scores = []
+        for rn, score in reversed(history):
+            if score < threshold:
+                consecutive_fails += 1
+                fail_scores.insert(0, round(score, 2))
+            else:
+                break
+        if consecutive_fails >= streak_min:
+            stubborn[key] = {
+                "streak": consecutive_fails,
+                "scores": fail_scores[-streak_min:],
+            }
+
+    if not stubborn or not os.path.exists(mcqs_path):
+        return stubborn
+
+    try:
+        with open(mcqs_path, "r", encoding="utf-8") as f:
+            mcqs = json.load(f)
+        if isinstance(mcqs, dict):
+            mcqs = mcqs.get("questions", mcqs.get("mcqs", []))
+        for m in mcqs:
+            std = m.get("standard", "")
+            diff = m.get("difficulty", "")
+            qtype = m.get("type", "fill-in")
+            key = f"{std}|{diff}|{qtype}"
+            if key in stubborn and "bad_question" not in stubborn[key]:
+                q_text = m.get("question", "")
+                answer = m.get("answer", "")
+                aa = m.get("acceptable_answers", [])
+                stubborn[key]["bad_question"] = q_text[:300]
+                stubborn[key]["bad_answer"] = answer
+                stubborn[key]["bad_aa"] = aa[:5] if isinstance(aa, list) else []
+    except Exception:
+        pass
+
+    return stubborn
+
+
+def _inject_negative_examples(stubborn_combos, prompt_rules_path, log_fn=None):
+    """
+    将顽固失败组合的 negative example 写入 prompt_rules JSON。
+
+    在 by_standard_difficulty 中加入强化规则，并在 negative_examples 区写入失败样本。
+    """
+    if not stubborn_combos:
+        return
+    path = prompt_rules_path
+    existing = {"global_rules": [], "by_standard": {}, "by_standard_difficulty": {}, "negative_examples": {}}
+    if os.path.exists(path):
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                existing = json.load(f)
+        except Exception:
+            pass
+    if "negative_examples" not in existing:
+        existing["negative_examples"] = {}
+
+    n_injected = 0
+    for key, info in stubborn_combos.items():
+        parts = key.split("|")
+        if len(parts) < 3:
+            continue
+        std, diff, qtype = parts[0], parts[1], parts[2]
+        bad_q = info.get("bad_question", "")
+        bad_ans = info.get("bad_answer", "")
+        streak = info.get("streak", 0)
+
+        if not bad_q:
+            continue
+
+        neg_entry = {
+            "bad_question": bad_q,
+            "bad_answer": bad_ans,
+            "streak": streak,
+            "instruction": (
+                f"DO NOT generate questions like the example above. "
+                f"This question has FAILED evaluation {streak} consecutive times. "
+                f"The question likely tests a DIFFERENT skill than what {std} requires."
+            ),
+        }
+        existing["negative_examples"][key] = neg_entry
+
+        import re as _re
+        _std_upper = std.upper()
+        _is_ri_4 = bool(_re.search(r'\.RI\.\d+[-.]?\.?4$', _std_upper))
+        _is_ri_7 = bool(_re.search(r'\.RI\.\d+[-.]?\.?7$', _std_upper))
+        if _is_ri_4:
+            template = (
+                f"[MANDATORY TEMPLATE for {std} {diff}] "
+                f"You MUST: (1) Include a short passage (2-4 sentences). "
+                f"(2) Identify a specific WORD or PHRASE in the passage. "
+                f"(3) Ask: 'In the [text/passage], what does [word/phrase] mean?' or 'Read the sentence. What does [word] mean?' "
+                f"DO NOT ask about main idea, topic, or what a text is 'about'. "
+                f"WRONG: 'The main idea tells the reader what the text is mostly ______' "
+                f"RIGHT: 'In the sentence \"The fox was cunning,\" what does cunning mean? ______'"
+            )
+        elif _is_ri_7:
+            template = (
+                f"[MANDATORY TEMPLATE for {std} {diff}] "
+                f"You MUST: (1) Include a 'Picture Description:' section describing an illustration in detail. "
+                f"(2) Include a 'Text:' section with 2-3 sentences of informational text. "
+                f"(3) Ask the student to USE BOTH the picture description AND the text to answer. "
+                f"The picture description must contain details NOT in the text that are needed to answer."
+            )
+        else:
+            template = (
+                f"[ESCALATED RULE for {std} {diff} — failed {streak}x] "
+                f"Previous attempts scored {info.get('scores', [])}. "
+                f"Re-read the standard description carefully. Your question MUST directly test the EXACT skill described. "
+                f"Before outputting, self-check: does this question test {std} specifically, or a different/related standard?"
+            )
+
+        bsd = existing.setdefault("by_standard_difficulty", {})
+        rules_list = bsd.setdefault(key, [])
+        existing_lower = {r.strip().lower()[:80] for r in rules_list}
+        if template.strip().lower()[:80] not in existing_lower:
+            rules_list.insert(0, template)
+        n_injected += 1
+
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(existing, f, indent=2, ensure_ascii=False)
+
+    if log_fn and n_injected:
+        log_fn(f"  [强化] 检测到 {n_injected} 个顽固组合(连续≥{_STUBBORN_THRESHOLD}轮失败)，已注入 negative example + 强制模板")
+
+
+def _clear_resolved_negative_examples(evaluation_list, prompt_rules_path, threshold=0.85, log_fn=None):
+    """当之前标记为顽固的组合终于通过时，清除其 negative example（避免永久占用 prompt 空间）。"""
+    if not os.path.exists(prompt_rules_path):
+        return
+    try:
+        with open(prompt_rules_path, "r", encoding="utf-8") as f:
+            rules = json.load(f)
+    except Exception:
+        return
+    neg = rules.get("negative_examples")
+    if not neg:
+        return
+    passed_keys = set()
+    for d in evaluation_list:
+        if d.get("score", 0) >= threshold:
+            key = f"{d.get('standard', '')}|{d.get('difficulty', '')}|{d.get('type', 'fill-in')}"
+            if key in neg:
+                passed_keys.add(key)
+    if not passed_keys:
+        return
+    for k in passed_keys:
+        del neg[k]
+    with open(prompt_rules_path, "w", encoding="utf-8") as f:
+        json.dump(rules, f, indent=2, ensure_ascii=False)
+    if log_fn:
+        log_fn(f"  [解除强化] {len(passed_keys)} 个顽固组合已通过，清除 negative example")
+
 
 def _compute_breakdown(items, scores):
     """按 (题型, 难度) 拆解分数，返回 dict 包含 by_type / by_difficulty / by_type_difficulty。
@@ -621,6 +805,9 @@ def _run_closed_loop_one_model(project_root, model, args, use_model_specific_pat
                     "evaluation": evaluation_list,
                 }
                 rounds_data.append(round_entry)
+                # 清除已通过的顽固组合的 negative example
+                if evaluation_list:
+                    _clear_resolved_negative_examples(evaluation_list, prompt_rules_path, log_fn=_log)
                 # ── Cycle 模式：全通过时结束当前 cycle ──
                 if _cycle_mode:
                     n_fail_this_round = sum(1 for d in evaluation_list if d.get("score", 1) < 0.85) if evaluation_list else n_valid
@@ -695,6 +882,11 @@ def _run_closed_loop_one_model(project_root, model, args, use_model_specific_pat
                                     pass
                         _print_summary()
                 else:
+                    # 顽固失败检测：连续≥N轮失败的组合注入 negative example
+                    if len(rounds_data) >= _STUBBORN_THRESHOLD:
+                        _stubborn = _detect_stubborn_combos(rounds_data, mcqs_path)
+                        if _stubborn:
+                            _inject_negative_examples(_stubborn, prompt_rules_path, log_fn=_log)
                     imp_prompt_cmd = [sys.executable, os.path.join(project_root, "scripts", "improve_prompt.py"), "--results", results_path, "--mcqs", mcqs_path, "--output", prompt_rules_path, "--examples", examples_path]
                     _log(f"  [3/3] 改 prompt 规则")
                     _run_with_log_stream(imp_prompt_cmd, project_root)

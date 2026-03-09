@@ -253,7 +253,10 @@ def is_valid_mcq(mcq: Dict) -> Tuple[bool, str]:
                 nearby = " ".join(context_before + context_after).lower()
                 nearby_clean = _re_giveaway.sub(r'\([^)]*\)', ' ', nearby)  # remove parenthesized hints
                 nearby_clean = _re_giveaway.sub(r'[,;:!?\.\'\"\*\[\]]', ' ', nearby_clean)
-                if f" {answer_lower} " in f" {nearby_clean} ":
+                # Skip if text before blank ends with inline options list (e.g. "Write X, Y, or Z: ______")
+                if _re_giveaway.search(r'(?:,\s*or|,)\s+\w+\s*[:?]\s*$', text_before, _re_giveaway.IGNORECASE):
+                    pass
+                elif f" {answer_lower} " in f" {nearby_clean} ":
                     return False, f"fill-in answer '{answer}' appears adjacent to the blank (answer giveaway)"
 
         return True, ""
