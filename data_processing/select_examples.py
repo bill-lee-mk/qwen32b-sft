@@ -104,17 +104,23 @@ def extract_json_from_text(text: str) -> Optional[Dict]:
 
 
 def _is_placeholder(mcq: Dict) -> bool:
-    """检测模板/占位题：模型未生成真实内容，而是输出了元描述。"""
-    q = str(mcq.get("question", "")).lower()
+    """检测模板/占位题：模型未生成真实内容，而是输出了元描述。
+    
+    仅当选项内容明显是元描述（如 'correct choice'、'distractor'）时才判定为 placeholder。
+    question 中的 'demonstrate the skill' 在 SL 标准中是合法表述，不单独作为判据。
+    """
     opts = mcq.get("answer_options", {})
     opt_vals = " ".join(str(v).lower() for v in opts.values()) if isinstance(opts, dict) else ""
-    placeholder_q = ("demonstrate the skill" in q) or ("skill described in" in q and "select all" in q)
     placeholder_opts = ("correct choice" in opt_vals and "distractor" in opt_vals) or \
                        ("matches the standard" in opt_vals) or \
                        ("a correct" in opt_vals and "an incorrect" in opt_vals) or \
                        ("correct answer" in opt_vals and "incorrect answer" in opt_vals and
                         opt_vals.count("correct answer") >= 2)
-    return placeholder_q or placeholder_opts
+    if placeholder_opts:
+        return True
+    q = str(mcq.get("question", "")).lower()
+    placeholder_q = "skill described in" in q and "select all" in q
+    return placeholder_q and placeholder_opts
 
 
 def is_valid_mcq(mcq: Dict) -> Tuple[bool, str]:
@@ -169,7 +175,10 @@ def is_valid_mcq(mcq: Dict) -> Tuple[bool, str]:
                          "from the sentence", "add -ing", "add -ed", "add -s",
                          "with an -ed", "with -ed", "-ed ending", "-ing ending",
                          "with an -ing", "with -ing", "-s ending"]
-        requires_text_word = (any(cue in q_lower for cue in _from_text_cues)
+        _std_code_aa = str(mcq.get("standard", "")).upper()
+        _is_reading_aa = any(k in _std_code_aa for k in [".RL.", ".RI."])
+        requires_text_word = (_is_reading_aa
+                              and any(cue in q_lower for cue in _from_text_cues)
                               and not any(exc in q_lower for exc in _exclude_cues))
         if requires_text_word:
             import re as _re_aa
@@ -187,11 +196,23 @@ def is_valid_mcq(mcq: Dict) -> Tuple[bool, str]:
                 passage_text += " " + _re_aa.sub(r'[,;:!?\.\'\"\*\(\)\[\]\u201c\u201d\u2018\u2019]', ' ', cleaned.lower())
             passage_text = " " + _re_aa.sub(r'\s+', ' ', passage_text) + " "
             if len(passage_text) > 40:
+                def _stem_variants(w):
+                    """Simple English stemming: generate plausible forms to match."""
+                    vs = {w}
+                    for sfx in ("s", "es", "ed", "ing", "er", "est", "ly",
+                                "tion", "ness", "ment", "ful", "less", "ous",
+                                "ive", "able", "ible"):
+                        if w.endswith(sfx) and len(w) > len(sfx) + 2:
+                            vs.add(w[:-len(sfx)])
+                            if sfx in ("ed", "ing") and len(w) > len(sfx) + 3 and w[-len(sfx)-1] == w[-len(sfx)-2]:
+                                vs.add(w[:-len(sfx)-1])
+                    return vs
                 for entry in aa:
                     entry_clean = str(entry).strip().lower().strip('"\'.,;:!? ')
                     if not entry_clean or len(entry_clean.split()) > 1:
                         continue
-                    if f" {entry_clean} " not in passage_text:
+                    variants = _stem_variants(entry_clean)
+                    if not any(f" {v} " in passage_text for v in variants):
                         return False, f"fill-in AA entry '{entry}' not found in passage text (question requires word from text)"
 
         # --- 硬校验: 引用 passage 必须存在 ---
@@ -214,20 +235,24 @@ def is_valid_mcq(mcq: Dict) -> Tuple[bool, str]:
 
         # --- 硬校验: 答案泄露检测 ---
         # 仅当答案单词直接紧邻 blank（前后 2 词内）才拦截
-        # 排除 Word Bank / 选项提示 / 结论标签等合理的教学辅助
-        if "______" in question and answer_lower and len(answer_lower.split()) == 1:
+        # 排除 Word Bank / 选项提示 / 极短词 / 教学辅助
+        if ("______" in question and answer_lower
+                and len(answer_lower.split()) == 1 and len(answer_lower) > 2):
             blank_idx = question.lower().find("______")
             if blank_idx >= 0:
                 text_before = question[:blank_idx]
                 text_after = question[blank_idx + 6:]
                 import re as _re_giveaway
                 text_after_clean = _re_giveaway.split(
-                    r'(?i)\(?\s*(?:word\s*bank|type\s+|choose\s+from|options?\s*:|conclusion\s|option\s)',
+                    r'(?i)\(?\s*(?:word\s*bank|type\s+|choose\s+from|options?\s*:|'
+                    r'conclusion\s|option\s|select\s+from|answer\s*choices|'
+                    r'vocabulary|words?\s*to\s*use|hint\s*:|clue\s*:)',
                     text_after, maxsplit=1)[0]
                 context_before = text_before.split()[-2:]
                 context_after = text_after_clean.split()[:2]
                 nearby = " ".join(context_before + context_after).lower()
-                nearby_clean = _re_giveaway.sub(r'[,;:!?\.\'\"\*\(\)\[\]]', ' ', nearby)
+                nearby_clean = _re_giveaway.sub(r'\([^)]*\)', ' ', nearby)  # remove parenthesized hints
+                nearby_clean = _re_giveaway.sub(r'[,;:!?\.\'\"\*\[\]]', ' ', nearby_clean)
                 if f" {answer_lower} " in f" {nearby_clean} ":
                     return False, f"fill-in answer '{answer}' appears adjacent to the blank (answer giveaway)"
 

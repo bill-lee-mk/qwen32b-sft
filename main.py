@@ -156,6 +156,8 @@ def _run_closed_loop_one_model(project_root, model, args, use_model_specific_pat
     max_rounds = getattr(args, "max_rounds", 10)
     start_round = getattr(args, "start_round", 1) or 1
     patience = getattr(args, "patience", 5)
+    n_cycles = getattr(args, "cycles", 0)
+    max_rounds_per_cycle = getattr(args, "max_rounds_per_cycle", 15)
     parallel = getattr(args, "parallel", 25)
     no_target = (target is None or target <= 0)  # 不设目标时跑满 max_rounds，取最终/最高通过率
     # 日志路径：--log-file 指定或默认 evaluation_output/log_237_{model}.json
@@ -297,27 +299,59 @@ def _run_closed_loop_one_model(project_root, model, args, use_model_specific_pat
             _log("最佳题目/结果: 暂无（未完成首轮评估）")
         _log("=" * 60)
 
+    # ── Cycle 模式状态 ──
+    _cycle_mode = n_cycles > 0
+    _current_cycle = 1
+    _inner_round = 0  # 当前 cycle 内的轮号（1-based）
+    _cycle_results = []  # [(cycle_num, inner_rounds_used, final_pass_rate), ...]
+    if _cycle_mode:
+        focus_failures = True
+        max_rounds = n_cycles * max_rounds_per_cycle  # 总轮数上限
+        _log(f"\n  Cycle 模式: {n_cycles} 个循环，每循环最多 {max_rounds_per_cycle} 轮修复")
+
     try:
         try:
             for round_num in range(start_round, max_rounds + 1):
                 mcqs_path = f"{base_mcqs}_round{round_num}.json"
                 results_path = f"{base_results}_round{round_num}.json"
                 result["round_reached"] = round_num
-                if round_num == 1 and no_target:
-                    _log(f"\n  (未设通过率目标，将跑满 {max_rounds} 轮，取最终/历史最高通过率)")
-                if round_num == 1 and pilot_batch:
-                    _log(f"\n  (试水模式：每轮 {pilot_batch} 题，{max_rounds} 轮后全量生成)")
-                if pilot_batch:
-                    _log(f"\n========== [{model}] 试水 第 {round_num}/{max_rounds} 轮 ==========")
+                if _cycle_mode:
+                    _inner_round += 1
+                    if _inner_round > max_rounds_per_cycle:
+                        _log(f"\n  Cycle {_current_cycle} 达到最大轮数 {max_rounds_per_cycle}，未能全部通过，进入下一个 Cycle")
+                        _cycle_results.append((_current_cycle, max_rounds_per_cycle, result.get("final_pass_rate", 0)))
+                        _current_cycle += 1
+                        _inner_round = 1
+                        if _current_cycle > n_cycles:
+                            _log(f"\n  所有 {n_cycles} 个 Cycle 已完成")
+                            _print_summary()
+                            break
+                    if _inner_round == 1:
+                        _log(f"\n{'='*60}")
+                        _log(f"  Cycle {_current_cycle}/{n_cycles} 开始")
+                        _log(f"{'='*60}")
+                    _log(f"\n========== [{model}] Cycle {_current_cycle} 第 {_inner_round}/{max_rounds_per_cycle} 轮 (全局R{round_num}) ==========")
                 else:
-                    _log(f"\n========== [{model}] 闭环 第 {round_num}/{max_rounds} 轮 ==========")
+                    if round_num == 1 and no_target:
+                        _log(f"\n  (未设通过率目标，将跑满 {max_rounds} 轮，取最终/历史最高通过率)")
+                    if round_num == 1 and pilot_batch:
+                        _log(f"\n  (试水模式：每轮 {pilot_batch} 题，{max_rounds} 轮后全量生成)")
+                    if pilot_batch:
+                        _log(f"\n========== [{model}] 试水 第 {round_num}/{max_rounds} 轮 ==========")
+                    else:
+                        _log(f"\n========== [{model}] 闭环 第 {round_num}/{max_rounds} 轮 ==========")
                 round_start = time.time()
                 grade = getattr(args, "grade", "3")
                 subject = getattr(args, "subject", "ELA")
                 qtype = getattr(args, "question_type", "all") or "all"
                 _gen_n = sample_size or pilot_batch
-                focus_failures = getattr(args, "focus_failures", False)
-                if focus_failures and round_num == 1:
+                if not _cycle_mode:
+                    focus_failures = getattr(args, "focus_failures", False)
+                _is_cycle_r1 = (_cycle_mode and _inner_round == 1)
+                if _is_cycle_r1:
+                    gen_mode = ["--all-combinations"]
+                    _log(f"  Cycle {_current_cycle} R1: 全量覆盖 (--all-combinations)")
+                elif focus_failures and round_num == 1 and not _gen_n:
                     gen_mode = ["--all-combinations"]
                     _log(f"  聚焦失败模式: 第1轮使用 --all-combinations 覆盖全部组合")
                 else:
@@ -335,7 +369,8 @@ def _run_closed_loop_one_model(project_root, model, args, use_model_specific_pat
                 if weak_threshold is not None and current_best_results_path and os.path.exists(current_best_results_path):
                     gen_cmd.extend(["--weak-threshold", str(weak_threshold), "--weak-results", current_best_results_path])
                 # 聚焦失败模式：从上轮结果提取失败的 (standard, difficulty) 仅重生成这些
-                if focus_failures and round_num > 1:
+                _should_focus = focus_failures and ((_cycle_mode and _inner_round > 1) or (not _cycle_mode and round_num > 1))
+                if _should_focus:
                     prev_results = f"{base_results}_round{round_num - 1}.json"
                     prev_mcqs = f"{base_mcqs}_round{round_num - 1}.json"
                     if not os.path.exists(prev_results):
@@ -380,6 +415,9 @@ def _run_closed_loop_one_model(project_root, model, args, use_model_specific_pat
                             except Exception:
                                 pass
                     return result
+                if not os.path.exists(mcqs_path):
+                    _log(f"  生成完成但无输出文件（可能所有组合已达标），跳过本轮")
+                    continue
                 # WEAK_THRESHOLD 合并：仅生成了弱项题目，合并回已有最佳题目集，保证评估在完整集合上进行
                 _cached_scores_path = None
                 if weak_threshold is not None and current_best_mcqs_path and os.path.exists(current_best_mcqs_path) and os.path.exists(mcqs_path):
@@ -583,7 +621,29 @@ def _run_closed_loop_one_model(project_root, model, args, use_model_specific_pat
                     "evaluation": evaluation_list,
                 }
                 rounds_data.append(round_entry)
-                if target > 0 and pass_rate >= target:
+                # ── Cycle 模式：全通过时结束当前 cycle ──
+                if _cycle_mode:
+                    n_fail_this_round = sum(1 for d in evaluation_list if d.get("score", 1) < 0.85) if evaluation_list else n_valid
+                    if n_fail_this_round == 0 and n_valid > 0:
+                        _log(f"\n  Cycle {_current_cycle} 全部通过! (第 {_inner_round} 轮, 通过率 {pass_rate:.1f}%)")
+                        _cycle_results.append((_current_cycle, _inner_round, pass_rate))
+                        _current_cycle += 1
+                        _inner_round = 0  # 下一轮迭代时 +1 变为 1
+                        for p in [mcqs_path, results_path]:
+                            if os.path.exists(p):
+                                try: os.remove(p)
+                                except Exception: pass
+                        if _current_cycle > n_cycles:
+                            _log(f"\n  所有 {n_cycles} 个 Cycle 全部完成!")
+                            _log(f"  Cycle 汇总:")
+                            for cn, ir, pr in _cycle_results:
+                                _log(f"    Cycle {cn}: {ir} 轮修复, 最终 {pr:.1f}%")
+                            _print_summary()
+                            break
+                        continue  # 进入下一轮（下一个 cycle 的 R1）
+                    else:
+                        _log(f"  Cycle {_current_cycle} R{_inner_round}: {n_fail_this_round} 个组合仍未通过，继续修复")
+                elif target > 0 and pass_rate >= target:
                     if pilot_batch:
                         _log(f"\n  试水达标 {pass_rate:.1f}% >= {target}%，跳转全量生成")
                         for p in [mcqs_path, results_path]:
@@ -604,7 +664,7 @@ def _run_closed_loop_one_model(project_root, model, args, use_model_specific_pat
                                     pass
                         _print_summary()
                         return result
-                if patience > 0 and no_improve_count >= patience and round_num < max_rounds:
+                if not _cycle_mode and patience > 0 and no_improve_count >= patience and round_num < max_rounds:
                     _log(f"\n  [Early Stop] 连续 {no_improve_count} 轮未刷新最佳（patience={patience}），提前终止")
                     _log(f"  历史最高: {best_pass_rate_seen:.1f}% @ 第{best_round_seen}轮")
                     for p in [mcqs_path, results_path]:
@@ -616,11 +676,17 @@ def _run_closed_loop_one_model(project_root, model, args, use_model_specific_pat
                     _print_summary()
                     break
                 if round_num == max_rounds:
-                    if pilot_batch:
+                    if _cycle_mode:
+                        _log(f"\n  达到全局最大轮数 {max_rounds}，Cycle {_current_cycle} 未完成")
+                        _cycle_results.append((_current_cycle, _inner_round, pass_rate))
+                        _log(f"  Cycle 汇总:")
+                        for cn, ir, pr in _cycle_results:
+                            _log(f"    Cycle {cn}: {ir} 轮修复, 最终 {pr:.1f}%")
+                        _print_summary()
+                    elif pilot_batch:
                         _log(f"\n  试水 {max_rounds} 轮完成，历史最高 {best_pass_rate_seen:.1f}%，进入全量生成")
                     else:
                         _log(f"\n  已达最大轮数 {max_rounds}，最终通过率 {pass_rate:.1f}%，历史最高 {best_pass_rate_seen:.1f}% @ 第{best_round_seen}轮")
-                        # 删除最后一轮的中间文件（best 已保存）
                         for p in [mcqs_path, results_path]:
                             if os.path.exists(p):
                                 try:
@@ -632,13 +698,26 @@ def _run_closed_loop_one_model(project_root, model, args, use_model_specific_pat
                     imp_prompt_cmd = [sys.executable, os.path.join(project_root, "scripts", "improve_prompt.py"), "--results", results_path, "--mcqs", mcqs_path, "--output", prompt_rules_path, "--examples", examples_path]
                     _log(f"  [3/3] 改 prompt 规则")
                     _run_with_log_stream(imp_prompt_cmd, project_root)
-                    # 删除中间暂存文件，仅保留最佳题目与结果
-                    for p in [mcqs_path, results_path]:
-                        if os.path.exists(p):
-                            try:
-                                os.remove(p)
-                            except Exception:
-                                pass
+                    if focus_failures:
+                        # focus_failures 模式：保留当前轮文件供下一轮提取失败列表，删除更早的
+                        if round_num > 1:
+                            for old_r in range(start_round, round_num):
+                                for suffix in [f"_round{old_r}.json", f"_round{old_r}_failed_combos.json"]:
+                                    old_p = f"{base_mcqs}{suffix}"
+                                    if os.path.exists(old_p):
+                                        try: os.remove(old_p)
+                                        except Exception: pass
+                                    old_p = f"{base_results}{suffix}"
+                                    if os.path.exists(old_p):
+                                        try: os.remove(old_p)
+                                        except Exception: pass
+                    else:
+                        for p in [mcqs_path, results_path]:
+                            if os.path.exists(p):
+                                try:
+                                    os.remove(p)
+                                except Exception:
+                                    pass
             # ── Phase 2: 全量生成（仅 pilot 模式） ──
             if pilot_batch:
                 pilot_rounds_done = result["round_reached"]
@@ -934,6 +1013,8 @@ def main():
     loop_parser.add_argument("--pilot-batch", type=int, default=None, help="试水批量：先用小批量跑闭环积累范例和规则，最后自动全量生成（如 --pilot-batch 50 表示每轮试水 50 题）；不设则每轮全量")
     loop_parser.add_argument("--sample-size", type=int, default=None, help="每轮抽样题数（--diverse N），不触发全量生成；不设则全量覆盖所有标准×难度组合")
     loop_parser.add_argument("--focus-failures", action="store_true", help="从第2轮起，仅重生成上轮失败的 (standard, difficulty) 组合，而非全量随机")
+    loop_parser.add_argument("--cycles", type=int, default=0, help="循环模式：每个 cycle = 全量→逐步修复→全通过；重复 N 个 cycle 验证稳定性（0=禁用，使用传统 max-rounds 线性模式）")
+    loop_parser.add_argument("--max-rounds-per-cycle", type=int, default=15, help="每个 cycle 内最大修复轮数（安全阀，默认 15）")
     loop_parser.add_argument("--grade", default="3", help="年级（1-12），默认 3")
     loop_parser.add_argument("--subject", default="ELA", help="学科缩写（ELA, MATH, SCI, USHIST 等），默认 ELA")
     loop_parser.add_argument("--type", default="all", dest="question_type", help="题型：all / mcq / msq / fill-in（逗号分隔多选，如 msq,fill-in；默认 all = 同时生成三种题型）")
@@ -1195,8 +1276,7 @@ def main():
             timeout = getattr(args, "timeout", 180)
             parallel = getattr(args, "parallel", 25)
 
-            if len(items) == 1:
-                # 单题：一次提交
+            if len(items) == 1 and not args.output:
                 evaluator = InceptBenchEvaluator(timeout=timeout)
                 if getattr(args, 'debug', False):
                     payload = to_inceptbench_payload(question_data)
@@ -1205,10 +1285,7 @@ def main():
                     print("=============================")
                 result = evaluator.evaluate_mcq(question_data)
                 print(f"评估结果: {json.dumps(result, indent=2, ensure_ascii=False)}")
-                if args.output:
-                    with open(args.output, 'w') as f:
-                        json.dump(result, f, indent=2, ensure_ascii=False)
-            else:
+            elif len(items) >= 1:
                 # 多题：一次只能提交一题，--parallel 个进程并行
                 from concurrent.futures import ThreadPoolExecutor, as_completed
                 n_total = len(items)

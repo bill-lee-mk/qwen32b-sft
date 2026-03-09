@@ -1377,11 +1377,14 @@ def main():
                     print(f"    {wt}×{wd}: {wr:.1f}%")
         # --failed-combos: 仅生成指定的 (standard, difficulty, type) 组合
         failed_combo_set = None
+        _STD_PREFIX = "CCSS.ELA-LITERACY."
+        def _norm_std(s):
+            return s.replace(_STD_PREFIX, "") if s else s
         if args.failed_combos and os.path.exists(args.failed_combos):
             try:
                 with open(args.failed_combos, "r", encoding="utf-8") as f:
                     fc_list = json.load(f)
-                failed_combo_set = {(fc["standard"], fc["difficulty"], fc.get("type", "fill-in")) for fc in fc_list}
+                failed_combo_set = {(_norm_std(fc["standard"]), fc["difficulty"], fc.get("type", "fill-in")) for fc in fc_list}
                 print(f"  聚焦失败组合: {len(failed_combo_set)} 个 (standard, difficulty, type)")
             except Exception as e:
                 print(f"  警告: 无法加载 --failed-combos: {e}")
@@ -1393,7 +1396,7 @@ def main():
                     if not any(wt == qtype and wd == d for wt, wd, _ in weak_combos):
                         continue
                 if failed_combo_set is not None:
-                    if (s, d, qtype) not in failed_combo_set:
+                    if (_norm_std(s), d, qtype) not in failed_combo_set:
                         continue
                 plan.append((s, d, qtype))
         if not plan:

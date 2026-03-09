@@ -67,6 +67,8 @@ RULES_RUN_ID="${RULES_RUN_ID:-}"  # 规则共享 run-id：指定后 prompt_rules
 DIFFICULTY="${DIFFICULTY:-}"      # 难度筛选（逗号分隔，如 medium,hard；空=全部难度）
 WEAK_THRESHOLD="${WEAK_THRESHOLD:-}"  # 弱项阈值（百分数，如 90）：仅生成低于此值的 type×difficulty 组合
 PATIENCE="${PATIENCE:-5}"             # 连续 N 轮未刷新最佳则 early-stop（0=不启用）
+CYCLES="${CYCLES:-0}"                  # Cycle 模式：每 cycle = 全量→修复→全通过；0=禁用（使用传统 ROUNDS 模式）
+MAX_ROUNDS_PER_CYCLE="${MAX_ROUNDS_PER_CYCLE:-15}"  # 每个 cycle 内最大修复轮数
 
 mkdir -p "$OUTDIR"
 
@@ -79,7 +81,10 @@ echo "  题型: $QTYPE"
 [ -n "$DIFFICULTY" ] && echo "  难度筛选: $DIFFICULTY"
 [ -n "$WEAK_THRESHOLD" ] && echo "  弱项阈值: <${WEAK_THRESHOLD}%"
 [ -n "$RULES_RUN_ID" ] && echo "  规则共享: $RULES_RUN_ID (输出隔离到 $RUN_ID)"
-if [ "$ROUNDS" -gt 1 ]; then
+if [ "${CYCLES:-0}" != "0" ]; then
+  echo "  策略: Cycle 模式 × $CYCLES 循环（每循环: 全量→修复→全通过），每循环最多 $MAX_ROUNDS_PER_CYCLE 轮"
+  echo "  题型: $QTYPE"
+elif [ "$ROUNDS" -gt 1 ]; then
   echo "  策略: 闭环改进 $ROUNDS 轮（生成→评估→补范例→改prompt→重复）"
   if [ -n "$PILOT" ]; then
     echo "  试水: 每轮先生成 $PILOT 题试水，最后全量"
@@ -112,12 +117,16 @@ for MODEL in $MODELS; do
     echo "  [$TOTAL] Model=$MODEL  Grade=$GRADE  Subject=$SUBJECT  Type=$QTYPE  Rounds=$ROUNDS"
     echo "────────────────────────────────────────────────────────────"
 
-    if [ "$ROUNDS" -gt 1 ]; then
+    _EFFECTIVE_ROUNDS=$ROUNDS
+    if [ "${CYCLES:-0}" != "0" ] && [ "$_EFFECTIVE_ROUNDS" -le 1 ]; then
+      _EFFECTIVE_ROUNDS=$((CYCLES * MAX_ROUNDS_PER_CYCLE))
+    fi
+    if [ "$_EFFECTIVE_ROUNDS" -gt 1 ]; then
       # ========================================
       # 闭环改进模式：main.py closed-loop
       # ========================================
       LOOP_ARGS="--model $MODEL --grade $GRADE --subject $SUBJECT --type $QTYPE"
-      LOOP_ARGS="$LOOP_ARGS --max-rounds $ROUNDS --start-round $START_ROUND --pass-rate-target $PASS_TARGET"
+      LOOP_ARGS="$LOOP_ARGS --max-rounds $_EFFECTIVE_ROUNDS --start-round $START_ROUND --pass-rate-target $PASS_TARGET"
       LOOP_ARGS="$LOOP_ARGS --run-id $RUN_ID"
       if [ -n "$RULES_RUN_ID" ]; then
         LOOP_ARGS="$LOOP_ARGS --rules-run-id $RULES_RUN_ID"
@@ -130,6 +139,12 @@ for MODEL in $MODELS; do
       fi
       if [ -n "$PILOT" ]; then
         LOOP_ARGS="$LOOP_ARGS --pilot-batch $PILOT"
+      elif [ -n "${CYCLES:-}" ] && [ "${CYCLES:-0}" != "0" ]; then
+        # Cycle 模式: 每 cycle 的 R1 全量覆盖, 不传 --sample-size
+        :
+      elif [ -n "${FOCUS_FAILURES:-}" ] && [ "${FOCUS_FAILURES:-}" = "1" ]; then
+        # FOCUS_FAILURES 模式: R1 全量覆盖, 不传 --sample-size
+        :
       elif [ -n "$N" ] && [ "$N" != "0" ]; then
         LOOP_ARGS="$LOOP_ARGS --sample-size $N"
       fi
@@ -139,7 +154,9 @@ for MODEL in $MODELS; do
       if [ -n "$PATIENCE" ]; then
         LOOP_ARGS="$LOOP_ARGS --patience $PATIENCE"
       fi
-      if [ -n "$FOCUS_FAILURES" ] && [ "$FOCUS_FAILURES" = "1" ]; then
+      if [ -n "$CYCLES" ] && [ "$CYCLES" != "0" ]; then
+        LOOP_ARGS="$LOOP_ARGS --cycles $CYCLES --max-rounds-per-cycle $MAX_ROUNDS_PER_CYCLE"
+      elif [ -n "$FOCUS_FAILURES" ] && [ "$FOCUS_FAILURES" = "1" ]; then
         LOOP_ARGS="$LOOP_ARGS --focus-failures"
       fi
       echo "  执行: python main.py closed-loop $LOOP_ARGS"
