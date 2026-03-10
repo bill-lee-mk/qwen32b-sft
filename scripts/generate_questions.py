@@ -832,6 +832,9 @@ def parse_mcq(text: str, expected_type: str = "mcq", context: dict | None = None
                 if s.endswith("```"):
                     s = s[:-3].strip()
                 break
+    # 修复 Markdown 转义下划线 (\_) → 普通下划线 (_)
+    if r"\\_" in s or "\\_" in s:
+        s = s.replace("\\_", "_")
     obj = extract_json_from_text(s)
     # 若首次失败，尝试从 ```json 块内提取（可能有多段文本）
     if not obj and "```" in s:
@@ -869,6 +872,8 @@ def _try_get_reject_reason(raw: str, expected_type: str) -> str:
                     if s.endswith("```"):
                         s = s[:-3].strip()
                     break
+        if r"\\_" in s or "\\_" in s:
+            s = s.replace("\\_", "_")
         obj = extract_json_from_text(s)
         if not obj:
             return "JSON解析失败"
@@ -1642,12 +1647,8 @@ def main():
     if args.output:
         out_path = Path(args.output)
         out_path.parent.mkdir(parents=True, exist_ok=True)
-        if len(results) == 1:
-            with open(out_path, "w", encoding="utf-8") as f:
-                json.dump(results[0], f, ensure_ascii=False, indent=2)
-        else:
-            with open(out_path, "w", encoding="utf-8") as f:
-                json.dump(results, f, ensure_ascii=False, indent=2)
+        with open(out_path, "w", encoding="utf-8") as f:
+            json.dump(results, f, ensure_ascii=False, indent=2)
         print(f"[生成] 已保存到: {out_path}（仅通过校验的 {len(results)} 题）")
     else:
         print(json.dumps(results[0] if len(results) == 1 else results, ensure_ascii=False, indent=2))

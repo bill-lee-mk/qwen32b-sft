@@ -253,8 +253,44 @@ def is_valid_mcq(mcq: Dict) -> Tuple[bool, str]:
                 nearby = " ".join(context_before + context_after).lower()
                 nearby_clean = _re_giveaway.sub(r'\([^)]*\)', ' ', nearby)  # remove parenthesized hints
                 nearby_clean = _re_giveaway.sub(r'[,;:!?\.\'\"\*\[\]]', ' ', nearby_clean)
-                # Skip if text before blank ends with inline options list (e.g. "Write X, Y, or Z: ______")
-                if _re_giveaway.search(r'(?:,\s*or|,)\s+\w+\s*[:?]\s*$', text_before, _re_giveaway.IGNORECASE):
+                # Skip if answer is part of an explicit word bank / options instruction
+                _q_no_md = _re_giveaway.sub(r'[*_]', '', question)
+                _wb_match = _re_giveaway.search(
+                    r'\b(?:type|write|choose|select|pick|circle)\b\s+'
+                    r'([\w\'"-]+(?:\s*,\s*(?!or\b)[\w\'"-]+)*\s*,?\s+or\s+[\w\'"-]+)',
+                    _q_no_md, _re_giveaway.IGNORECASE)
+                _in_wb = False
+                if _wb_match:
+                    _opts = [w.strip().strip("'\"-").lower()
+                             for w in _re_giveaway.split(r'\s*,?\s*\bor\b\s+|\s*,\s*', _wb_match.group(1))
+                             if w.strip()]
+                    _in_wb = answer_lower in _opts
+                if not _in_wb:
+                    _in_wb = bool(_re_giveaway.search(
+                        r'(?:,\s*or|,)\s+\w+\s*[:?]\s*$', text_before, _re_giveaway.IGNORECASE))
+                # (A) "Word Bank:" / "Answer Bank:" label format
+                if not _in_wb:
+                    _wb_label_m = _re_giveaway.search(
+                        r'(?:word\s*bank|answer\s*bank)\s*:\s*(.+?)(?:\n\n|\Z)',
+                        _q_no_md, _re_giveaway.IGNORECASE | _re_giveaway.DOTALL)
+                    if _wb_label_m:
+                        _wb_items = [w.strip().lower() for w in
+                                     _re_giveaway.split(r'\s{2,}|\s*,\s*|\s+or\s+',
+                                                        _wb_label_m.group(1)) if w.strip()]
+                        _in_wb = answer_lower in _wb_items
+                # (B) Pronoun/vague-reference replacement questions
+                if not _in_wb and _re_giveaway.search(
+                        r'\bvague\s+pronoun|\bpronoun\b.{0,40}\bvague\b'
+                        r'|\bambiguous\s+pronoun|\bunclear\s+pronoun',
+                        _q_no_md, _re_giveaway.IGNORECASE):
+                    _in_wb = True
+                # (C) Answer appears in passage text well before the blank
+                if not _in_wb and _re_giveaway.search(
+                        r'\bread\s+the\b', _q_no_md, _re_giveaway.IGNORECASE):
+                    _early = text_before[:max(0, len(text_before) - 80)]
+                    if _early and answer_lower in _early.lower():
+                        _in_wb = True
+                if _in_wb:
                     pass
                 elif f" {answer_lower} " in f" {nearby_clean} ":
                     return False, f"fill-in answer '{answer}' appears adjacent to the blank (answer giveaway)"

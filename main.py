@@ -74,7 +74,14 @@ def _detect_stubborn_combos(rounds_data, mcqs_path, threshold=0.85, streak_min=_
         with open(mcqs_path, "r", encoding="utf-8") as f:
             mcqs = json.load(f)
         if isinstance(mcqs, dict):
-            mcqs = mcqs.get("questions", mcqs.get("mcqs", []))
+            if "questions" in mcqs:
+                mcqs = mcqs["questions"]
+            elif "mcqs" in mcqs:
+                mcqs = mcqs["mcqs"]
+            elif "question" in mcqs:
+                mcqs = [mcqs]
+            else:
+                mcqs = []
         for m in mcqs:
             std = m.get("standard", "")
             diff = m.get("difficulty", "")
@@ -567,7 +574,14 @@ def _run_closed_loop_one_model(project_root, model, args, use_model_specific_pat
                             with open(prev_mcqs, "r", encoding="utf-8") as _f:
                                 _prev_mcqs = json.load(_f)
                             if isinstance(_prev_mcqs, dict):
-                                _prev_mcqs = _prev_mcqs.get("questions", _prev_mcqs.get("mcqs", []))
+                                if "questions" in _prev_mcqs:
+                                    _prev_mcqs = _prev_mcqs["questions"]
+                                elif "mcqs" in _prev_mcqs:
+                                    _prev_mcqs = _prev_mcqs["mcqs"]
+                                elif "question" in _prev_mcqs:
+                                    _prev_mcqs = [_prev_mcqs]
+                                else:
+                                    _prev_mcqs = []
                             _prev_details = _prev_res.get("evaluation_details", [])
                             _failed = []
                             for _di, _det in enumerate(_prev_details):
