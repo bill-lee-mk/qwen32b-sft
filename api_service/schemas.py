@@ -11,7 +11,7 @@ class GenerateRequest(BaseModel):
     difficulty: str = Field(default="medium", description="easy / medium / hard")
     type: str = Field(default="mcq", description="mcq / msq / fill-in")
     subject: str = Field(default="ELA", description="学科")
-    model: str = Field(default="fw/kimi-k2.5", description="生成模型")
+    model: str = Field(default="or/gemini-3-pro", description="生成模型")
 
 
 class GenerateAllRequest(BaseModel):
@@ -19,7 +19,7 @@ class GenerateAllRequest(BaseModel):
     grade: str = Field(description="年级 (1-12)")
     subject: str = Field(default="ELA", description="学科")
     type: str = Field(default="all", description="题型: all / mcq / msq / fill-in")
-    model: str = Field(default="fw/kimi-k2.5", description="生成模型")
+    model: str = Field(default="or/gemini-3-pro", description="生成模型")
     workers: int = Field(default=10, ge=1, le=50, description="并发数")
 
 

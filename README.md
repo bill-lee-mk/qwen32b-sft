@@ -2,17 +2,18 @@
 
 English | [中文](README_CN.md)
 
-Generate high-quality K-12 ELA (English Language Arts) questions — MCQ, MSQ, and Fill-in — via a REST API backed by remote LLM models (Fireworks AI, DeepSeek, Kimi, etc.).
+Generate high-quality K-12 ELA (English Language Arts) questions — MCQ, MSQ, and Fill-in — via a REST API backed by remote LLM models through [OpenRouter](https://openrouter.ai) (Gemini, DeepSeek, Kimi, etc.) and other providers.
 
 The service uses a full prompt-engineering pipeline: few-shot examples, curriculum-aligned prompt rules, and iterative closed-loop refinement to maximize question quality on the [InceptBench](https://benchmark.inceptbench.com) evaluation.
 
 ## Features
 
 - **All question types**: MCQ (multiple-choice), MSQ (multi-select), Fill-in
-- **Grades 1–12**: Full Common Core ELA coverage with per-grade few-shot examples
+- **Grades 1–12**: Full Common Core ELA coverage with per-grade few-shot examples and prompt rules
 - **InceptBench-compatible output**: Response format matches InceptBench evaluation API directly
-- **Multiple model backends**: Fireworks AI (kimi-k2.5, DeepSeek, GLM-5, etc.), DeepSeek direct, Kimi direct, Gemini
+- **Multiple model backends**: OpenRouter (Gemini 3 Pro, DeepSeek, Kimi, GPT, Claude, etc.), Fireworks AI, direct API (DeepSeek, Kimi, Gemini)
 - **Prompt engineering pipeline**: Few-shot examples filtered by `(standard, difficulty, type)` + targeted prompt rules by `(standard, difficulty, type)`
+- **Closed-loop refinement**: Generate → Evaluate via InceptBench → Update prompt rules → Next round with improved prompts
 - **Lightweight deployment**: No GPU required — runs on any machine with Python 3.10+
 
 ## Quick Start
@@ -31,7 +32,8 @@ docker build -t ela-question-generator .
 docker run -d \
   --name ela-api \
   -p 8000:8000 \
-  -e FIREWORKS_API_KEY=your_fireworks_api_key \
+  -e OPENROUTER_API_KEY=your_openrouter_api_key \
+  -e INCEPTBENCH_API_KEY=your_inceptbench_api_key \
   ela-question-generator
 
 # 4. Verify
@@ -48,8 +50,9 @@ cd qwen32b-sft
 # 2. Install lightweight dependencies (no torch/transformers needed)
 pip install -r requirements-api.txt
 
-# 3. Set API key
-export FIREWORKS_API_KEY=your_fireworks_api_key
+# 3. Set API keys
+export OPENROUTER_API_KEY=your_openrouter_api_key
+export INCEPTBENCH_API_KEY=your_inceptbench_api_key
 
 # 4. Start server
 uvicorn api_service.fastapi_app:app --host 0.0.0.0 --port 8000
@@ -60,7 +63,7 @@ uvicorn api_service.fastapi_app:app --host 0.0.0.0 --port 8000
 | Endpoint | Method | Description |
 |----------|--------|-------------|
 | `/health` | GET | Health check — returns loaded grades and default model |
-| `/models` | GET | List available models (Fireworks + direct) |
+| `/models` | GET | List available models (OpenRouter + Fireworks + direct) |
 | `/grades/{grade}/combinations` | GET | List all (standard, difficulty, type) combinations for a grade |
 | `/generate` | POST | Generate a single question |
 | `/generate-all` | POST | Batch-generate all combinations for a grade |
@@ -72,8 +75,8 @@ uvicorn api_service.fastapi_app:app --host 0.0.0.0 --port 8000
 curl -X POST http://localhost:8000/generate \
   -H "Content-Type: application/json" \
   -d '{
-    "grade": "3",
-    "standard": "CCSS.ELA-LITERACY.L.3.1.A",
+    "grade": "5",
+    "standard": "CCSS.ELA-LITERACY.L.5.1.A",
     "difficulty": "medium",
     "type": "mcq"
   }'
@@ -84,26 +87,26 @@ Response (InceptBench format):
 ```json
 {
   "generated_content": [{
-    "id": "L.3.1.A-pronoun-function-medium-001",
+    "id": "L.5.1.A-conjunctions-medium-001",
     "request": {
-      "grade": "3", "subject": "ELA", "type": "mcq",
+      "grade": "5", "subject": "ELA", "type": "mcq",
       "difficulty": "medium", "locale": "en-US",
       "skills": {
         "lesson_title": "K-12 ELA",
-        "substandard_id": "CCSS.ELA-LITERACY.L.3.1.A",
+        "substandard_id": "CCSS.ELA-LITERACY.L.5.1.A",
         "substandard_description": "..."
       }
     },
     "content": {
-      "question": "Which choice best describes the function of...",
-      "answer": "C",
+      "question": "Which conjunction best completes the sentence?...",
+      "answer": "B",
       "answer_options": [
         {"key": "A", "text": "..."},
         {"key": "B", "text": "..."},
         {"key": "C", "text": "..."},
         {"key": "D", "text": "..."}
       ],
-      "answer_explanation": "Option C is correct because..."
+      "answer_explanation": "Option B is correct because..."
     },
     "image_url": [],
     "metadata": {"generated_question_id": "..."},
@@ -118,7 +121,7 @@ Response (InceptBench format):
 curl -X POST http://localhost:8000/generate-all \
   -H "Content-Type: application/json" \
   -d '{
-    "grade": "3",
+    "grade": "5",
     "subject": "ELA",
     "type": "all",
     "workers": 10
@@ -129,36 +132,47 @@ curl -X POST http://localhost:8000/generate-all \
 
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
-| `FIREWORKS_API_KEY` | Yes | — | Fireworks AI API key |
-| `DEFAULT_MODEL` | No | `fw/kimi-k2.5` | Default generation model |
+| `OPENROUTER_API_KEY` | Yes | — | OpenRouter API key (default model backend) |
+| `INCEPTBENCH_API_KEY` | Yes | — | InceptBench evaluation API token |
+| `DEFAULT_MODEL` | No | `or/gemini-3-pro` | Default generation model |
 | `PRELOAD_GRADES` | No | `1,2,...,12` | Grades to preload at startup |
-| `DEEPSEEK_API_KEY` | No | — | Required if using DeepSeek models |
+| `FIREWORKS_API_KEY` | No | — | Required if using Fireworks AI models |
+| `DEEPSEEK_API_KEY` | No | — | Required if using DeepSeek direct |
 | `KIMI_API_KEY` | No | — | Required if using Kimi direct |
-| `GEMINI_API_KEY` | No | — | Required if using Gemini models |
+| `GEMINI_API_KEY` | No | — | Required if using Gemini direct |
+| `EVALUATOR_TOKEN` | No | — | Fallback InceptBench token (api.inceptbench.com) |
 
 ## Available Models
 
-### Via Fireworks AI (recommended)
+### Via OpenRouter (recommended)
+
+| Model ID | OpenRouter Model | Description |
+|----------|-----------------|-------------|
+| `or/gemini-3-pro` | `google/gemini-3-pro-preview` | Gemini 3 Pro (default, best quality) |
+| `or/deepseek-v3.2` | `deepseek/deepseek-chat-v3-0324` | DeepSeek V3.2 |
+| `or/kimi-k2.5` | `moonshotai/kimi-k2.5` | Kimi K2.5 |
+| `or/glm-5` | `z-ai/glm-5` | GLM-5 (Zhipu) |
+| `or/gpt-5.2` | `openai/gpt-5.2` | GPT-5.2 |
+| `or/claude-sonnet` | `anthropic/claude-sonnet-4.6` | Claude Sonnet 4.6 |
+| `or/gemini-3-flash` | `google/gemini-3-flash-preview` | Gemini 3 Flash (fast, cheaper) |
+
+### Via Fireworks AI
 
 | Model ID | Description |
 |----------|-------------|
-| `fw/kimi-k2.5` | Kimi K2.5 (default) |
+| `fw/kimi-k2.5` | Kimi K2.5 |
 | `fw/deepseek-v3.2` | DeepSeek V3.2 |
-| `fw/deepseek-r1` | DeepSeek R1 (reasoning) |
-| `fw/glm-5` | GLM-5 (Zhipu) |
-| `fw/gpt-oss-120b` | GPT-OSS 120B |
-| `fw/qwen3-235b` | Qwen3 235B |
+| `fw/glm-5` | GLM-5 |
 
 ### Direct API
 
 | Model ID | Requires |
 |----------|----------|
 | `deepseek-chat` | `DEEPSEEK_API_KEY` |
-| `deepseek-reasoner` | `DEEPSEEK_API_KEY` |
 | `kimi-latest` | `KIMI_API_KEY` |
 | `gemini-3-flash-preview` | `GEMINI_API_KEY` |
 
-## Project Structure (API Service)
+## Project Structure
 
 ```
 qwen32b-sft/
@@ -169,19 +183,23 @@ qwen32b-sft/
 ├── data_processing/
 │   ├── build_prompt.py         # Prompt construction (few-shot + rules)
 │   ├── analyze_dimensions.py   # Grade/standard/difficulty combinations
-│   └── select_examples.py      # JSON parsing utilities
+│   └── select_examples.py      # Example selection & validation
 ├── evaluation/
-│   └── inceptbench_client.py   # InceptBench format conversion
+│   └── inceptbench_client.py   # InceptBench evaluation client
 ├── scripts/
 │   ├── generate_questions.py   # Core generation logic
+│   ├── run_matrix.sh           # Batch run orchestrator
 │   └── validate_mcq.py         # MCQ validation/repair
 ├── data/
 │   └── curriculum_standards.json   # CCSS curriculum data
 ├── processed_training_data/        # Few-shot examples + prompt rules
 │   ├── {N}_ELA_examples.json       # Per-grade examples (1-12)
-│   └── {N}_ELA_prompt_rules_*.json # Per-grade prompt rules
+│   └── {N}_ELA_prompt_rules_*.json # Per-grade per-model prompt rules
+├── evaluation_output/              # Best evaluation results per model
+├── docs/                           # Reports & documentation
 ├── requirements-api.txt        # Lightweight API dependencies
-└── Dockerfile                  # Container build file
+├── Dockerfile                  # Container build file
+└── .env.example                # Environment variable template
 ```
 
 ## Closed-Loop Refinement (Development)
@@ -189,11 +207,23 @@ qwen32b-sft/
 For iterating on question quality, the project includes a closed-loop pipeline:
 
 ```bash
-# Run 3 rounds of generate → evaluate → improve-prompt for grades 1-3
-MODELS='fw/kimi-k2.5' GRADES='1,2,3' ROUNDS=3 bash scripts/run_matrix.sh
+# Run 5 cycles of generate → evaluate → improve-prompt for all grades
+export OPENROUTER_API_KEY=your_key
+export INCEPTBENCH_API_KEY=your_key
+MODELS='or/gemini-3-pro' GRADES='1,2,3' CYCLES=5 bash scripts/run_matrix.sh
 ```
 
-Each round: generates all questions → evaluates via InceptBench API → extracts feedback → updates targeted prompt rules → next round uses improved prompts.
+Each cycle: generates all questions → evaluates via InceptBench API → extracts feedback → updates targeted prompt rules → next cycle uses improved prompts.
+
+## Evaluation
+
+Questions are evaluated using the [InceptBench](https://benchmark.inceptbench.com) API:
+
+- **API URL**: `https://inceptbench.api.inceptlabs.ai/2.3.3/evaluate`
+- **Authentication**: Bearer token via `INCEPTBENCH_API_KEY`
+- **Fallback**: `https://api.inceptbench.com/evaluate` via `EVALUATOR_TOKEN`
+
+The evaluation scores each question on a 0–1 scale based on curriculum alignment, difficulty appropriateness, answer correctness, and explanation quality.
 
 ## License
 

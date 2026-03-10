@@ -1,0 +1,145 @@
+{
+  "total": 1,
+  "total_submitted": 1,
+  "valid_score_count": 1,
+  "error_count": 0,
+  "breakdown": {
+    "by_type": {
+      "fill-in": {
+        "count": 1,
+        "pass_count": 1,
+        "pass_rate": 100.0,
+        "avg_score": 0.95
+      }
+    },
+    "by_difficulty": {
+      "hard": {
+        "count": 1,
+        "pass_count": 1,
+        "pass_rate": 100.0,
+        "avg_score": 0.95
+      }
+    },
+    "by_type_difficulty": {
+      "fill-in|hard": {
+        "count": 1,
+        "pass_count": 1,
+        "pass_rate": 100.0,
+        "avg_score": 0.95
+      }
+    }
+  },
+  "scores": [
+    0.95
+  ],
+  "results": [
+    {
+      "request_id": "1850f652-00fd-4be9-bb41-328e11a1ad77",
+      "evaluations": {
+        "diverse_000": {
+          "inceptbench_new_evaluation": {
+            "content_type": "question",
+            "overall_rating": "ACCEPTABLE",
+            "overall": {
+              "score": 0.95,
+              "internal_reasoning": "A. Curriculum Data Usage\n- Standard Identification: CCSS.ELA-LITERACY.SL.11-12.6 (adapt speech to a variety of contexts/tasks; command of formal English). Confidence: SOFT (inferred from context).\n- Difficulty Definitions: None provided in Curriculum API block (all <unspecified>). Using Scenario 3 – own difficulty assessment based on grade-level expectations: a high-register lexical choice (“irrespective/regardless/independent of”) for formal adaptation ⇒ appropriate for hard within 11–12 ELA.\n- Assessment Boundaries: None provided.\n- Learning Objectives: Not explicitly provided; inferred objective: adapt informal phrasing to formal register using precise diction signaling neutrality toward political affiliation.\n- Common Misconceptions: None provided. Anticipated errors include: using informal phrasing (“no matter”), miscollocations (“despite of”), or words that don’t collocate with “of”.\n- Item Specifications: None provided.\n\nB. Standard Evaluation Process\nStep 1: Interpreted as a practice/assessment fill-in item. Student-facing text contains scenario plus a one-word blank; no pre-attempt giveaways.\nStep 2: Issues\n- No issues identified. Checklists A, B, and C passed.\n  • Checklist A (Field Consistency): Correct answer and acceptable answers are consistent with the stem. Explanation correctly notes that “despite” does not take “of,” fitting the given template with “of” already present.\n  • Checklist B (Answer Giveaway): No pre-attempt answer provided; acceptable answers and explanation are metadata.\n  • Checklist C (Diction/Typo): No merged words, grammar clear.\n\nRequested Format Type (Generation Prompt): type=fill-in. Content has no options; uses a single-word blank ⇒ compliant.\n\nC. Scoring mechanics\n- Critical metric failures (C)=0 (factual_accuracy=1.0, educational_accuracy=1.0)\n- Non-critical metric failures (N)=0\n- Overall must be in 0.85–1.0 range; assigned 0.95 (solid quality, minor optional enhancements possible but no concrete issues).\n",
+              "reasoning": "High-quality fill-in item that targets SL.11-12.6 by requiring students to adapt an informal statement into formal English using precise, high-register diction. The blank with “of political affiliation” cues collocations like “irrespective of,” “regardless of,” or “independent of.” No answer giveaways, wording is clear, and the explanation is accurate. Overall, well-aligned and appropriate difficulty for grades 11–12.",
+              "suggested_improvements": "Consider accepting additional valid responses such as “Independently” (as in “Independently of political affiliation”) and ensure case-insensitive scoring to reduce false negatives."
+            },
+            "factual_accuracy": {
+              "score": 1.0,
+              "internal_reasoning": "The labeled correct answer (“Irrespective”) and acceptable answers (“Irrespective,” “Regardless,” “Independent”) all produce grammatical, semantically accurate completions with the fixed “of political affiliation.” The explanation correctly states that “despite” does not take “of,” so “Despite of” would be incorrect in the given template, while “Despite political affiliation” (without “of”) would be grammatical but does not match the provided frame. No contradictions or mismatches across fields.",
+              "reasoning": "Answers and explanation are consistent and grammatically/semantically correct for the sentence frame provided.",
+              "suggested_improvements": null
+            },
+            "educational_accuracy": {
+              "score": 1.0,
+              "internal_reasoning": "The item directly measures adaptation to formal English and precise diction (SL.11-12.6). No pre-attempt answer is revealed; the task requires selecting a high-register collocation that signals neutrality toward political affiliation. This aligns with the standard’s intent.",
+              "reasoning": "Directly assesses formal register adaptation with precise lexical choice; no answer giveaway; on-target for the stated standard.",
+              "suggested_improvements": null
+            },
+            "localization_quality": {
+              "score": 1.0,
+              "internal_reasoning": "Neutral and appropriate context; mentions political affiliation in a nonpartisan, general way. No culturally sensitive or exclusionary content. Suitable for U.S. grade 11–12.",
+              "reasoning": "Culturally neutral, age-appropriate context; no sensitive or region-specific dependencies.",
+              "suggested_improvements": null
+            },
+            "curriculum_alignment": {
+              "score": 1.0,
+              "internal_reasoning": "Standard: CCSS.ELA-LITERACY.SL.11-12.6. The task requires adapting informal speech to formal English through precise diction signaling that political affiliation is not a factor. No assessment boundaries provided; none violated. Learning objective (inferred) is satisfied.",
+              "reasoning": "Well-aligned to SL.11-12.6: adapting language to formal context using precise, appropriate vocabulary.",
+              "suggested_improvements": null
+            },
+            "clarity_precision": {
+              "score": 1.0,
+              "internal_reasoning": "Instructions are explicit: “Type one word that grammatically completes the sentence.” The blank is clearly placed before “of political affiliation,” eliminating ambiguity about required collocation. No merged words or confusing symbols; task is unambiguous.",
+              "reasoning": "Clear stem and specific task; students can tell exactly what to provide.",
+              "suggested_improvements": null
+            },
+            "specification_compliance": {
+              "score": 1.0,
+              "internal_reasoning": "Requested “type”: fill-in. The item has no options and uses a one-word blank, matching the requested format. No enforceable item-writing specs were provided; thus, no violations.",
+              "reasoning": "Matches requested fill-in format; no applicable spec violations.",
+              "suggested_improvements": null
+            },
+            "reveals_misconceptions": {
+              "score": 1.0,
+              "internal_reasoning": "Open-ended structure can surface misconceptions such as using informal phrases (“no matter”), incorrect prepositioning (“despite of”), or non-collocating choices. Good diagnostic value for register and collocation knowledge.",
+              "reasoning": "Responses can reveal misunderstandings about formal register and correct prepositional collocations.",
+              "suggested_improvements": null
+            },
+            "difficulty_alignment": {
+              "score": 1.0,
+              "internal_reasoning": "Scenario 3 applies (no Difficulty Definitions provided). For grade 11–12 ELA SL.11-12.6, selecting high-register lexical items (“irrespective/regardless/independent of”) to fit a formal frame is appropriately challenging. Many students may know “regardless,” but “irrespective” and collocational precision elevate difficulty; the contextual adaptation aspect supports a ‘hard’ label within this standard and grade band. Not ≥2 grades off.",
+              "reasoning": "Difficulty is appropriate for a ‘hard’ 11–12 item: precise formal collocation and register adaptation.",
+              "suggested_improvements": null
+            },
+            "passage_reference": {
+              "score": 1.0,
+              "internal_reasoning": "No external passage; the scenario is self-contained and clearly referenced. Nothing to locate or cross-reference.",
+              "reasoning": "No passage dependency; item is self-contained.",
+              "suggested_improvements": null
+            },
+            "distractor_quality": {
+              "score": 1.0,
+              "internal_reasoning": "Not an MCQ; open-ended fill-in. By policy, pass. The prompt nonetheless constrains plausible responses well.",
+              "reasoning": "Open-ended item; distractor quality not applicable.",
+              "suggested_improvements": null
+            },
+            "stimulus_quality": {
+              "score": 1.0,
+              "internal_reasoning": "No stimulus (image/audio) present; nothing misleading or distracting.",
+              "reasoning": "No stimulus provided; no potential for harm.",
+              "suggested_improvements": null
+            },
+            "mastery_learning_alignment": {
+              "score": 1.0,
+              "internal_reasoning": "Requires application of register knowledge and collocational grammar rather than rote recall. Differentiates students who can adapt diction formally from those who cannot.",
+              "reasoning": "Demands application and precise reasoning about register/collocation, supporting mastery learning.",
+              "suggested_improvements": null
+            },
+            "subcontent_evaluations": null
+          }
+        }
+      },
+      "evaluation_time_seconds": 123.03188467025757,
+      "inceptbench_version": "2.3.3",
+      "errors": [],
+      "overall_score": 0.95
+    }
+  ],
+  "evaluation_details": [
+    {
+      "index": 1,
+      "standard": "SL.11-12.6",
+      "difficulty": "hard",
+      "type": "fill-in",
+      "score": 0.95,
+      "elapsed_s": 126.3
+    }
+  ],
+  "avg_score": 0.95,
+  "pass_count": 1,
+  "pass_rate": 100.0,
+  "pass_rate_if_errors_as_fail": 100.0
+}

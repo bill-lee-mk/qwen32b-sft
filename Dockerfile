@@ -14,7 +14,7 @@ COPY data/ data/
 COPY processed_training_data/ processed_training_data/
 
 ENV PYTHONUNBUFFERED=1
-ENV DEFAULT_MODEL=fw/kimi-k2.5
+ENV DEFAULT_MODEL=or/gemini-3-pro
 ENV PRELOAD_GRADES=1,2,3,4,5,6,7,8,9,10,11,12
 
 EXPOSE 8000

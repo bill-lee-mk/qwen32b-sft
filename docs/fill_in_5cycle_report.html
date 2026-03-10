@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fill-in 题目 5轮大循环综合报告</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700;900&family=JetBrains+Mono:wght@400;500;600&display=swap');
+*{margin:0;padding:0;box-sizing:border-box}
+body{
+  background:#0b0f19;color:#e2e8f0;
+  font-family:'Noto Sans SC',system-ui,sans-serif;
+  padding:48px 40px;line-height:1.7;
+  max-width:1400px;margin:0 auto;
+}
+h1{
+  font-size:36px;font-weight:900;margin-bottom:6px;
+  background:linear-gradient(135deg,#60a5fa,#a78bfa,#f472b6);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+  letter-spacing:-0.5px;
+}
+.subtitle{color:#64748b;font-size:14px;margin-bottom:40px;font-weight:300}
+.subtitle span{color:#94a3b8;font-weight:500}
+
+.kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:48px}
+.kpi{
+  background:linear-gradient(145deg,#131b2e,#0f172a);
+  border:1px solid #1e293b;border-radius:16px;
+  padding:24px 20px;text-align:center;
+  position:relative;overflow:hidden;
+}
+.kpi::before{
+  content:'';position:absolute;top:0;left:0;right:0;height:3px;
+  border-radius:16px 16px 0 0;
+}
+.kpi:nth-child(1)::before{background:linear-gradient(90deg,#3b82f6,#60a5fa)}
+.kpi:nth-child(2)::before{background:linear-gradient(90deg,#10b981,#34d399)}
+.kpi:nth-child(3)::before{background:linear-gradient(90deg,#f59e0b,#fbbf24)}
+.kpi:nth-child(4)::before{background:linear-gradient(90deg,#8b5cf6,#a78bfa)}
+.kpi .label{font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:10px}
+.kpi .val{font-family:'JetBrains Mono',monospace;font-size:40px;font-weight:600;line-height:1}
+.kpi .val.c1{color:#60a5fa}.kpi .val.c2{color:#34d399}.kpi .val.c3{color:#fbbf24}.kpi .val.c4{color:#a78bfa}
+.kpi .note{font-size:11px;color:#475569;margin-top:8px}
+
+h2{
+  font-size:20px;font-weight:700;margin:48px 0 20px;
+  padding-left:16px;border-left:4px solid #3b82f6;
+  color:#f1f5f9;
+}
+h2 .num{
+  display:inline-block;width:28px;height:28px;
+  background:#1e3a5f;color:#60a5fa;border-radius:8px;
+  text-align:center;line-height:28px;font-size:14px;
+  margin-right:8px;font-weight:600;
+}
+
+table{
+  width:100%;border-collapse:separate;border-spacing:0;
+  font-size:13px;margin-bottom:16px;
+  background:#0f172a;border-radius:12px;
+  overflow:hidden;border:1px solid #1e293b;
+}
+thead th{
+  background:#151d30;color:#94a3b8;font-weight:500;
+  font-size:11px;text-transform:uppercase;letter-spacing:0.5px;
+  padding:12px 10px;text-align:center;
+  border-bottom:2px solid #1e293b;
+  position:sticky;top:0;z-index:1;
+}
+thead th.group{background:#1a2744;color:#60a5fa;font-size:12px}
+tbody td{
+  padding:10px 8px;text-align:center;
+  border-bottom:1px solid rgba(30,41,59,0.6);
+  font-family:'JetBrains Mono',monospace;font-size:12px;
+}
+tbody tr:hover{background:rgba(59,130,246,0.04)}
+tbody tr:last-child td{border-bottom:none}
+
+td.g{font-weight:700;color:#60a5fa;font-family:'Noto Sans SC',sans-serif;font-size:14px}
+td.hi{color:#34d399;font-weight:600}
+td.md{color:#fbbf24}
+td.lo{color:#f87171;font-weight:600}
+td.dim{color:#475569}
+td.bold{font-weight:700;color:#e2e8f0}
+td.path{text-align:left;font-size:11px;color:#94a3b8;max-width:340px}
+td.path span.s{color:#34d399}
+td.path span.f{color:#f87171}
+
+tfoot td{
+  background:#151d30;font-weight:700;
+  border-top:2px solid #1e293b;color:#60a5fa;
+  padding:12px 10px;
+}
+
+.legend{
+  display:flex;gap:24px;margin:12px 0 20px;font-size:11px;color:#64748b;
+}
+.legend .d{width:10px;height:10px;border-radius:50%;display:inline-block;margin-right:4px;vertical-align:middle}
+.legend .d.g{background:#34d399}.legend .d.y{background:#fbbf24}.legend .d.r{background:#f87171}
+
+.trend-up{color:#34d399}.trend-down{color:#f87171}.trend-flat{color:#64748b}
+
+.footer{margin-top:60px;padding-top:20px;border-top:1px solid #1e293b;color:#475569;font-size:12px;text-align:center}
+
+@media print{
+  body{background:#fff;color:#1e293b;padding:20px}
+  .kpi{border-color:#e2e8f0;background:#f8fafc}
+  .kpi .val.c1,.kpi .val.c2,.kpi .val.c3,.kpi .val.c4{color:#1e293b}
+  table{background:#fff;border-color:#e2e8f0}
+  thead th{background:#f1f5f9;color:#475569;border-color:#e2e8f0}
+  thead th.group{background:#eff6ff;color:#2563eb}
+  tbody td{border-color:#f1f5f9;color:#334155}
+  tfoot td{background:#f1f5f9;color:#2563eb;border-color:#e2e8f0}
+  td.g{color:#2563eb}td.hi{color:#059669}td.md{color:#d97706}td.lo{color:#dc2626}td.dim{color:#94a3b8}
+  td.path{color:#475569}td.path span.s{color:#059669}td.path span.f{color:#dc2626}
+  .trend-up{color:#059669}.trend-down{color:#dc2626}.trend-flat{color:#6b7280}
+  h1{-webkit-text-fill-color:#1e293b;background:none}
+  h2{color:#1e293b;border-color:#2563eb}
+  h2 .num{background:#eff6ff;color:#2563eb}
+}
+</style>
+</head>
+<body>
+
+<h1>Fill-in 题目 5 轮大循环综合报告</h1>
+<p class="subtitle">
+  模型: <span>or/gemini-3-pro</span> &nbsp;|&nbsp;
+  范围: <span>G1-G12 全年级</span> &nbsp;|&nbsp;
+  PASS 阈值: <span>≥ 0.85</span> &nbsp;|&nbsp;
+  运行时间: <span>2026-03-09 ~ 03-10</span> &nbsp;|&nbsp;
+  生成时间: <span>2026-03-10 01:16</span>
+</p>
+
+<div class="kpi-row">
+  <div class="kpi">
+    <div class="label">平均首轮通过率</div>
+    <div class="val c1">90.8%</div>
+    <div class="note">低分题占比 ~9.2%</div>
+  </div>
+  <div class="kpi">
+    <div class="label">平均修复轮数</div>
+    <div class="val c2">2.4</div>
+    <div class="note">去除G1异常后 (含G1: 2.8)</div>
+  </div>
+  <div class="kpi">
+    <div class="label">Cycle 收敛成功率</div>
+    <div class="val c3">59/60</div>
+    <div class="note">仅 G1 Cycle1 达15轮上限</div>
+  </div>
+  <div class="kpi">
+    <div class="label">最终通过年级</div>
+    <div class="val c4">12/12</div>
+    <div class="note">全部年级均达 100%</div>
+  </div>
+</div>
+
+<h2><span class="num">1</span>各年级各 Cycle 首轮通过率 & 低分题占比</h2>
+<div class="legend">
+  <span><span class="d g"></span> ≥92% 优秀</span>
+  <span><span class="d y"></span> 88%~92% 良好</span>
+  <span><span class="d r"></span> &lt;88% 需关注</span>
+</div>
+<table>
+<thead>
+<tr>
+  <th rowspan="2">年级</th><th rowspan="2">组合数</th>
+  <th colspan="2" class="group">Cycle 1</th>
+  <th colspan="2" class="group">Cycle 2</th>
+  <th colspan="2" class="group">Cycle 3</th>
+  <th colspan="2" class="group">Cycle 4</th>
+  <th colspan="2" class="group">Cycle 5</th>
+  <th rowspan="2">平均<br>首轮率</th>
+  <th rowspan="2">平均<br>低分%</th>
+</tr>
+<tr>
+  <th>通过率</th><th>低分%</th>
+  <th>通过率</th><th>低分%</th>
+  <th>通过率</th><th>低分%</th>
+  <th>通过率</th><th>低分%</th>
+  <th>通过率</th><th>低分%</th>
+</tr>
+</thead>
+<tbody>
+<tr><td class="g">G1</td><td>216</td><td class="md">89.8%</td><td class="md">10.2%</td><td class="hi">92.1%</td><td class="hi">7.9%</td><td class="md">88.4%</td><td class="md">11.6%</td><td class="md">89.3%</td><td class="md">10.7%</td><td class="hi">92.1%</td><td class="hi">7.9%</td><td class="bold">90.4%</td><td class="bold">9.6%</td></tr>
+<tr><td class="g">G2</td><td>189</td><td class="md">90.5%</td><td class="md">9.5%</td><td class="hi">92.6%</td><td class="hi">7.4%</td><td class="hi">92.1%</td><td class="hi">7.9%</td><td class="hi">92.6%</td><td class="hi">7.4%</td><td class="hi">92.6%</td><td class="hi">7.4%</td><td class="bold">92.1%</td><td class="bold">7.9%</td></tr>
+<tr><td class="g">G3</td><td>237</td><td class="hi">92.4%</td><td class="hi">7.6%</td><td class="hi">94.1%</td><td class="hi">5.9%</td><td class="md">91.6%</td><td class="md">8.4%</td><td class="hi">93.2%</td><td class="hi">6.8%</td><td class="md">90.7%</td><td class="md">9.3%</td><td class="bold">92.4%</td><td class="bold">7.6%</td></tr>
+<tr><td class="g">G4</td><td>408</td><td class="lo">88.0%</td><td class="lo">12.0%</td><td class="md">90.0%</td><td class="md">10.0%</td><td class="lo">88.0%</td><td class="lo">12.0%</td><td class="hi">92.9%</td><td class="hi">7.1%</td><td class="md">90.4%</td><td class="md">9.6%</td><td class="bold">89.9%</td><td class="bold">10.1%</td></tr>
+<tr><td class="g">G5</td><td>219</td><td class="md">90.4%</td><td class="md">9.6%</td><td class="md">90.9%</td><td class="md">9.1%</td><td class="md">89.0%</td><td class="md">11.0%</td><td class="hi">94.1%</td><td class="hi">5.9%</td><td class="md">91.3%</td><td class="md">8.7%</td><td class="bold">91.1%</td><td class="bold">8.9%</td></tr>
+<tr><td class="g">G6</td><td>207</td><td class="hi">92.3%</td><td class="hi">7.7%</td><td class="md">88.9%</td><td class="md">11.1%</td><td class="md">91.3%</td><td class="md">8.7%</td><td class="lo">85.5%</td><td class="lo">14.5%</td><td class="md">90.8%</td><td class="md">9.2%</td><td class="bold">89.8%</td><td class="bold">10.2%</td></tr>
+<tr><td class="g">G7</td><td>198</td><td class="md">91.4%</td><td class="md">8.6%</td><td class="md">88.9%</td><td class="md">11.1%</td><td class="hi">93.4%</td><td class="hi">6.6%</td><td class="md">90.4%</td><td class="md">9.6%</td><td class="md">90.9%</td><td class="md">9.1%</td><td class="bold">91.0%</td><td class="bold">9.0%</td></tr>
+<tr><td class="g">G8</td><td>204</td><td class="md">89.7%</td><td class="md">10.3%</td><td class="md">91.2%</td><td class="md">8.8%</td><td class="md">90.2%</td><td class="md">9.8%</td><td class="hi">93.1%</td><td class="hi">6.9%</td><td class="md">88.2%</td><td class="md">11.8%</td><td class="bold">90.5%</td><td class="bold">9.5%</td></tr>
+<tr><td class="g">G9</td><td>195</td><td class="hi">92.8%</td><td class="hi">7.2%</td><td class="md">89.2%</td><td class="md">10.8%</td><td class="hi">92.8%</td><td class="hi">7.2%</td><td class="hi">92.3%</td><td class="hi">7.7%</td><td class="lo">85.6%</td><td class="lo">14.4%</td><td class="bold">90.6%</td><td class="bold">9.4%</td></tr>
+<tr><td class="g">G10</td><td>195</td><td class="lo">87.7%</td><td class="lo">12.3%</td><td class="md">88.2%</td><td class="md">11.8%</td><td class="lo">87.7%</td><td class="lo">12.3%</td><td class="md">89.7%</td><td class="md">10.3%</td><td class="md">90.8%</td><td class="md">9.2%</td><td class="bold">88.8%</td><td class="bold">11.2%</td></tr>
+<tr><td class="g">G11</td><td>192</td><td class="lo">87.5%</td><td class="lo">12.5%</td><td class="md">90.1%</td><td class="md">9.9%</td><td class="hi">92.7%</td><td class="hi">7.3%</td><td class="hi">93.8%</td><td class="hi">6.2%</td><td class="md">89.1%</td><td class="md">10.9%</td><td class="bold">90.6%</td><td class="bold">9.4%</td></tr>
+<tr><td class="g">G12</td><td>192</td><td class="md">91.7%</td><td class="md">8.3%</td><td class="md">91.7%</td><td class="md">8.3%</td><td class="hi">94.3%</td><td class="hi">5.7%</td><td class="hi">95.3%</td><td class="hi">4.7%</td><td class="md">90.6%</td><td class="md">9.4%</td><td class="bold">92.7%</td><td class="bold">7.3%</td></tr>
+</tbody>
+<tfoot><tr><td colspan="12" style="text-align:right">全局平均</td>
+<td>90.8%</td><td>9.2%</td></tr></tfoot>
+</table>
+
+<h2><span class="num">2</span>各年级各 Cycle 修复轮数 & 收敛效率</h2>
+<table>
+<thead>
+<tr>
+  <th>年级</th><th>总轮数</th>
+  <th>C1</th><th>C2</th><th>C3</th><th>C4</th><th>C5</th>
+  <th>平均修复轮</th><th>修复趋势</th>
+</tr>
+</thead>
+<tbody>
+<tr><td class="g">G1</td><td>41</td><td class="lo">14</td><td class="hi">2</td><td class="lo">10</td><td class="md">4</td><td class="lo">6</td><td class="bold">7.2</td><td><span class="trend-up">↓ 改善</span></td></tr>
+<tr><td class="g">G2</td><td>17</td><td class="md">4</td><td class="md">3</td><td class="hi">2</td><td class="hi">2</td><td class="hi">1</td><td class="bold">2.4</td><td><span class="trend-up">↓ 改善</span></td></tr>
+<tr><td class="g">G3</td><td>17</td><td class="hi">2</td><td class="hi">2</td><td class="hi">2</td><td class="md">3</td><td class="md">3</td><td class="bold">2.4</td><td><span class="trend-down">↑ 增多</span></td></tr>
+<tr><td class="g">G4</td><td>18</td><td class="hi">2</td><td class="hi">2</td><td class="md">3</td><td class="md">4</td><td class="hi">2</td><td class="bold">2.6</td><td><span class="trend-flat">→ 平稳</span></td></tr>
+<tr><td class="g">G5</td><td>18</td><td class="md">3</td><td class="md">3</td><td class="hi">2</td><td class="md">3</td><td class="hi">2</td><td class="bold">2.6</td><td><span class="trend-up">↓ 改善</span></td></tr>
+<tr><td class="g">G6</td><td>17</td><td class="hi">2</td><td class="md">4</td><td class="hi">2</td><td class="hi">2</td><td class="hi">2</td><td class="bold">2.4</td><td><span class="trend-flat">→ 平稳</span></td></tr>
+<tr><td class="g">G7</td><td>19</td><td class="md">3</td><td class="hi">2</td><td class="lo">6</td><td class="hi">1</td><td class="hi">2</td><td class="bold">2.8</td><td><span class="trend-up">↓ 改善</span></td></tr>
+<tr><td class="g">G8</td><td>18</td><td class="hi">2</td><td class="hi">2</td><td class="hi">2</td><td class="md">3</td><td class="md">4</td><td class="bold">2.6</td><td><span class="trend-down">↑ 增多</span></td></tr>
+<tr><td class="g">G9</td><td>15</td><td class="hi">1</td><td class="md">3</td><td class="hi">2</td><td class="hi">2</td><td class="hi">2</td><td class="bold">2.0</td><td><span class="trend-down">↑ 增多</span></td></tr>
+<tr><td class="g">G10</td><td>18</td><td class="hi">2</td><td class="md">3</td><td class="hi">2</td><td class="md">3</td><td class="md">3</td><td class="bold">2.6</td><td><span class="trend-down">↑ 增多</span></td></tr>
+<tr><td class="g">G11</td><td>16</td><td class="hi">2</td><td class="hi">2</td><td class="md">3</td><td class="hi">1</td><td class="md">3</td><td class="bold">2.2</td><td><span class="trend-down">↑ 增多</span></td></tr>
+<tr><td class="g">G12</td><td>15</td><td class="hi">2</td><td class="hi">2</td><td class="hi">2</td><td class="hi">2</td><td class="hi">2</td><td class="bold">2.0</td><td><span class="trend-flat">→ 平稳</span></td></tr>
+</tbody>
+<tfoot><tr><td colspan="7" style="text-align:right">全局平均</td>
+<td>2.8</td><td></td></tr></tfoot>
+</table>
+
+<h2><span class="num">3</span>首轮通过率趋势 C1 → C5</h2>
+<table>
+<thead>
+<tr>
+  <th>年级</th>
+  <th>C1</th><th></th><th>C2</th><th></th><th>C3</th><th></th><th>C4</th><th></th><th>C5</th>
+  <th>趋势</th><th>C5-C1</th>
+</tr>
+</thead>
+<tbody>
+<tr><td class="g">G1</td><td class="md">89.8%</td><td class="dim">→</td><td class="hi">92.1%</td><td class="dim">→</td><td class="md">88.4%</td><td class="dim">→</td><td class="md">89.3%</td><td class="dim">→</td><td class="hi">92.1%</td><td><span class="trend-flat">→ 平稳</span></td><td class="trend-up">+2.3%</td></tr>
+<tr><td class="g">G2</td><td class="md">90.5%</td><td class="dim">→</td><td class="hi">92.6%</td><td class="dim">→</td><td class="hi">92.1%</td><td class="dim">→</td><td class="hi">92.6%</td><td class="dim">→</td><td class="hi">92.6%</td><td><span class="trend-up">↑ 上升</span></td><td class="trend-up">+2.1%</td></tr>
+<tr><td class="g">G3</td><td class="hi">92.4%</td><td class="dim">→</td><td class="hi">94.1%</td><td class="dim">→</td><td class="md">91.6%</td><td class="dim">→</td><td class="hi">93.2%</td><td class="dim">→</td><td class="md">90.7%</td><td><span class="trend-down">↓ 下降</span></td><td class="trend-down">-1.7%</td></tr>
+<tr><td class="g">G4</td><td class="lo">88.0%</td><td class="dim">→</td><td class="md">90.0%</td><td class="dim">→</td><td class="lo">88.0%</td><td class="dim">→</td><td class="hi">92.9%</td><td class="dim">→</td><td class="md">90.4%</td><td><span class="trend-up">↑ 上升</span></td><td class="trend-up">+2.5%</td></tr>
+<tr><td class="g">G5</td><td class="md">90.4%</td><td class="dim">→</td><td class="md">90.9%</td><td class="dim">→</td><td class="md">89.0%</td><td class="dim">→</td><td class="hi">94.1%</td><td class="dim">→</td><td class="md">91.3%</td><td><span class="trend-up">↑ 上升</span></td><td class="trend-up">+0.9%</td></tr>
+<tr><td class="g">G6</td><td class="hi">92.3%</td><td class="dim">→</td><td class="md">88.9%</td><td class="dim">→</td><td class="md">91.3%</td><td class="dim">→</td><td class="lo">85.5%</td><td class="dim">→</td><td class="md">90.8%</td><td><span class="trend-down">↓ 下降</span></td><td class="trend-down">-1.5%</td></tr>
+<tr><td class="g">G7</td><td class="md">91.4%</td><td class="dim">→</td><td class="md">88.9%</td><td class="dim">→</td><td class="hi">93.4%</td><td class="dim">→</td><td class="md">90.4%</td><td class="dim">→</td><td class="md">90.9%</td><td><span class="trend-flat">→ 平稳</span></td><td class="trend-down">-0.5%</td></tr>
+<tr><td class="g">G8</td><td class="md">89.7%</td><td class="dim">→</td><td class="md">91.2%</td><td class="dim">→</td><td class="md">90.2%</td><td class="dim">→</td><td class="hi">93.1%</td><td class="dim">→</td><td class="md">88.2%</td><td><span class="trend-flat">→ 平稳</span></td><td class="trend-down">-1.5%</td></tr>
+<tr><td class="g">G9</td><td class="hi">92.8%</td><td class="dim">→</td><td class="md">89.2%</td><td class="dim">→</td><td class="hi">92.8%</td><td class="dim">→</td><td class="hi">92.3%</td><td class="dim">→</td><td class="lo">85.6%</td><td><span class="trend-down">↓ 下降</span></td><td class="trend-down">-7.2%</td></tr>
+<tr><td class="g">G10</td><td class="lo">87.7%</td><td class="dim">→</td><td class="md">88.2%</td><td class="dim">→</td><td class="lo">87.7%</td><td class="dim">→</td><td class="md">89.7%</td><td class="dim">→</td><td class="md">90.8%</td><td><span class="trend-up">↑ 上升</span></td><td class="trend-up">+3.1%</td></tr>
+<tr><td class="g">G11</td><td class="lo">87.5%</td><td class="dim">→</td><td class="md">90.1%</td><td class="dim">→</td><td class="hi">92.7%</td><td class="dim">→</td><td class="hi">93.8%</td><td class="dim">→</td><td class="md">89.1%</td><td><span class="trend-up">↑ 上升</span></td><td class="trend-up">+1.6%</td></tr>
+<tr><td class="g">G12</td><td class="md">91.7%</td><td class="dim">→</td><td class="md">91.7%</td><td class="dim">→</td><td class="hi">94.3%</td><td class="dim">→</td><td class="hi">95.3%</td><td class="dim">→</td><td class="md">90.6%</td><td><span class="trend-flat">→ 平稳</span></td><td class="trend-down">-1.0%</td></tr>
+</tbody></table>
+
+<h2><span class="num">4</span>各 Cycle 详细收敛路径</h2>
+<table>
+<thead>
+<tr>
+  <th>年级</th><th>Cycle</th><th>首轮率</th><th>未过题</th>
+  <th>收敛路径 (各修复轮: 通过/总数)</th>
+  <th>结果</th><th>总轮</th>
+</tr>
+</thead>
+<tbody>
+<tr><td class="g" rowspan="5" style="vertical-align:middle">G1</td><td>C1</td><td class="md">89.8%</td><td>22</td><td class="path">21/22 → <span class="f">0/1×13</span></td><td><span class="trend-down">MAX ✗</span></td><td class="lo">15</td></tr>
+<tr><td>C2</td><td class="hi">92.1%</td><td>17</td><td class="path">16/17 → <span class="s">1/1</span></td><td><span class="trend-up">100% ✓</span></td><td class="hi">3</td></tr>
+<tr><td>C3</td><td class="md">88.4%</td><td>25</td><td class="path">20/25 → 4/5 → <span class="f">0/1×7</span> → <span class="s">1/1</span></td><td><span class="trend-up">100% ✓</span></td><td class="lo">11</td></tr>
+<tr><td>C4</td><td class="md">89.3%</td><td>23</td><td class="path">16/23 → 4/7 → 2/3 → <span class="s">1/1</span></td><td><span class="trend-up">100% ✓</span></td><td class="md">5</td></tr>
+<tr><td>C5</td><td class="hi">92.1%</td><td>17</td><td class="path">14/17 → 2/3 → <span class="f">0/1×3</span> → <span class="s">1/1</span></td><td><span class="trend-up">100% ✓</span></td><td class="lo">7</td></tr>
+<tr><td class="g" rowspan="5" style="vertical-align:middle">G2</td><td>C1</td><td class="md">90.5%</td><td>18</td><td class="path">14/18 → 3/4 → <span class="f">0/1×1</span> → <span class="s">1/1</span></td><td><span class="trend-up">100% ✓</span></td><td class="md">5</td></tr>
+<tr><td>C2</td><td class="hi">92.6%</td><td>14</td><td class="path">13/14 → <span class="f">0/1×1</span> → <span class="s">1/1</span></td><td><span class="trend-up">100% ✓</span></td><td class="md">4</td></tr>
+<tr><td>C3</td><td class="hi">92.1%</td><td>15</td><td class="path">11/15 → <span class="s">4/4</span></td><td><span class="trend-up">100% ✓</span></td><td class="hi">3</td></tr>
+<tr><td>C4</td><td class="hi">92.6%</td><td>14</td><td class="path">13/14 → <span class="s">1/1</span></td><td><span class="trend-up">100% ✓</span></td><td class="hi">3</td></tr>
+<tr><td>C5</td><td class="hi">92.6%</td><td>14</td><td class="path"><span class="s">14/14</span></td><td><span class="trend-up">100% ✓</span></td><td class="hi">2</td></tr>
+<tr><td class="g" rowspan="5" style="vertical-align:middle">G3</td><td>C1</td><td class="hi">92.4%</td><td>18</td><td class="path">17/18 → <span class="s">1/1</span></td><td><span class="trend-up">100% ✓</span></td><td class="hi">3</td></tr>
+<tr><td>C2</td><td class="hi">94.1%</td><td>14</td><td class="path">11/14 → <span class="s">3/3</span></td><td><span class="trend-up">100% ✓</span></td><td class="hi">3</td></tr>
+<tr><td>C3</td><td class="md">91.6%</td><td>20</td><td class="path">17/20 → <span class="s">3/3</span></td><td><span class="trend-up">100% ✓</span></td><td class="hi">3</td></tr>
+<tr><td>C4</td><td class="hi">93.2%</td><td>16</td><td class="path">12/16 → 3/4 → <span class="s">1/1</span></td><td><span class="trend-up">100% ✓</span></td><td class="md">4</td></tr>
+<tr><td>C5</td><td class="md">90.7%</td><td>22</td><td class="path">20/22 → 1/2 → <span class="s">1/1</span></td><td><span class="trend-up">100% ✓</span></td><td class="md">4</td></tr>
+<tr><td class="g" rowspan="5" style="vertical-align:middle">G4</td><td>C1</td><td class="lo">88.0%</td><td>49</td><td class="path">42/49 → <span class="s">7/7</span></td><td><span class="trend-up">100% ✓</span></td><td class="hi">3</td></tr>
+<tr><td>C2</td><td class="md">90.0%</td><td>41</td><td class="path">37/41 → <span class="s">4/4</span></td><td><span class="trend-up">100% ✓</span></td><td class="hi">3</td></tr>
+<tr><td>C3</td><td class="lo">88.0%</td><td>49</td><td class="path">42/49 → 5/7 → <span class="s">2/2</span></td><td><span class="trend-up">100% ✓</span></td><td class="md">4</td></tr>
+<tr><td>C4</td><td class="hi">92.9%</td><td>29</td><td class="path">25/29 → 3/4 → <span class="f">0/1×1</span> → <span class="s">1/1</span></td><td><span class="trend-up">100% ✓</span></td><td class="md">5</td></tr>
+<tr><td>C5</td><td class="md">90.4%</td><td>39</td><td class="path">34/39 → <span class="s">5/5</span></td><td><span class="trend-up">100% ✓</span></td><td class="hi">3</td></tr>
+<tr><td class="g" rowspan="5" style="vertical-align:middle">G5</td><td>C1</td><td class="md">90.4%</td><td>21</td><td class="path">20/21 → <span class="f">0/1×1</span> → <span class="s">1/1</span></td><td><span class="trend-up">100% ✓</span></td><td class="md">4</td></tr>
+<tr><td>C2</td><td class="md">90.9%</td><td>20</td><td class="path">18/20 → <span class="f">0/2</span> → <span class="s">2/2</span></td><td><span class="trend-up">100% ✓</span></td><td class="md">4</td></tr>
+<tr><td>C3</td><td class="md">89.0%</td><td>24</td><td class="path">20/24 → <span class="s">4/4</span></td><td><span class="trend-up">100% ✓</span></td><td class="hi">3</td></tr>
+<tr><td>C4</td><td class="hi">94.1%</td><td>13</td><td class="path">11/13 → 1/2 → <span class="s">1/1</span></td><td><span class="trend-up">100% ✓</span></td><td class="md">4</td></tr>
+<tr><td>C5</td><td class="md">91.3%</td><td>19</td><td class="path">14/19 → <span class="s">5/5</span></td><td><span class="trend-up">100% ✓</span></td><td class="hi">3</td></tr>
+<tr><td class="g" rowspan="5" style="vertical-align:middle">G6</td><td>C1</td><td class="hi">92.3%</td><td>16</td><td class="path">14/16 → <span class="s">2/2</span></td><td><span class="trend-up">100% ✓</span></td><td class="hi">3</td></tr>
+<tr><td>C2</td><td class="md">88.9%</td><td>23</td><td class="path">19/23 → 1/4 → 2/3 → <span class="s">1/1</span></td><td><span class="trend-up">100% ✓</span></td><td class="md">5</td></tr>
+<tr><td>C3</td><td class="md">91.3%</td><td>18</td><td class="path">16/18 → <span class="s">2/2</span></td><td><span class="trend-up">100% ✓</span></td><td class="hi">3</td></tr>
+<tr><td>C4</td><td class="lo">85.5%</td><td>30</td><td class="path">26/30 → <span class="s">4/4</span></td><td><span class="trend-up">100% ✓</span></td><td class="hi">3</td></tr>
+<tr><td>C5</td><td class="md">90.8%</td><td>19</td><td class="path">17/19 → <span class="s">2/2</span></td><td><span class="trend-up">100% ✓</span></td><td class="hi">3</td></tr>
+<tr><td class="g" rowspan="5" style="vertical-align:middle">G7</td><td>C1</td><td class="md">91.4%</td><td>17</td><td class="path">14/17 → 2/3 → <span class="s">1/1</span></td><td><span class="trend-up">100% ✓</span></td><td class="md">4</td></tr>
+<tr><td>C2</td><td class="md">88.9%</td><td>22</td><td class="path">21/22 → <span class="s">1/1</span></td><td><span class="trend-up">100% ✓</span></td><td class="hi">3</td></tr>
+<tr><td>C3</td><td class="hi">93.4%</td><td>13</td><td class="path">12/13 → <span class="f">0/1×4</span> → <span class="s">1/1</span></td><td><span class="trend-up">100% ✓</span></td><td class="lo">7</td></tr>
+<tr><td>C4</td><td class="md">90.4%</td><td>19</td><td class="path"><span class="s">19/19</span></td><td><span class="trend-up">100% ✓</span></td><td class="hi">2</td></tr>
+<tr><td>C5</td><td class="md">90.9%</td><td>18</td><td class="path">17/18 → <span class="s">1/1</span></td><td><span class="trend-up">100% ✓</span></td><td class="hi">3</td></tr>
+<tr><td class="g" rowspan="5" style="vertical-align:middle">G8</td><td>C1</td><td class="md">89.7%</td><td>21</td><td class="path">16/21 → <span class="s">5/5</span></td><td><span class="trend-up">100% ✓</span></td><td class="hi">3</td></tr>
+<tr><td>C2</td><td class="md">91.2%</td><td>18</td><td class="path">17/18 → <span class="s">1/1</span></td><td><span class="trend-up">100% ✓</span></td><td class="hi">3</td></tr>
+<tr><td>C3</td><td class="md">90.2%</td><td>20</td><td class="path">19/20 → <span class="s">1/1</span></td><td><span class="trend-up">100% ✓</span></td><td class="hi">3</td></tr>
+<tr><td>C4</td><td class="hi">93.1%</td><td>14</td><td class="path">10/14 → 3/4 → <span class="s">1/1</span></td><td><span class="trend-up">100% ✓</span></td><td class="md">4</td></tr>
+<tr><td>C5</td><td class="md">88.2%</td><td>24</td><td class="path">21/24 → 2/3 → <span class="f">0/1×1</span> → <span class="s">1/1</span></td><td><span class="trend-up">100% ✓</span></td><td class="md">5</td></tr>
+<tr><td class="g" rowspan="5" style="vertical-align:middle">G9</td><td>C1</td><td class="hi">92.8%</td><td>14</td><td class="path"><span class="s">14/14</span></td><td><span class="trend-up">100% ✓</span></td><td class="hi">2</td></tr>
+<tr><td>C2</td><td class="md">89.2%</td><td>21</td><td class="path">18/21 → 2/3 → <span class="s">1/1</span></td><td><span class="trend-up">100% ✓</span></td><td class="md">4</td></tr>
+<tr><td>C3</td><td class="hi">92.8%</td><td>14</td><td class="path">12/14 → <span class="s">2/2</span></td><td><span class="trend-up">100% ✓</span></td><td class="hi">3</td></tr>
+<tr><td>C4</td><td class="hi">92.3%</td><td>15</td><td class="path">13/15 → <span class="s">2/2</span></td><td><span class="trend-up">100% ✓</span></td><td class="hi">3</td></tr>
+<tr><td>C5</td><td class="lo">85.6%</td><td>28</td><td class="path">23/28 → <span class="s">5/5</span></td><td><span class="trend-up">100% ✓</span></td><td class="hi">3</td></tr>
+<tr><td class="g" rowspan="5" style="vertical-align:middle">G10</td><td>C1</td><td class="lo">87.7%</td><td>24</td><td class="path">23/24 → <span class="s">1/1</span></td><td><span class="trend-up">100% ✓</span></td><td class="hi">3</td></tr>
+<tr><td>C2</td><td class="md">88.2%</td><td>23</td><td class="path">18/23 → 3/5 → <span class="s">2/2</span></td><td><span class="trend-up">100% ✓</span></td><td class="md">4</td></tr>
+<tr><td>C3</td><td class="lo">87.7%</td><td>24</td><td class="path">23/24 → <span class="s">1/1</span></td><td><span class="trend-up">100% ✓</span></td><td class="hi">3</td></tr>
+<tr><td>C4</td><td class="md">89.7%</td><td>20</td><td class="path">16/20 → 3/4 → <span class="s">1/1</span></td><td><span class="trend-up">100% ✓</span></td><td class="md">4</td></tr>
+<tr><td>C5</td><td class="md">90.8%</td><td>18</td><td class="path">15/18 → 2/3 → <span class="s">1/1</span></td><td><span class="trend-up">100% ✓</span></td><td class="md">4</td></tr>
+<tr><td class="g" rowspan="5" style="vertical-align:middle">G11</td><td>C1</td><td class="lo">87.5%</td><td>24</td><td class="path">23/24 → <span class="s">1/1</span></td><td><span class="trend-up">100% ✓</span></td><td class="hi">3</td></tr>
+<tr><td>C2</td><td class="md">90.1%</td><td>19</td><td class="path">18/19 → <span class="s">1/1</span></td><td><span class="trend-up">100% ✓</span></td><td class="hi">3</td></tr>
+<tr><td>C3</td><td class="hi">92.7%</td><td>14</td><td class="path">12/14 → 1/2 → <span class="s">1/1</span></td><td><span class="trend-up">100% ✓</span></td><td class="md">4</td></tr>
+<tr><td>C4</td><td class="hi">93.8%</td><td>12</td><td class="path"><span class="s">12/12</span></td><td><span class="trend-up">100% ✓</span></td><td class="hi">2</td></tr>
+<tr><td>C5</td><td class="md">89.1%</td><td>21</td><td class="path">20/21 → <span class="f">0/1×1</span> → <span class="s">1/1</span></td><td><span class="trend-up">100% ✓</span></td><td class="md">4</td></tr>
+<tr><td class="g" rowspan="5" style="vertical-align:middle">G12</td><td>C1</td><td class="md">91.7%</td><td>16</td><td class="path">13/16 → <span class="s">3/3</span></td><td><span class="trend-up">100% ✓</span></td><td class="hi">3</td></tr>
+<tr><td>C2</td><td class="md">91.7%</td><td>16</td><td class="path">14/16 → <span class="s">2/2</span></td><td><span class="trend-up">100% ✓</span></td><td class="hi">3</td></tr>
+<tr><td>C3</td><td class="hi">94.3%</td><td>11</td><td class="path">10/11 → <span class="s">1/1</span></td><td><span class="trend-up">100% ✓</span></td><td class="hi">3</td></tr>
+<tr><td>C4</td><td class="hi">95.3%</td><td>9</td><td class="path">8/9 → <span class="s">1/1</span></td><td><span class="trend-up">100% ✓</span></td><td class="hi">3</td></tr>
+<tr><td>C5</td><td class="md">90.6%</td><td>18</td><td class="path">16/18 → <span class="s">2/2</span></td><td><span class="trend-up">100% ✓</span></td><td class="hi">3</td></tr>
+</tbody></table>
+
+<div class="footer">
+  Fill-in Closed-Loop Report &nbsp;|&nbsp; Model: or/gemini-3-pro &nbsp;|&nbsp; Generated automatically
+</div>
+
+</body></html>

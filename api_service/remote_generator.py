@@ -20,11 +20,13 @@ from data_processing.build_prompt import build_full_prompt
 from evaluation.inceptbench_client import normalize_for_inceptbench, to_inceptbench_payload
 from scripts.generate_questions import (
     FIREWORKS_API_BASE,
+    OPENROUTER_API_BASE,
     _filter_examples_for_standard_difficulty,
     _get_api_key_for_model,
     _get_generation_params,
     _model_to_provider,
     _resolve_fireworks_model,
+    _resolve_openrouter_model,
     call_deepseek,
     call_gemini,
     call_kimi,
@@ -40,7 +42,7 @@ QUESTION_TYPES = ("mcq", "msq", "fill-in")
 class RemoteGenerator:
     """通过远程 API 生成 K-12 题目，复用完整的 prompt 工程流水线。"""
 
-    def __init__(self, default_model: str = "fw/kimi-k2.5"):
+    def __init__(self, default_model: str = "or/gemini-3-pro"):
         self.default_model = default_model
         self._examples: Dict[str, list] = {}
         self._loaded_grades: set[str] = set()
@@ -82,6 +84,7 @@ class RemoteGenerator:
         if not api_key:
             env_hint = {
                 "fireworks": "FIREWORKS_API_KEY",
+                "openrouter": "OPENROUTER_API_KEY",
                 "deepseek": "DEEPSEEK_API_KEY",
                 "kimi": "KIMI_API_KEY",
                 "gemini": "GEMINI_API_KEY",
@@ -97,6 +100,13 @@ class RemoteGenerator:
             system = messages[0]["content"] if messages else ""
             user = messages[1]["content"] if len(messages) > 1 else ""
             return call_gemini(f"{system}\n\n{user}", api_key, model), None
+        if provider == "openrouter":
+            p = _get_generation_params(provider, model)
+            or_model = _resolve_openrouter_model(model)
+            return call_openai(messages, api_key, or_model,
+                               base_url=OPENROUTER_API_BASE,
+                               temperature=p["temperature"],
+                               max_tokens=p["max_tokens"])
         if provider == "fireworks":
             p = _get_generation_params(provider, model)
             fw_model = _resolve_fireworks_model(model)

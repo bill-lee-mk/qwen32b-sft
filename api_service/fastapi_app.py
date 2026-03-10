@@ -30,7 +30,7 @@ generator: RemoteGenerator | None = None
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global generator
-    default_model = os.environ.get("DEFAULT_MODEL", "fw/kimi-k2.5")
+    default_model = os.environ.get("DEFAULT_MODEL", "or/gemini-3-pro")
     generator = RemoteGenerator(default_model=default_model)
     preload = os.environ.get("PRELOAD_GRADES", "1,2,3,4,5,6,7,8,9,10,11,12")
     for g in preload.split(","):
@@ -93,9 +93,10 @@ async def health_check():
 
 @app.get("/models")
 async def list_models():
-    from scripts.generate_questions import FIREWORKS_MODEL_MAP
+    from scripts.generate_questions import FIREWORKS_MODEL_MAP, OPENROUTER_MODEL_MAP
     return {
-        "default": generator.default_model if generator else "fw/kimi-k2.5",
+        "default": generator.default_model if generator else "or/gemini-3-pro",
+        "openrouter": {f"or/{k}": v for k, v in OPENROUTER_MODEL_MAP.items()},
         "fireworks": {f"fw/{k}": v for k, v in FIREWORKS_MODEL_MAP.items()},
         "direct": ["deepseek-chat", "deepseek-reasoner", "kimi-latest", "gemini-3-flash-preview"],
     }
