@@ -2,7 +2,7 @@
 
 [English](README.md) | 中文
 
-通过 REST API 生成高质量的 K-12 ELA（英语语言艺术）题目 — 支持 MCQ（单选）、MSQ（多选）、Fill-in（填空）三种题型，后端通过 [OpenRouter](https://openrouter.ai) 聚合多家 LLM 模型（Gemini、DeepSeek、Kimi 等）。
+通过 REST API 生成高质量的 K-12 ELA（英语语言艺术）题目 — 支持 MCQ（单选）、MSQ（多选）、Fill-in（填空）三种题型，后端通过 [OpenRouter](https://openrouter.ai) 调用 Gemini 3 Pro 模型（默认）。
 
 服务采用完整的提示工程流水线：基于课程标准的 few-shot 示例、针对性提示规则、迭代式闭环优化，在 [InceptBench](https://benchmark.inceptbench.com) 评估中最大化题目质量。
 
@@ -11,7 +11,7 @@
 - **全题型支持**：MCQ（单选）、MSQ（多选）、Fill-in（填空）
 - **1–12年级全覆盖**：完整的 Common Core ELA 课程标准，每个年级配有独立的 few-shot 示例库和提示规则
 - **InceptBench 兼容输出**：响应格式与 InceptBench 评估 API 直接兼容
-- **多模型后端**：OpenRouter（Gemini 3 Pro、DeepSeek、Kimi、GPT、Claude 等）、Fireworks AI、直连 API
+- **OpenRouter 统一接入**：通过一个 API Key 访问 Gemini 3 Pro、DeepSeek、Kimi、GPT、Claude 等模型
 - **精细化提示工程**：按 `(标准, 难度, 题型)` 筛选 few-shot 示例 + 按 `(标准, 难度, 题型)` 注入针对性规则
 - **闭环优化**：生成 → InceptBench 评估 → 更新提示规则 → 下一轮使用改进后的提示
 - **轻量部署**：无需 GPU — 任何有 Python 3.10+ 的机器即可运行
@@ -28,7 +28,7 @@ cd qwen32b-sft
 # 2. 构建镜像（约200MB，无 GPU 依赖）
 docker build -t ela-question-generator .
 
-# 3. 启动服务
+# 3. 启动服务（只需两个 Key）
 docker run -d \
   --name ela-api \
   -p 8000:8000 \
@@ -61,7 +61,6 @@ uvicorn api_service.fastapi_app:app --host 0.0.0.0 --port 8000
 ### 验证服务是否正常
 
 ```bash
-# 健康检查
 curl http://localhost:8000/health
 
 # 预期响应
@@ -77,7 +76,7 @@ curl http://localhost:8000/health
 | 接口 | 方法 | 说明 |
 |------|------|------|
 | `/health` | GET | 健康检查 — 返回已加载年级和默认模型 |
-| `/models` | GET | 列出所有可用模型（OpenRouter + Fireworks + 直连） |
+| `/models` | GET | 列出所有可用 OpenRouter 模型 |
 | `/grades/{grade}/combinations` | GET | 查询某年级的所有（标准, 难度, 题型）组合 |
 | `/generate` | POST | 生成单道题目 |
 | `/generate-all` | POST | 批量生成某年级的全部组合 |
@@ -149,30 +148,26 @@ curl -X POST http://localhost:8000/generate-all \
 | `grade` | string | （必填） | 年级（1-12） |
 | `subject` | string | `"ELA"` | 学科 |
 | `type` | string | `"all"` | 题型：`mcq`/`msq`/`fill-in`/`all` |
-| `model` | string | `or/gemini-3-pro` | 覆盖默认模型 |
+| `model` | string | `or/gemini-3-pro` | 指定模型（见可用模型列表） |
 | `workers` | int | `10` | 并发线程数（1-50） |
 
 ## 环境变量
 
 | 变量 | 必填 | 默认值 | 说明 |
 |------|------|--------|------|
-| `OPENROUTER_API_KEY` | 是 | — | OpenRouter API Key（默认模型后端） |
+| `OPENROUTER_API_KEY` | 是 | — | OpenRouter API Key（[openrouter.ai](https://openrouter.ai) 注册获取） |
 | `INCEPTBENCH_API_KEY` | 是 | — | InceptBench 评估 API Token |
 | `DEFAULT_MODEL` | 否 | `or/gemini-3-pro` | 默认生成模型 |
 | `PRELOAD_GRADES` | 否 | `1,2,...,12` | 启动时预加载的年级（逗号分隔） |
-| `FIREWORKS_API_KEY` | 否 | — | 使用 Fireworks AI 模型时需要 |
-| `DEEPSEEK_API_KEY` | 否 | — | 使用 DeepSeek 直连时需要 |
-| `KIMI_API_KEY` | 否 | — | 使用 Kimi 直连时需要 |
-| `GEMINI_API_KEY` | 否 | — | 使用 Gemini 直连时需要 |
 | `EVALUATOR_TOKEN` | 否 | — | 备用 InceptBench Token（api.inceptbench.com） |
 
 ## 可用模型
 
-### 通过 OpenRouter（推荐）
+所有模型通过 [OpenRouter](https://openrouter.ai) 统一接入，只需一个 `OPENROUTER_API_KEY`。
 
 | 模型 ID | OpenRouter 模型 | 说明 |
 |---------|----------------|------|
-| `or/gemini-3-pro` | `google/gemini-3-pro-preview` | Gemini 3 Pro（默认推荐，质量最佳） |
+| `or/gemini-3-pro` | `google/gemini-3-pro-preview` | **默认** — Gemini 3 Pro，质量最佳 |
 | `or/deepseek-v3.2` | `deepseek/deepseek-chat-v3-0324` | DeepSeek V3.2 |
 | `or/kimi-k2.5` | `moonshotai/kimi-k2.5` | Kimi K2.5 |
 | `or/glm-5` | `z-ai/glm-5` | GLM-5（智谱） |
@@ -180,21 +175,19 @@ curl -X POST http://localhost:8000/generate-all \
 | `or/claude-sonnet` | `anthropic/claude-sonnet-4.6` | Claude Sonnet 4.6 |
 | `or/gemini-3-flash` | `google/gemini-3-flash-preview` | Gemini 3 Flash（快速、低成本） |
 
-### 通过 Fireworks AI
+指定其他模型时，在请求中传入 `model` 参数：
 
-| 模型 ID | 说明 |
-|---------|------|
-| `fw/kimi-k2.5` | Kimi K2.5 |
-| `fw/deepseek-v3.2` | DeepSeek V3.2 |
-| `fw/glm-5` | GLM-5 |
-
-### 直连 API
-
-| 模型 ID | 需要的 API Key |
-|---------|---------------|
-| `deepseek-chat` | `DEEPSEEK_API_KEY` |
-| `kimi-latest` | `KIMI_API_KEY` |
-| `gemini-3-flash-preview` | `GEMINI_API_KEY` |
+```bash
+curl -X POST http://localhost:8000/generate \
+  -H "Content-Type: application/json" \
+  -d '{
+    "grade": "8",
+    "standard": "CCSS.ELA-LITERACY.L.8.1.A",
+    "difficulty": "hard",
+    "type": "fill-in",
+    "model": "or/deepseek-v3.2"
+  }'
+```
 
 ## 项目结构
 
@@ -202,7 +195,7 @@ curl -X POST http://localhost:8000/generate-all \
 qwen32b-sft/
 ├── api_service/
 │   ├── fastapi_app.py          # FastAPI 应用入口
-│   ├── remote_generator.py     # 远程模型调用与生成逻辑
+│   ├── remote_generator.py     # OpenRouter 模型调用与生成逻辑
 │   └── schemas.py              # 请求/响应数据模型
 ├── data_processing/
 │   ├── build_prompt.py         # 提示构建（few-shot + 规则注入）
@@ -212,14 +205,13 @@ qwen32b-sft/
 │   └── inceptbench_client.py   # InceptBench 评估客户端
 ├── scripts/
 │   ├── generate_questions.py   # 核心生成逻辑
-│   ├── run_matrix.sh           # 批量运行编排器
 │   └── validate_mcq.py         # MCQ 验证与修复
 ├── data/
 │   └── curriculum_standards.json   # CCSS 课程标准数据
 ├── processed_training_data/        # Few-shot 示例 + 提示规则
 │   ├── {N}_ELA_examples.json       # 各年级 few-shot 示例（1-12）
-│   └── {N}_ELA_prompt_rules_*.json # 各年级各模型提示规则
-├── evaluation_output/              # 各模型最佳评估结果
+│   └── {N}_ELA_prompt_rules_*.json # 各年级提示规则
+├── evaluation_output/              # 最佳评估结果
 ├── docs/                           # 报告与文档
 ├── requirements-api.txt        # 轻量 API 依赖
 ├── Dockerfile                  # 容器构建文件
@@ -233,9 +225,8 @@ qwen32b-sft/
 ### 前提条件
 
 - Python 3.10+ 或 Docker
-- OpenRouter 的 API Key（在 [openrouter.ai](https://openrouter.ai) 注册获取）
-- InceptBench 评估 Token（在 [InceptBench](https://benchmark.inceptbench.com) 获取）
-- 网络可访问 OpenRouter API 和 InceptBench API
+- OpenRouter API Key — 在 [openrouter.ai](https://openrouter.ai) 注册获取
+- InceptBench 评估 Token — 在 [InceptBench](https://benchmark.inceptbench.com) 获取
 
 ### 步骤一：获取代码
 
@@ -247,41 +238,31 @@ cd qwen32b-sft
 ### 步骤二（Docker 方式）
 
 ```bash
-# 构建镜像
 docker build -t ela-question-generator .
 
-# 启动容器
 docker run -d \
   --name ela-api \
   -p 8000:8000 \
   -e OPENROUTER_API_KEY=你的_api_key \
   -e INCEPTBENCH_API_KEY=你的_inceptbench_key \
-  -e DEFAULT_MODEL=or/gemini-3-pro \
-  -e PRELOAD_GRADES=1,2,3,4,5,6,7,8,9,10,11,12 \
   --restart unless-stopped \
   ela-question-generator
 
-# 查看启动日志
 docker logs -f ela-api
 ```
 
 ### 步骤二（Python 方式）
 
 ```bash
-# 创建虚拟环境（推荐）
 python3 -m venv venv
 source venv/bin/activate
 
-# 安装依赖
 pip install -r requirements-api.txt
 
-# 设置环境变量
 export OPENROUTER_API_KEY=你的_api_key
 export INCEPTBENCH_API_KEY=你的_inceptbench_key
-export DEFAULT_MODEL=or/gemini-3-pro
-export PRELOAD_GRADES=1,2,3,4,5,6,7,8,9,10,11,12
 
-# 启动服务（前台运行）
+# 前台运行
 uvicorn api_service.fastapi_app:app --host 0.0.0.0 --port 8000
 
 # 或后台运行
@@ -329,44 +310,22 @@ curl -X POST http://localhost:8000/generate-all \
 ### 步骤四：生产环境建议
 
 ```bash
-# 使用 gunicorn + uvicorn workers 提升并发（可选）
 pip install gunicorn
 gunicorn api_service.fastapi_app:app \
   -w 4 \
   -k uvicorn.workers.UvicornWorker \
   --bind 0.0.0.0:8000 \
   --timeout 300
-
-# 或在 Docker 中指定多进程
-docker run -d \
-  --name ela-api \
-  -p 8000:8000 \
-  -e OPENROUTER_API_KEY=你的_api_key \
-  -e INCEPTBENCH_API_KEY=你的_inceptbench_key \
-  ela-question-generator \
-  gunicorn api_service.fastapi_app:app \
-    -w 4 -k uvicorn.workers.UvicornWorker \
-    --bind 0.0.0.0:8000 --timeout 300
 ```
 
 ### 常见问题
 
 | 问题 | 原因 | 解决方案 |
 |------|------|----------|
-| `429 Too Many Requests` | OpenRouter / 模型限流 | 降低 `workers` 参数（建议 10-20） |
+| `429 Too Many Requests` | OpenRouter 限流 | 降低 `workers` 参数（建议 10-20） |
 | 启动时加载慢 | 预加载 12 个年级 | 设置 `PRELOAD_GRADES=3,5` 只加载需要的年级 |
-| 模型不可用 | 未设置对应 API Key | 检查 `OPENROUTER_API_KEY` 环境变量 |
 | 生成超时 | 网络或模型服务慢 | 内置自动重试机制，可调整 `max_retries` |
 | 评估失败 | InceptBench Token 无效 | 检查 `INCEPTBENCH_API_KEY` 是否正确 |
-
-## 闭环优化（开发用）
-
-用于迭代提升题目质量的闭环流水线（生成 → 评估 → 更新规则 → 下一轮使用改进后的提示）：
-
-```bash
-# 对 1-12 年级运行 5 轮大循环闭环优化
-MODELS='or/gemini-3-pro' GRADES='1,2,3,4,5,6,7,8,9,10,11,12' CYCLES=5 bash scripts/run_matrix.sh
-```
 
 ## 评估
 

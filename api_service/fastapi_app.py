@@ -93,12 +93,10 @@ async def health_check():
 
 @app.get("/models")
 async def list_models():
-    from scripts.generate_questions import FIREWORKS_MODEL_MAP, OPENROUTER_MODEL_MAP
+    from scripts.generate_questions import OPENROUTER_MODEL_MAP
     return {
         "default": generator.default_model if generator else "or/gemini-3-pro",
-        "openrouter": {f"or/{k}": v for k, v in OPENROUTER_MODEL_MAP.items()},
-        "fireworks": {f"fw/{k}": v for k, v in FIREWORKS_MODEL_MAP.items()},
-        "direct": ["deepseek-chat", "deepseek-reasoner", "kimi-latest", "gemini-3-flash-preview"],
+        "models": {f"or/{k}": v for k, v in OPENROUTER_MODEL_MAP.items()},
     }
 
 
